@@ -1,0 +1,33 @@
+// Page-level layout helpers (WO-94 Step 11).
+
+.app-page {
+  padding: 16px;
+}
+
+// Standard content wrapper for list/detail pages.
+.app-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+// Sticky list toolbar under the page header.
+.app-list-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+// Data table shell.
+.app-table-card {
+  border-radius: $generic-border-radius;
+  overflow: hidden;
+}
+
+// Right-hand form/view drawer body spacing.
+.app-drawer-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+}
