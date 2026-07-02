@@ -1,0 +1,130 @@
+using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
+using VSky.Domain.Entities;
+using VSky.Domain.Enums;
+
+namespace VSky.Infrastructure.Payments;
+
+/// <summary>
+/// Payment gateway router (WO-32). Resolves the concrete <see cref="IPaymentGatewayAdapter"/> for a
+/// method from the injected adapter set, applies that gateway's configured <see cref="CaptureMode"/>
+/// (settings key <c>payments:{method}:captureMode</c>, default
+/// <see cref="CaptureMode.AuthorizeAndCapture"/>), and returns a normalized <see cref="PaymentResult"/>.
+/// Adapters resolve their own credentials from the Credential Vault; the router uses the vault only to
+/// decide which methods are available at checkout (AC-PAY-001.1).
+/// </summary>
+public class PaymentGatewayRouter : IPaymentGatewayRouter
+{
+    private readonly IEnumerable<IPaymentGatewayAdapter> _adapters;
+    private readonly ISettingsService _settings;
+    private readonly ICredentialVault _vault;
+    private readonly IApplicationDbContext _db;
+    private readonly IDateTimeProvider _clock;
+
+    public PaymentGatewayRouter(
+        IEnumerable<IPaymentGatewayAdapter> adapters,
+        ISettingsService settings,
+        ICredentialVault vault,
+        IApplicationDbContext db,
+        IDateTimeProvider clock)
+    {
+        _adapters = adapters;
+        _settings = settings;
+        _vault = vault;
+        _db = db;
+        _clock = clock;
+    }
+
+    public async Task<PaymentResult> AuthorizeAsync(PaymentRequest request, CancellationToken ct = default)
+    {
+        var adapter = Resolve(request.Method);
+        var mode = await GetCaptureModeAsync(request.Method, ct);
+        return await adapter.AuthorizeAsync(request, mode, ct);
+    }
+
+    public Task<PaymentResult> CaptureAsync(PaymentRecord payment, decimal amount, CancellationToken ct = default)
+        => Resolve(payment.Method).CaptureAsync(payment, amount, ct);
+
+    public Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct = default)
+        => Resolve(payment.Method).RefundAsync(payment, amount, ct);
+
+    public async Task CaptureForOrderAsync(Guid orderId, CancellationToken ct = default)
+    {
+        // Auto-capture the order's authorized-but-uncaptured payment when it ships/fulfils (AC-PAY-002.3).
+        var payment = await _db.PaymentRecords
+            .FirstOrDefaultAsync(p => p.OrderId == orderId && p.Status == PaymentStatus.Authorized, ct);
+        if (payment is null)
+            return;
+
+        var outstanding = payment.Amount - payment.RefundedAmount;
+        if (outstanding <= 0)
+            return;
+
+        var result = await Resolve(payment.Method).CaptureAsync(payment, outstanding, ct);
+
+        if (result.Success)
+        {
+            payment.Status = PaymentStatus.Captured;
+            payment.TransactionId = result.TransactionId ?? payment.TransactionId;
+            payment.GatewayReference = result.GatewayReference ?? payment.GatewayReference;
+            payment.CapturedOnUtc = _clock.UtcNow;
+            payment.ErrorMessage = null;
+
+            var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+            if (order is not null)
+                order.PaymentStatus = PaymentStatus.Captured;
+        }
+        else
+        {
+            // Leave the authorization intact so it can be retried or expire into review; record why.
+            payment.ErrorMessage = result.ErrorMessage;
+        }
+
+        await _db.SaveChangesAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<PaymentMethodType>> AvailableMethodsAsync(CancellationToken ct = default)
+    {
+        var available = new List<PaymentMethodType>();
+
+        foreach (var adapter in _adapters)
+        {
+            var method = adapter.Method;
+
+            // A method must be explicitly enabled (default on) to be offered.
+            var enabled = await _settings.GetValueAsync(PaymentGatewayDefaults.EnabledKey(method), ct);
+            if (string.Equals(enabled, "false", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            // Manual methods need no credentials; gateways must have theirs configured in the vault.
+            if (PaymentGatewayDefaults.IsManual(method))
+            {
+                available.Add(method);
+                continue;
+            }
+
+            var serviceType = PaymentGatewayDefaults.CredentialServiceType(method);
+            if (serviceType is null)
+                continue;
+
+            var credential = await _vault.GetCredentialAsync(serviceType, ct);
+            if (!string.IsNullOrWhiteSpace(credential))
+                available.Add(method);
+        }
+
+        return available;
+    }
+
+    private IPaymentGatewayAdapter Resolve(PaymentMethodType method)
+        => _adapters.FirstOrDefault(a => a.Method == method)
+           ?? throw new NotSupportedException($"No payment gateway adapter is registered for method '{method}'.");
+
+    private async Task<CaptureMode> GetCaptureModeAsync(PaymentMethodType method, CancellationToken ct)
+    {
+        var raw = await _settings.GetValueAsync(PaymentGatewayDefaults.CaptureModeKey(method), ct);
+        return Enum.TryParse<CaptureMode>(raw, ignoreCase: true, out var mode)
+            ? mode
+            : CaptureMode.AuthorizeAndCapture;
+    }
+}

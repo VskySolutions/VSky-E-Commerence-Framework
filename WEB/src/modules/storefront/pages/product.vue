@@ -51,7 +51,9 @@
               icon="o_shopping_cart"
               label="Add to cart"
               no-caps
+              :loading="addingToCart"
               :disable="availability.color === 'grey'"
+              @click="onAddToCart"
             />
             <q-btn
               outline
@@ -122,6 +124,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { storefrontApi, formatPrice } from 'modules/storefront/api'
 import { useRecentlyViewed, useCompare } from 'modules/storefront/composables/useStorefrontStorage'
+import { useCart } from 'modules/storefront/composables/useCart'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
 import ProductGalleryView from 'modules/catalog/components/ProductGalleryView.vue'
@@ -133,10 +136,12 @@ const route = useRoute()
 const notify = useNotify()
 const { record } = useRecentlyViewed()
 const { has, toggle, max } = useCompare()
+const { addItem } = useCart()
 
 const product = ref(null)
 const loading = ref(false)
 const variantId = ref(null)
+const addingToCart = ref(false)
 
 // ProductGalleryView requires a stable per-image id (the DTO omits one).
 const galleryImages = computed(() =>
@@ -183,6 +188,19 @@ async function load () {
     notify.error(getApiErrorMessage(err))
   } finally {
     loading.value = false
+  }
+}
+
+async function onAddToCart () {
+  if (!product.value || addingToCart.value) return
+  addingToCart.value = true
+  try {
+    await addItem({ productId: product.value.id, productVariantId: variantId.value || null, quantity: 1 })
+    notify.success('Added to cart')
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    addingToCart.value = false
   }
 }
 

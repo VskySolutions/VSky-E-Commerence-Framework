@@ -1,0 +1,46 @@
+using MediatR;
+using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
+using VSky.Domain.Entities;
+using VSky.Domain.Enums;
+
+namespace VSky.Application.Features.Discounts;
+
+/// <summary>Returns a page of discount rules ordered by name, optionally filtered by name/scope/active state.</summary>
+public record ListDiscountsQuery(
+    int Page = 1,
+    int PageSize = 20,
+    string? Search = null,
+    DiscountScope? Scope = null,
+    bool? IsActive = null) : IRequest<PaginatedList<DiscountDto>>;
+
+public class ListDiscountsQueryHandler : IRequestHandler<ListDiscountsQuery, PaginatedList<DiscountDto>>
+{
+    private readonly IApplicationDbContext _db;
+
+    public ListDiscountsQueryHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<PaginatedList<DiscountDto>> Handle(ListDiscountsQuery request, CancellationToken cancellationToken)
+    {
+        IQueryable<Discount> query = _db.Discounts.AsNoTracking();
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim();
+            query = query.Where(d => d.Name.Contains(term));
+        }
+
+        if (request.Scope.HasValue)
+            query = query.Where(d => d.Scope == request.Scope.Value);
+
+        if (request.IsActive.HasValue)
+            query = query.Where(d => d.IsActive == request.IsActive.Value);
+
+        var ordered = query.OrderBy(d => d.Name);
+
+        var page = await PaginatedList<Discount>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
+        var items = page.Items.Select(DiscountDto.From).ToList();
+        return new PaginatedList<DiscountDto>(items, page.TotalCount, page.PageNumber, page.PageSize);
+    }
+}

@@ -17,7 +17,8 @@ public record RegisterCustomerCommand(
     string Password,
     string FirstName,
     string LastName,
-    string? PhoneNumber) : IRequest<Guid>;
+    string? PhoneNumber,
+    string? RecaptchaToken = null) : IRequest<Guid>;
 
 public class RegisterCustomerCommandValidator : AbstractValidator<RegisterCustomerCommand>
 {
@@ -41,23 +42,28 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
     private readonly IEmailEnqueuer _emails;
+    private readonly IRecaptchaVerifier _recaptcha;
 
     public RegisterCustomerCommandHandler(
         IApplicationDbContext db,
         IPasswordHasher hasher,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
-        IEmailEnqueuer emails)
+        IEmailEnqueuer emails,
+        IRecaptchaVerifier recaptcha)
     {
         _db = db;
         _hasher = hasher;
         _tokens = tokens;
         _clock = clock;
         _emails = emails;
+        _recaptcha = recaptcha;
     }
 
     public async Task<Guid> Handle(RegisterCustomerCommand request, CancellationToken cancellationToken)
     {
+        await _recaptcha.VerifyOrThrowAsync(RecaptchaFormType.Register, request.RecaptchaToken, cancellationToken);
+
         var email = request.Email.Trim().ToLowerInvariant();
         if (await _db.Users.AnyAsync(u => u.Email == email, cancellationToken))
             throw new ConflictException($"A user with email '{email}' already exists.");

@@ -12,7 +12,7 @@ namespace VSky.Application.Features.CustomerAuth;
 /// token is created and a reset email enqueued. Always completes without error — even for unknown
 /// accounts — so callers cannot probe for registered emails (AC-CUS-001.6).
 /// </summary>
-public record RequestPasswordResetCommand(string Email) : IRequest;
+public record RequestPasswordResetCommand(string Email, string? RecaptchaToken = null) : IRequest;
 
 public class RequestPasswordResetCommandValidator : AbstractValidator<RequestPasswordResetCommand>
 {
@@ -32,21 +32,26 @@ public class RequestPasswordResetCommandHandler : IRequestHandler<RequestPasswor
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
     private readonly IEmailEnqueuer _emails;
+    private readonly IRecaptchaVerifier _recaptcha;
 
     public RequestPasswordResetCommandHandler(
         IApplicationDbContext db,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
-        IEmailEnqueuer emails)
+        IEmailEnqueuer emails,
+        IRecaptchaVerifier recaptcha)
     {
         _db = db;
         _tokens = tokens;
         _clock = clock;
         _emails = emails;
+        _recaptcha = recaptcha;
     }
 
     public async Task Handle(RequestPasswordResetCommand request, CancellationToken cancellationToken)
     {
+        await _recaptcha.VerifyOrThrowAsync(RecaptchaFormType.PasswordReset, request.RecaptchaToken, cancellationToken);
+
         var email = request.Email.Trim().ToLowerInvariant();
 
         var user = await _db.Users

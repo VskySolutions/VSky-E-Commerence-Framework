@@ -58,6 +58,75 @@ export const storefrontApi = {
   }
 }
 
+// ---- cart resource group (WO-28) --------------------------------------------
+// A guest cart is keyed by a client-generated session id (persisted in
+// localStorage under 'storefront.cartSession' by useCart), sent as the
+// `sessionId` query on every call — the backend also accepts an X-Cart-Session
+// header. Every mutation returns the recalculated CartDto.
+const CART = '/api/cart'
+
+export const cartApi = {
+  // Get (or lazily create) the guest cart for this session.
+  get (sessionId) {
+    return anonApi.get(CART, { params: { sessionId }, paramsSerializer: qsSerializer }).then(unwrap)
+  },
+  // Add a product/variant (increments the line if it already exists).
+  addItem (sessionId, { productId, productVariantId = null, quantity = 1 }) {
+    return anonApi
+      .post(CART + '/items', { productId, productVariantId, quantity }, { params: { sessionId }, paramsSerializer: qsSerializer })
+      .then(unwrap)
+  },
+  // Set a line's quantity (0 removes it).
+  updateItem (sessionId, itemId, quantity) {
+    return anonApi
+      .put(CART + '/items/' + encodeURIComponent(itemId), { quantity }, { params: { sessionId }, paramsSerializer: qsSerializer })
+      .then(unwrap)
+  },
+  // Remove a single line.
+  removeItem (sessionId, itemId) {
+    return anonApi
+      .delete(CART + '/items/' + encodeURIComponent(itemId), { params: { sessionId }, paramsSerializer: qsSerializer })
+      .then(unwrap)
+  },
+  // Empty the cart.
+  clear (sessionId) {
+    return anonApi.delete(CART, { params: { sessionId }, paramsSerializer: qsSerializer }).then(unwrap)
+  },
+  // Coupons are keyed by the cart id (see CartCouponController), not the session id.
+  // Returns ApplyCouponResult — re-fetch the cart to reflect the change.
+  applyCoupon (cartId, code) {
+    return anonApi.post(CART + '/apply-coupon', { cartId, code }).then(unwrap)
+  },
+  // DELETE with a body — RemoveCouponCommand binds { cartId } from the request body.
+  removeCoupon (cartId) {
+    return anonApi.delete(CART + '/remove-coupon', { data: { cartId } }).then(unwrap)
+  }
+}
+
+// ---- checkout resource group (WO-30) ----------------------------------------
+const CHECKOUT = '/api/checkout'
+
+export const checkoutApi = {
+  // Read-only price preview for a delivery address. Returns CheckoutQuote
+  // (subtotal, discounts, shippingOptions, tax, total, isRoutable, guestOrderingAllowed).
+  quote (payload) {
+    return anonApi.post(CHECKOUT + '/quote', payload).then(unwrap)
+  },
+  // Finalize the order + authorize payment. Returns CheckoutResult — a declined
+  // payment comes back with success=false and a retryable pending order.
+  place (payload) {
+    return anonApi.post(CHECKOUT + '/place', payload).then(unwrap)
+  }
+}
+
+// ---- currency resource group (WO-26) ----------------------------------------
+export const currencyApi = {
+  // Enabled display currencies (base first), each with code, symbol and rate.
+  list () {
+    return anonApi.get('/api/storefront/currencies').then(unwrap)
+  }
+}
+
 // ---- Shared display helpers -------------------------------------------------
 
 // Sort options for curated listing pages (category / tag / manufacturer). A blank
@@ -127,6 +196,9 @@ export function productRouteParam (product) {
 
 export default {
   storefrontApi,
+  cartApi,
+  checkoutApi,
+  currencyApi,
   listingSortOptions,
   searchSortOptions,
   formatPrice,

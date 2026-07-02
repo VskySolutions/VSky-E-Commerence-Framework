@@ -80,7 +80,11 @@
           </q-menu>
         </q-input>
 
+        <CurrencySelector class="q-mr-xs" />
+
         <LanguageSelector class="q-mr-xs" />
+
+        <CartIndicator class="q-mr-xs" />
 
         <q-btn
           flat
@@ -130,6 +134,8 @@ import { useQuasar } from 'quasar'
 import { storefrontApi } from 'modules/storefront/api'
 import { useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import LanguageSelector from 'modules/storefront/components/LanguageSelector.vue'
+import CurrencySelector from 'modules/storefront/components/CurrencySelector.vue'
+import CartIndicator from 'modules/storefront/components/CartIndicator.vue'
 
 const router = useRouter()
 const $q = useQuasar()

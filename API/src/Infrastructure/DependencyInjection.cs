@@ -10,6 +10,15 @@ using VSky.Infrastructure.Currencies;
 using VSky.Infrastructure.Inventory;
 using VSky.Infrastructure.Persistence;
 using VSky.Infrastructure.Routing;
+using VSky.Infrastructure.Pricing;
+using VSky.Infrastructure.Shipping;
+using VSky.Infrastructure.Shipping.Carriers;
+using VSky.Infrastructure.Payments;
+using VSky.Infrastructure.Payments.Adapters;
+using VSky.Infrastructure.Tax;
+using VSky.Infrastructure.Tax.Providers;
+using VSky.Infrastructure.Documents;
+using VSky.Infrastructure.Checkout;
 using VSky.Infrastructure.BackgroundTasks;
 using VSky.Infrastructure.BackgroundTasks.Workers;
 using VSky.Infrastructure.Email;
@@ -81,6 +90,37 @@ public static class DependencyInjection
 
         // Order routing engine (WO-51): capability checks + geo-proximity store selection with fallback.
         services.AddScoped<IOrderRoutingEngine, OrderRoutingEngine>();
+
+        // ---- Phase 3 commerce services ----
+        // Pricing: discount evaluation + coupon validation/redemption (WO-24/25).
+        services.AddScoped<IDiscountService, DiscountService>();
+        services.AddScoped<ICouponService, CouponService>();
+        // Multi-currency conversion (WO-26).
+        services.AddScoped<ICurrencyService, CurrencyService>();
+        // Shipping: custom-method + carrier rate aggregation (WO-40/43).
+        services.AddScoped<ICarrierClient, DhlExpressCarrierClient>();
+        services.AddScoped<ICarrierClient, UpsCarrierClient>();
+        services.AddScoped<IShippingRateService, ShippingRateService>();
+        // Tax: calculation service + provider clients with flat-rate fallback (WO-35/36).
+        services.AddScoped<ITaxProviderClient, TaxJarClient>();
+        services.AddScoped<ITaxProviderClient, StripeTaxClient>();
+        services.AddScoped<ITaxCalculationService, TaxCalculationService>();
+        // Payments: gateway router + adapters + expired-auth scanner (WO-32/33/34).
+        services.AddScoped<IPaymentGatewayAdapter, StripeGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayAdapter, PaypalGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayAdapter, RazorpayGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayAdapter, SquareGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayAdapter, AuthorizeNetGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayAdapter, CodGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayAdapter, BankTransferGatewayAdapter>();
+        services.AddScoped<IPaymentGatewayRouter, PaymentGatewayRouter>();
+        services.AddScoped<IExpiredAuthorizationScanner, ExpiredAuthorizationScanner>();
+        // Order documents: invoice + packing-slip PDFs (WO-47).
+        services.AddScoped<IOrderDocumentService, OrderDocumentService>();
+        // Checkout orchestrator: cart → routing → shipping → tax → discounts → payment → order (WO-30).
+        services.AddScoped<ICheckoutOrchestrator, CheckoutOrchestrator>();
+        // reCAPTCHA server-side verification for protected forms (WO-107).
+        services.AddScoped<IRecaptchaVerifier, RecaptchaVerifier>();
 
         // File storage (WO-88): provider-agnostic service with Local + Azure Blob adapters.
         services.AddScoped<IFileStorageAdapter, LocalFilesystemAdapter>();

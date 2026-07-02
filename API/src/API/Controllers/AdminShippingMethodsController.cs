@@ -1,0 +1,42 @@
+using Microsoft.AspNetCore.Mvc;
+using VSky.API.Authorization;
+using VSky.Application.Common.Authorization;
+using VSky.Application.Common.Models;
+using VSky.Application.Features.ShippingMethods;
+
+namespace VSky.API.Controllers;
+
+/// <summary>Manage custom (non-carrier) shipping methods and their per-zone rates (WO-43).</summary>
+[Route("api/admin/shipping-methods")]
+[RequireModule(Modules.Shipping)]
+public class AdminShippingMethodsController : ApiControllerBase
+{
+    /// <summary>List shipping methods (paged), optionally filtered by name.</summary>
+    [HttpGet]
+    public async Task<ActionResult<PaginatedList<ShippingMethodDto>>> List(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
+        => Ok(await Mediator.Send(new ListShippingMethodsQuery(page, pageSize, search)));
+
+    /// <summary>Get a single shipping method by id.</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<ShippingMethodDto>> Get(Guid id)
+        => Ok(await Mediator.Send(new GetShippingMethodQuery(id)));
+
+    /// <summary>Create a new shipping method.</summary>
+    [HttpPost]
+    public async Task<ActionResult<ShippingMethodDto>> Create([FromBody] CreateShippingMethodCommand command)
+        => Ok(await Mediator.Send(command));
+
+    /// <summary>Update an existing shipping method (route id wins over any id in the body).</summary>
+    [HttpPut("{id:guid}")]
+    public async Task<ActionResult<ShippingMethodDto>> Update(Guid id, [FromBody] UpdateShippingMethodCommand command)
+        => Ok(await Mediator.Send(command with { Id = id }));
+
+    /// <summary>Delete (soft) a shipping method.</summary>
+    [HttpDelete("{id:guid}")]
+    public async Task<IActionResult> Delete(Guid id)
+    {
+        await Mediator.Send(new DeleteShippingMethodCommand(id));
+        return NoContent();
+    }
+}

@@ -17,7 +17,7 @@ public class Order : AuditableEntity, ISoftDeletable
     public Guid? CustomerId { get; set; }
     public Customer? Customer { get; set; }
 
-    public OrderStatus Status { get; set; } = OrderStatus.PendingRouting;
+    public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
     // Delivery target (drives routing).
     public string? ContactName { get; set; }
@@ -41,10 +41,35 @@ public class Order : AuditableEntity, ISoftDeletable
     /// <summary>JSON array of store ids already attempted, so a rejection re-routes to the next store (AC-STR-003.4).</summary>
     public string? ExcludedStoreIdsJson { get; set; }
 
+    // Financial breakdown, captured at placement (WO-30/45). TotalAmount is the grand total.
+    public string CurrencyCode { get; set; } = "USD";
+    public decimal Subtotal { get; set; }
+    public decimal DiscountTotal { get; set; }
+    public decimal ShippingTotal { get; set; }
+    public decimal TaxTotal { get; set; }
     public decimal TotalAmount { get; set; }
+
+    /// <summary>Immutable jurisdiction-level tax breakdown JSON, stored at placement time and never recalculated (Order Management ADR).</summary>
+    public string? TaxBreakdownJson { get; set; }
+    /// <summary>Set when the flat-rate tax fallback was applied and the order needs tax review (AC-TAX-001.4).</summary>
+    public bool TaxFlaggedForReview { get; set; }
+
+    public string? AppliedCouponCode { get; set; }
+
+    // Shipping selection + fulfilment tracking (WO-45).
+    public string? ShippingMethodName { get; set; }
+    public string? ShippingCarrier { get; set; }
+    public string? TrackingNumber { get; set; }
+
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
+
+    public DateTime? ShippedOnUtc { get; set; }
+    public DateTime? DeliveredOnUtc { get; set; }
 
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 
     public ICollection<OrderLineItem> Lines { get; set; } = new List<OrderLineItem>();
+    public ICollection<OrderStatusHistory> StatusHistory { get; set; } = new List<OrderStatusHistory>();
+    public ICollection<PaymentRecord> Payments { get; set; } = new List<PaymentRecord>();
 }

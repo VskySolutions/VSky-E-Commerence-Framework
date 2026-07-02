@@ -65,5 +65,20 @@ public interface IApplicationDbContext
     DbSet<OrderLineItem> OrderLineItems { get; }
     DbSet<StoreManagerAssignment> StoreManagerAssignments { get; }
 
+    // Commerce — pricing, cart, shipping, payments, tax (Phase 3)
+    DbSet<Discount> Discounts { get; }
+    DbSet<CouponCode> CouponCodes { get; }
+    DbSet<Cart> Carts { get; }
+    DbSet<CartItem> CartItems { get; }
+    DbSet<ShippingMethod> ShippingMethods { get; }
+    DbSet<ShippingZone> ShippingZones { get; }
+    DbSet<ShippingMethodZoneRate> ShippingMethodZoneRates { get; }
+    DbSet<PaymentRecord> PaymentRecords { get; }
+    DbSet<TaxProviderConfiguration> TaxProviderConfigurations { get; }
+    DbSet<OrderStatusHistory> OrderStatusHistory { get; }
+
+    // Security config (WO-106)
+    DbSet<RecaptchaConfig> RecaptchaConfigs { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

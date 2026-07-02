@@ -22,6 +22,16 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.Property(x => x.City).HasMaxLength(120);
         b.Property(x => x.StateProvince).HasMaxLength(120);
         b.Property(x => x.TotalAmount).HasPrecision(18, 2);
+        b.Property(x => x.Subtotal).HasPrecision(18, 2);
+        b.Property(x => x.DiscountTotal).HasPrecision(18, 2);
+        b.Property(x => x.ShippingTotal).HasPrecision(18, 2);
+        b.Property(x => x.TaxTotal).HasPrecision(18, 2);
+        b.Property(x => x.CurrencyCode).HasMaxLength(3);
+        b.Property(x => x.AppliedCouponCode).HasMaxLength(64);
+        b.Property(x => x.ShippingMethodName).HasMaxLength(200);
+        b.Property(x => x.ShippingCarrier).HasMaxLength(100);
+        b.Property(x => x.TrackingNumber).HasMaxLength(100);
+        b.Property(x => x.PaymentStatus).HasConversion<int>();
 
         b.HasOne(x => x.Customer)
             .WithMany()

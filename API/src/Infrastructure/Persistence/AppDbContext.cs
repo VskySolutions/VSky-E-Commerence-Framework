@@ -81,6 +81,21 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<OrderLineItem> OrderLineItems => Set<OrderLineItem>();
     public DbSet<StoreManagerAssignment> StoreManagerAssignments => Set<StoreManagerAssignment>();
 
+    // Commerce — pricing, cart, shipping, payments, tax (Phase 3)
+    public DbSet<Discount> Discounts => Set<Discount>();
+    public DbSet<CouponCode> CouponCodes => Set<CouponCode>();
+    public DbSet<Cart> Carts => Set<Cart>();
+    public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
+    public DbSet<ShippingZone> ShippingZones => Set<ShippingZone>();
+    public DbSet<ShippingMethodZoneRate> ShippingMethodZoneRates => Set<ShippingMethodZoneRate>();
+    public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
+    public DbSet<TaxProviderConfiguration> TaxProviderConfigurations => Set<TaxProviderConfiguration>();
+    public DbSet<OrderStatusHistory> OrderStatusHistory => Set<OrderStatusHistory>();
+
+    // Security config (WO-106)
+    public DbSet<RecaptchaConfig> RecaptchaConfigs => Set<RecaptchaConfig>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

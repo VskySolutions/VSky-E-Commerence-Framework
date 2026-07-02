@@ -44,6 +44,18 @@ export default [
         name: 'shop-compare',
         meta: { title: 'Compare' },
         component: () => import('modules/storefront/pages/compare.vue')
+      },
+      {
+        path: 'cart',
+        name: 'shop-cart',
+        meta: { title: 'Cart' },
+        component: () => import('modules/storefront/pages/cart.vue')
+      },
+      {
+        path: 'checkout',
+        name: 'shop-checkout',
+        meta: { title: 'Checkout' },
+        component: () => import('modules/storefront/pages/checkout.vue')
       }
     ]
   }

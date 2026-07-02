@@ -25,6 +25,11 @@ public static class Modules
     public const string Catalog = "Catalog";
     public const string Inventory = "Inventory";
     public const string Customers = "Customers";
+    public const string Promotions = "Promotions";
+    public const string Shipping = "Shipping";
+    public const string Payments = "Payments";
+    public const string Tax = "Tax";
+    public const string Orders = "Orders";
 
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
@@ -44,6 +49,11 @@ public static class Modules
         new(Catalog, "Catalog Management"),
         new(Inventory, "Inventory Management"),
         new(Customers, "Customer Management"),
+        new(Promotions, "Discounts & Coupons"),
+        new(Shipping, "Shipping Configuration"),
+        new(Payments, "Payment Management"),
+        new(Tax, "Tax Configuration"),
+        new(Orders, "Order Management"),
     };
 
     private static readonly HashSet<string> Keys = new(All.Select(m => m.Key), StringComparer.Ordinal);

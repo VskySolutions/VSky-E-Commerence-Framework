@@ -5,6 +5,7 @@ using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Features.Authentication;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.CustomerAuth;
 
@@ -13,7 +14,7 @@ namespace VSky.Application.Features.CustomerAuth;
 /// and gives a generic error on bad credentials so neither the account's existence nor which field
 /// was wrong is revealed (AC-CUS-001.5).
 /// </summary>
-public record CustomerLoginCommand(string Email, string Password) : IRequest<AuthResponse>;
+public record CustomerLoginCommand(string Email, string Password, string? RecaptchaToken = null) : IRequest<AuthResponse>;
 
 public class CustomerLoginCommandValidator : AbstractValidator<CustomerLoginCommand>
 {
@@ -31,23 +32,28 @@ public class CustomerLoginCommandHandler : IRequestHandler<CustomerLoginCommand,
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
     private readonly ICurrentUserService _current;
+    private readonly IRecaptchaVerifier _recaptcha;
 
     public CustomerLoginCommandHandler(
         IApplicationDbContext db,
         IPasswordHasher hasher,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
-        ICurrentUserService current)
+        ICurrentUserService current,
+        IRecaptchaVerifier recaptcha)
     {
         _db = db;
         _hasher = hasher;
         _tokens = tokens;
         _clock = clock;
         _current = current;
+        _recaptcha = recaptcha;
     }
 
     public async Task<AuthResponse> Handle(CustomerLoginCommand request, CancellationToken cancellationToken)
     {
+        await _recaptcha.VerifyOrThrowAsync(RecaptchaFormType.Login, request.RecaptchaToken, cancellationToken);
+
         var email = request.Email.Trim().ToLowerInvariant();
 
         var user = await _db.Users

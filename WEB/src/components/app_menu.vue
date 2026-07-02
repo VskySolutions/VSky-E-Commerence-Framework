@@ -60,6 +60,8 @@ const sections = [
       { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] },
       { label: 'Settings', icon: 'o_settings', to: '/settings', permissions: [Permissions.SettingsRead] },
       { label: 'Credentials', icon: 'o_key', to: '/credentials', permissions: [Permissions.CredentialsRead] },
+      { label: 'Email & SMS', icon: 'o_forward_to_inbox', to: '/email-accounts', permissions: [Permissions.SmtpAccountsRead] },
+      { label: 'File Storage', icon: 'o_storage', to: '/storage', permissions: [Permissions.StorageRead] },
       { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
       { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
     ]

@@ -25,6 +25,16 @@ builder.Services.AddApplication();
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddApiServices(builder.Configuration);
 
+// CORS for the browser SPA (WEB/). Allowed origins come from configuration
+// (Cors:AllowedOrigins); falls back to the local Quasar dev server ports.
+const string SpaCorsPolicy = "SpaCors";
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:9000"];
+builder.Services.AddCors(options =>
+    options.AddPolicy(SpaCorsPolicy, policy =>
+        policy.WithOrigins(allowedOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod()));
+
 var app = builder.Build();
 
 // Apply pending migrations and seed baseline data BEFORE accepting traffic.
@@ -60,7 +70,16 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();    // interactive docs UI
 }
 
-app.UseHttpsRedirection();
+// CORS must run before auth so the browser's preflight (and cross-origin login) succeeds.
+app.UseCors(SpaCorsPolicy);
+
+// In Development the SPA calls the plain-HTTP endpoint (http://localhost:5144); forcing an HTTPS
+// redirect there breaks the cross-origin preflight. Only redirect to HTTPS outside Development.
+if (!app.Environment.IsDevelopment())
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseAuthentication();
 app.UseAuthorization();
 

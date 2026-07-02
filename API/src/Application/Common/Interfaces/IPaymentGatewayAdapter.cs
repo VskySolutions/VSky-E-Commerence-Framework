@@ -1,0 +1,31 @@
+using VSky.Application.Common.Models;
+using VSky.Domain.Entities;
+using VSky.Domain.Enums;
+
+namespace VSky.Application.Common.Interfaces;
+
+/// <summary>
+/// A single payment provider's implementation of the authorize → capture → refund contract
+/// (REQ-PAY-001/002/003). Each adapter owns one <see cref="PaymentMethodType"/>; the
+/// <see cref="IPaymentGatewayRouter"/> selects the right one at runtime and normalizes the outcome to
+/// <see cref="PaymentResult"/>. Implementations resolve their own credentials from the Credential
+/// Vault and must never throw for a provider-side failure — they return a failed
+/// <see cref="PaymentResult"/> instead.
+/// </summary>
+public interface IPaymentGatewayAdapter
+{
+    /// <summary>The payment method this adapter handles.</summary>
+    PaymentMethodType Method { get; }
+
+    /// <summary>
+    /// Authorizes (and, when <paramref name="mode"/> is <see cref="CaptureMode.AuthorizeAndCapture"/>,
+    /// captures) the requested amount. Honors the gateway's configured capture mode (REQ-PAY-002).
+    /// </summary>
+    Task<PaymentResult> AuthorizeAsync(PaymentRequest req, CaptureMode mode, CancellationToken ct);
+
+    /// <summary>Captures a previously authorized payment, in full or part (AC-PAY-002.x).</summary>
+    Task<PaymentResult> CaptureAsync(PaymentRecord payment, decimal amount, CancellationToken ct);
+
+    /// <summary>Refunds a captured payment, in full or part (REQ-PAY-003).</summary>
+    Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct);
+}

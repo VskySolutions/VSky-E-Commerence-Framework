@@ -21,5 +21,9 @@ public enum OrderStatus
     Preparing = 5,
     Shipped = 6,
     Delivered = 7,
-    Cancelled = 8
+    Cancelled = 8,
+    /// <summary>Placed and confirmed (post-checkout initial lifecycle state; WO-45 AC-ORD-001.1).</summary>
+    Pending = 9,
+    /// <summary>Being prepared for fulfilment (WO-45 lifecycle; synonym of Preparing).</summary>
+    Processing = 10
 }
