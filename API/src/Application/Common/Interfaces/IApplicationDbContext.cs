@@ -31,5 +31,39 @@ public interface IApplicationDbContext
     DbSet<AuditTrail> AuditTrails { get; }
     DbSet<BackgroundTaskLog> BackgroundTaskLogs { get; }
 
+    // Catalog (WO-10, WO-11)
+    DbSet<TaxCategory> TaxCategories { get; }
+    DbSet<Category> Categories { get; }
+    DbSet<Manufacturer> Manufacturers { get; }
+    DbSet<Product> Products { get; }
+    DbSet<ProductVariant> ProductVariants { get; }
+    DbSet<ProductAttribute> ProductAttributes { get; }
+    DbSet<ProductAttributeValue> ProductAttributeValues { get; }
+    DbSet<SpecificationAttribute> SpecificationAttributes { get; }
+    DbSet<SpecificationAttributeOption> SpecificationAttributeOptions { get; }
+    DbSet<ProductImage> ProductImages { get; }
+    DbSet<TierPrice> TierPrices { get; }
+    DbSet<ProductRelationship> ProductRelationships { get; }
+    DbSet<ProductTag> ProductTags { get; }
+    DbSet<ProductTagMapping> ProductTagMappings { get; }
+    DbSet<ProductCategory> ProductCategories { get; }
+    DbSet<ProductAttributeMapping> ProductAttributeMappings { get; }
+    DbSet<ProductVariantAttributeValue> ProductVariantAttributeValues { get; }
+    DbSet<ProductSpecificationValue> ProductSpecificationValues { get; }
+    DbSet<GroupedProductMember> GroupedProductMembers { get; }
+    DbSet<ProductDownload> ProductDownloads { get; }
+
+    // Inventory (WO-12)
+    DbSet<InventoryLevel> InventoryLevels { get; }
+
+    // Customer accounts (WO-20, WO-21)
+    DbSet<Address> Addresses { get; }
+    DbSet<UserToken> UserTokens { get; }
+
+    // Orders & store fulfilment (WO-51, WO-52)
+    DbSet<Order> Orders { get; }
+    DbSet<OrderLineItem> OrderLineItems { get; }
+    DbSet<StoreManagerAssignment> StoreManagerAssignments { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

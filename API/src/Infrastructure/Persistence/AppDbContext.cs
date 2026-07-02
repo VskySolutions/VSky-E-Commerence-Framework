@@ -47,6 +47,40 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<AuditTrail> AuditTrails => Set<AuditTrail>();
     public DbSet<BackgroundTaskLog> BackgroundTaskLogs => Set<BackgroundTaskLog>();
 
+    // Catalog (WO-10, WO-11)
+    public DbSet<TaxCategory> TaxCategories => Set<TaxCategory>();
+    public DbSet<Category> Categories => Set<Category>();
+    public DbSet<Manufacturer> Manufacturers => Set<Manufacturer>();
+    public DbSet<Product> Products => Set<Product>();
+    public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
+    public DbSet<ProductAttribute> ProductAttributes => Set<ProductAttribute>();
+    public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
+    public DbSet<SpecificationAttribute> SpecificationAttributes => Set<SpecificationAttribute>();
+    public DbSet<SpecificationAttributeOption> SpecificationAttributeOptions => Set<SpecificationAttributeOption>();
+    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<TierPrice> TierPrices => Set<TierPrice>();
+    public DbSet<ProductRelationship> ProductRelationships => Set<ProductRelationship>();
+    public DbSet<ProductTag> ProductTags => Set<ProductTag>();
+    public DbSet<ProductTagMapping> ProductTagMappings => Set<ProductTagMapping>();
+    public DbSet<ProductCategory> ProductCategories => Set<ProductCategory>();
+    public DbSet<ProductAttributeMapping> ProductAttributeMappings => Set<ProductAttributeMapping>();
+    public DbSet<ProductVariantAttributeValue> ProductVariantAttributeValues => Set<ProductVariantAttributeValue>();
+    public DbSet<ProductSpecificationValue> ProductSpecificationValues => Set<ProductSpecificationValue>();
+    public DbSet<GroupedProductMember> GroupedProductMembers => Set<GroupedProductMember>();
+    public DbSet<ProductDownload> ProductDownloads => Set<ProductDownload>();
+
+    // Inventory (WO-12)
+    public DbSet<InventoryLevel> InventoryLevels => Set<InventoryLevel>();
+
+    // Customer accounts (WO-20, WO-21)
+    public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<UserToken> UserTokens => Set<UserToken>();
+
+    // Orders & store fulfilment (WO-51, WO-52)
+    public DbSet<Order> Orders => Set<Order>();
+    public DbSet<OrderLineItem> OrderLineItems => Set<OrderLineItem>();
+    public DbSet<StoreManagerAssignment> StoreManagerAssignments => Set<StoreManagerAssignment>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

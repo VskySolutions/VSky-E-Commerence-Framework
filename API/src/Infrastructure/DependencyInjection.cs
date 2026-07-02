@@ -7,7 +7,9 @@ using VSky.Application.Common.Interfaces;
 using VSky.Infrastructure.Alerts;
 using VSky.Infrastructure.Credentials;
 using VSky.Infrastructure.Currencies;
+using VSky.Infrastructure.Inventory;
 using VSky.Infrastructure.Persistence;
+using VSky.Infrastructure.Routing;
 using VSky.Infrastructure.BackgroundTasks;
 using VSky.Infrastructure.BackgroundTasks.Workers;
 using VSky.Infrastructure.Email;
@@ -63,6 +65,9 @@ public static class DependencyInjection
         // SMTP account management (WO-75).
         services.AddScoped<ISmtpTester, MailKitSmtpTester>();
 
+        // Email enqueuer (WO-20): queues verification / password-reset emails for the dispatch worker.
+        services.AddScoped<IEmailEnqueuer, EmailEnqueuer>();
+
         // Settings (WO-3): cached, audited platform settings.
         services.AddMemoryCache();
         services.AddScoped<ISettingsService, SettingsService>();
@@ -70,6 +75,12 @@ public static class DependencyInjection
         // Audit-finding resolutions: currency auto-refresh (WO-90) + admin alerts (WO-75 AC-TEN-003.5).
         services.AddScoped<ICurrencyRateRefresher, CurrencyRateRefresher>();
         services.AddScoped<IAdminAlertService, AdminAlertService>();
+
+        // Inventory service (WO-12): per-store stock tracking, decrement/restore/RMA hooks, low-stock alerts.
+        services.AddScoped<IInventoryService, InventoryService>();
+
+        // Order routing engine (WO-51): capability checks + geo-proximity store selection with fallback.
+        services.AddScoped<IOrderRoutingEngine, OrderRoutingEngine>();
 
         // File storage (WO-88): provider-agnostic service with Local + Azure Blob adapters.
         services.AddScoped<IFileStorageAdapter, LocalFilesystemAdapter>();

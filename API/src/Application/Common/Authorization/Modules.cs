@@ -22,6 +22,9 @@ public static class Modules
     public const string Users = "Users";
     public const string Roles = "Roles";
     public const string ApiKeys = "ApiKeys";
+    public const string Catalog = "Catalog";
+    public const string Inventory = "Inventory";
+    public const string Customers = "Customers";
 
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
@@ -38,6 +41,9 @@ public static class Modules
         new(Users, "User Management"),
         new(Roles, "Role Management"),
         new(ApiKeys, "API Key Management"),
+        new(Catalog, "Catalog Management"),
+        new(Inventory, "Inventory Management"),
+        new(Customers, "Customer Management"),
     };
 
     private static readonly HashSet<string> Keys = new(All.Select(m => m.Key), StringComparer.Ordinal);

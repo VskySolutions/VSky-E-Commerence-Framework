@@ -25,7 +25,9 @@ export const Permissions = Object.freeze({
   CredentialsRead: 'Credentials.Read',
   CredentialsWrite: 'Credentials.Write',
   BrandingRead: 'Branding.Read',
-  BrandingWrite: 'Branding.Write'
+  BrandingWrite: 'Branding.Write',
+  CatalogRead: 'Catalog.Read',
+  CatalogWrite: 'Catalog.Write'
 })
 
 export function usePermissions () {

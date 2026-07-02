@@ -44,6 +44,14 @@ const sections = [
     ]
   },
   {
+    header: 'Catalog',
+    items: [
+      { label: 'Products', icon: 'o_inventory_2', to: '/catalog/products', permissions: [Permissions.CatalogRead] },
+      { label: 'Categories', icon: 'o_account_tree', to: '/catalog/categories', permissions: [Permissions.CatalogRead] },
+      { label: 'Manufacturers', icon: 'o_factory', to: '/catalog/manufacturers', permissions: [Permissions.CatalogRead] }
+    ]
+  },
+  {
     header: 'Administration',
     items: [
       { label: 'Stores', icon: 'o_store', to: '/stores', permissions: [Permissions.StoresRead] },
@@ -51,7 +59,9 @@ const sections = [
       { label: 'Email Templates', icon: 'o_mail', to: '/email-templates', permissions: [Permissions.EmailTemplatesRead] },
       { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] },
       { label: 'Settings', icon: 'o_settings', to: '/settings', permissions: [Permissions.SettingsRead] },
-      { label: 'Credentials', icon: 'o_key', to: '/credentials', permissions: [Permissions.CredentialsRead] }
+      { label: 'Credentials', icon: 'o_key', to: '/credentials', permissions: [Permissions.CredentialsRead] },
+      { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
+      { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
     ]
   }
 ]

@@ -25,6 +25,10 @@ import emailTemplatesRoutes from 'modules/email-templates/routes'
 import brandingRoutes from 'modules/branding/routes'
 import settingsRoutes from 'modules/settings/routes'
 import credentialsRoutes from 'modules/credentials/routes'
+import usersRoutes from 'modules/users/routes'
+import rolesRoutes from 'modules/roles/routes'
+import catalogRoutes from 'modules/catalog/routes'
+import storefrontRoutes from 'modules/storefront/routes'
 
 // Append every app-module child route under the authenticated shell.
 const moduleChildren = [
@@ -35,13 +39,17 @@ const moduleChildren = [
   ...emailTemplatesRoutes,
   ...brandingRoutes,
   ...settingsRoutes,
-  ...credentialsRoutes
+  ...credentialsRoutes,
+  ...usersRoutes,
+  ...rolesRoutes,
+  ...catalogRoutes
 ]
 appShellRoute.children.push(...moduleChildren)
 
 const routes = [
   ...authRoutes, // /auth/*, /setup, /change-password (own layout)
   appShellRoute,
+  ...storefrontRoutes, // /shop/* public customer storefront (own layout, no auth)
   notAuthorizedRoute,
   catchAllRoute
 ]

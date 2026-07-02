@@ -1,0 +1,240 @@
+using VSky.Domain.Entities;
+using VSky.Domain.Enums;
+
+namespace VSky.Application.Features.StorefrontCatalog;
+
+/// <summary>
+/// Compact product card used across storefront listing surfaces (category, tag and manufacturer
+/// pages, related sections, recently-viewed). Only buyer-facing fields plus a primary image.
+/// </summary>
+public class StorefrontProductSummaryDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public string? ShortDescription { get; set; }
+    public decimal? Price { get; set; }
+    public Guid? ManufacturerId { get; set; }
+
+    /// <summary>
+    /// URL of the primary product-level image. An actual image is preferred over a video entry
+    /// (falling back to the video's thumbnail); null when the product has no product-level media.
+    /// </summary>
+    public string? PrimaryImageUrl { get; set; }
+
+    /// <summary>Projects a summary; expects the product-level <see cref="Product.Images"/> to be loaded.</summary>
+    public static StorefrontProductSummaryDto From(Product p) => new()
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Slug = p.Slug,
+        ShortDescription = p.ShortDescription,
+        Price = p.Price,
+        ManufacturerId = p.ManufacturerId,
+        PrimaryImageUrl = p.Images
+            .Where(i => i.ProductVariantId == null)
+            .OrderBy(i => i.MediaType == ProductMediaType.Image ? 0 : 1)
+            .ThenBy(i => i.DisplayOrder)
+            .Select(i => i.MediaType == ProductMediaType.Image ? i.Url : (i.ThumbnailUrl ?? i.Url))
+            .FirstOrDefault(),
+    };
+}
+
+/// <summary>An image or video-embed gallery entry (REQ-CAT-012); variant-scoped when <see cref="ProductVariantId"/> is set.</summary>
+public class StorefrontImageDto
+{
+    public string Url { get; set; } = string.Empty;
+    public string? ThumbnailUrl { get; set; }
+    public string? AltText { get; set; }
+    public ProductMediaType MediaType { get; set; }
+    public int DisplayOrder { get; set; }
+    public Guid? ProductVariantId { get; set; }
+
+    public static StorefrontImageDto From(ProductImage i) => new()
+    {
+        Url = i.Url,
+        ThumbnailUrl = i.ThumbnailUrl,
+        AltText = i.AltText,
+        MediaType = i.MediaType,
+        DisplayOrder = i.DisplayOrder,
+        ProductVariantId = i.ProductVariantId,
+    };
+}
+
+/// <summary>A purchasable variant with the attribute-value combination that defines it (REQ-CAT-002).</summary>
+public class StorefrontVariantDto
+{
+    public Guid Id { get; set; }
+    public string? Sku { get; set; }
+    public decimal? Price { get; set; }
+    public int StockQuantity { get; set; }
+
+    /// <summary>Whether the variant is available for purchase/selection (AC-CAT-002.4).</summary>
+    public bool IsEnabled { get; set; }
+    public List<Guid> AttributeValueIds { get; set; } = new();
+
+    /// <summary>Projects a variant; expects <c>AttributeValues</c> to be loaded.</summary>
+    public static StorefrontVariantDto From(ProductVariant v) => new()
+    {
+        Id = v.Id,
+        Sku = v.Sku,
+        Price = v.Price,
+        StockQuantity = v.StockQuantity,
+        IsEnabled = v.IsEnabled,
+        AttributeValueIds = v.AttributeValues
+            .Select(a => a.ProductAttributeValueId)
+            .ToList(),
+    };
+}
+
+/// <summary>
+/// Full storefront product detail (AC-CAT-007.2): display fields, variants, product- and variant-level
+/// media, specification option ids, tag names, and the related / cross-sell / up-sell sections.
+/// </summary>
+public class StorefrontProductDetailDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public ProductType ProductType { get; set; }
+    public string? ShortDescription { get; set; }
+    public string? FullDescription { get; set; }
+    public string? Sku { get; set; }
+    public decimal? Price { get; set; }
+    public int StockQuantity { get; set; }
+    public bool AllowBackorder { get; set; }
+    public DateTime? EstimatedRestockDate { get; set; }
+    public Guid? ManufacturerId { get; set; }
+
+    // Type-specific display config.
+    public GiftCardType? GiftCardType { get; set; }
+    public decimal? GiftCardAmount { get; set; }
+    public int? DownloadExpiryDays { get; set; }
+    public int? DownloadLimit { get; set; }
+
+    public List<StorefrontVariantDto> Variants { get; set; } = new();
+    public List<StorefrontImageDto> Images { get; set; } = new();
+    public List<Guid> SpecificationOptionIds { get; set; } = new();
+    public List<string> TagNames { get; set; } = new();
+
+    public List<StorefrontProductSummaryDto> RelatedProducts { get; set; } = new();
+    public List<StorefrontProductSummaryDto> CrossSells { get; set; } = new();
+    public List<StorefrontProductSummaryDto> UpSells { get; set; } = new();
+
+    /// <summary>
+    /// Projects the product's own display fields, media, specs and tags. Relationship sections are
+    /// resolved separately by the handler (the targets require a further published-only lookup).
+    /// </summary>
+    public static StorefrontProductDetailDto From(Product p) => new()
+    {
+        Id = p.Id,
+        Name = p.Name,
+        Slug = p.Slug,
+        ProductType = p.ProductType,
+        ShortDescription = p.ShortDescription,
+        FullDescription = p.FullDescription,
+        Sku = p.Sku,
+        Price = p.Price,
+        StockQuantity = p.StockQuantity,
+        AllowBackorder = p.AllowBackorder,
+        EstimatedRestockDate = p.EstimatedRestockDate,
+        ManufacturerId = p.ManufacturerId,
+        GiftCardType = p.GiftCardType,
+        GiftCardAmount = p.GiftCardAmount,
+        DownloadExpiryDays = p.DownloadExpiryDays,
+        DownloadLimit = p.DownloadLimit,
+        Variants = p.Variants
+            .OrderBy(v => v.DisplayOrder)
+            .Select(StorefrontVariantDto.From)
+            .ToList(),
+        Images = p.Images
+            .OrderBy(i => i.DisplayOrder)
+            .Select(StorefrontImageDto.From)
+            .ToList(),
+        SpecificationOptionIds = p.SpecificationValues
+            .Select(s => s.SpecificationAttributeOptionId)
+            .ToList(),
+        TagNames = p.Tags
+            .Where(t => t.ProductTag != null)
+            .Select(t => t.ProductTag!.Name)
+            .OrderBy(n => n)
+            .ToList(),
+    };
+}
+
+/// <summary>A specification attribute present in a product set, with the options actually present (AC-STF-003.1).</summary>
+public class FilterableSpecDto
+{
+    public Guid SpecificationAttributeId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public List<FilterableSpecOptionDto> Options { get; set; } = new();
+}
+
+/// <summary>A single option value available for a <see cref="FilterableSpecDto"/>.</summary>
+public class FilterableSpecOptionDto
+{
+    public Guid SpecificationAttributeOptionId { get; set; }
+    public string Value { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// A storefront category landing page: the (enabled) category's SEO/display info, a page of its
+/// published products, and the filterable specification attributes present in that product set.
+/// </summary>
+public class CategoryPageDto
+{
+    public Guid CategoryId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public string? Description { get; set; }
+    public Guid? ParentId { get; set; }
+    public string? MetaTitle { get; set; }
+    public string? MetaDescription { get; set; }
+    public string? MetaKeywords { get; set; }
+
+    public List<StorefrontProductSummaryDto> Items { get; set; } = new();
+    public int PageNumber { get; set; }
+    public int PageSize { get; set; }
+    public int TotalPages { get; set; }
+    public int TotalCount { get; set; }
+
+    public List<FilterableSpecDto> Filters { get; set; } = new();
+}
+
+/// <summary>
+/// Side-by-side comparison payload (AC-STF-005.2/3): the union of specification attributes acts as the
+/// row headers; each product carries its price plus the specification values it has for those rows.
+/// </summary>
+public class ComparisonDto
+{
+    /// <summary>The union of specification attributes present across the compared products, in display order.</summary>
+    public List<ComparisonAttributeDto> Attributes { get; set; } = new();
+    public List<ComparisonProductDto> Products { get; set; } = new();
+}
+
+/// <summary>A comparison row header (a specification attribute present in the set).</summary>
+public class ComparisonAttributeDto
+{
+    public Guid SpecificationAttributeId { get; set; }
+    public string Name { get; set; } = string.Empty;
+}
+
+/// <summary>A single compared product column: identity, price, primary image and its specification values.</summary>
+public class ComparisonProductDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public decimal? Price { get; set; }
+    public Guid? ManufacturerId { get; set; }
+    public string? PrimaryImageUrl { get; set; }
+    public List<ComparisonSpecValueDto> SpecificationValues { get; set; } = new();
+}
+
+/// <summary>One product's value for a specification attribute, keyed by attribute for row alignment.</summary>
+public class ComparisonSpecValueDto
+{
+    public Guid SpecificationAttributeId { get; set; }
+    public Guid SpecificationAttributeOptionId { get; set; }
+    public string Value { get; set; } = string.Empty;
+}
