@@ -4,23 +4,8 @@ using Microsoft.Extensions.Logging;
 namespace VSky.Infrastructure.BackgroundTasks.Workers;
 
 // These workers are wired into the scheduler now (schedule + execution logging satisfied); their
-// domain logic lands with the features they depend on (carts, inventory — later phases).
-
-/// <summary>Detects abandoned carts and enqueues recovery emails (cart feature — later phase).</summary>
-public class AbandonedCartWorker : IScheduledTask
-{
-    public string Name => "AbandonedCartWorker";
-    public TimeSpan DefaultInterval => TimeSpan.FromMinutes(60);
-    public string? IntervalSettingKey => "tasks.abandoned-cart.interval-minutes";
-    public string? CronSettingKey => null;
-
-    public Task RunAsync(IServiceProvider services, CancellationToken cancellationToken)
-    {
-        services.GetRequiredService<ILoggerFactory>().CreateLogger(Name)
-            .LogInformation("{Task} ran; cart feature not yet available, nothing to process.", Name);
-        return Task.CompletedTask;
-    }
-}
+// domain logic lands with the features they depend on (inventory — later phases).
+// AbandonedCartWorker's real implementation lives in AbandonedCartWorker.cs (WO-31).
 
 /// <summary>Generates low-stock alerts (inventory feature — later phase).</summary>
 public class LowStockAlertWorker : IScheduledTask

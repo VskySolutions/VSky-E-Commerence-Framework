@@ -33,6 +33,9 @@ public class Store : AuditableEntity, ISoftDeletable
     /// </summary>
     public bool GuestOrderingEnabled { get; set; } = true;
 
+    /// <summary>Whether this store offers pickup-in-store at checkout (REQ-SHP-004).</summary>
+    public bool PickupEnabled { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 

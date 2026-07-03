@@ -62,7 +62,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     {
         var priced = await BuildAsync(
             req.CartId, req.SessionId, req.ShipTo, req.ShippingMethodId,
-            requestCouponCode: null, forPlacement: false, ct);
+            requestCouponCode: null, forPlacement: false, req.PickupInStore, req.PickupStoreId, ct);
 
         return new CheckoutQuote
         {
@@ -84,7 +84,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     {
         var priced = await BuildAsync(
             req.CartId, req.SessionId, req.ShipTo, req.SelectedShippingMethodId,
-            requestCouponCode: req.CouponCode, forPlacement: true, ct);
+            requestCouponCode: req.CouponCode, forPlacement: true, req.PickupInStore, req.PickupStoreId, ct);
 
         var now = _clock.UtcNow;
         var storeId = priced.Routing.AssignedStoreId!.Value; // non-null: placement short-circuits when unrouted.
@@ -120,6 +120,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             City = req.ShipTo.City,
             StateProvince = req.ShipTo.Region,
             AssignedStoreId = storeId,
+            IsPickup = priced.IsPickup,
             PlacedOnUtc = now,
             RoutedOnUtc = now,
             CurrencyCode = priced.Cart.CurrencyCode,
@@ -131,6 +132,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             // Immutable jurisdiction-level tax breakdown, stored verbatim and never recalculated.
             TaxBreakdownJson = JsonSerializer.Serialize(priced.Tax),
             TaxFlaggedForReview = priced.Tax.FallbackApplied,
+            // Provider calculation reference (e.g. Stripe Tax calculation id) for post-completion reporting (WO-37).
+            TaxProviderCalculationRef = priced.Tax.ProviderReference,
             AppliedCouponCode = priced.CouponValid ? priced.CouponCode : null,
             ShippingMethodName = priced.SelectedShipping?.Name,
             ShippingCarrier = priced.SelectedShipping?.Carrier,
@@ -262,7 +265,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     /// </summary>
     private async Task<PricedCheckout> BuildAsync(
         Guid? cartId, string? sessionId, CheckoutAddress shipTo, string? shippingMethodId,
-        string? requestCouponCode, bool forPlacement, CancellationToken ct)
+        string? requestCouponCode, bool forPlacement, bool pickupInStore, Guid? pickupStoreId, CancellationToken ct)
     {
         // 1. Load the cart + its lines and compute the subtotal from the snapshotted unit prices.
         var cart = await LoadCartAsync(cartId, sessionId, ct);
@@ -272,6 +275,10 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         var lines = await BuildLinesAsync(items, ct);
         var subtotal = lines.Sum(l => l.LineTotal);
+
+        // Pickup-in-store: skip routing + carrier rates entirely; fulfil at the chosen store (REQ-SHP-004).
+        if (pickupInStore)
+            return await BuildPickupAsync(cart, lines, subtotal, pickupStoreId, requestCouponCode, forPlacement, ct);
 
         // 2. Route the order against active stores (ship-to address + line items).
         var routing = await _routing.RouteAsync(BuildRoutingRequest(shipTo, lines), ct);
@@ -352,13 +359,28 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             // cart-applied coupons were already validated at apply time.
         }
 
+        // Tax exemption (AC-TAX-003.3): an authenticated, flagged customer is calculated at zero tax.
+        // Resolved here in the shared build path so the quote and the placed order agree. Guests are never exempt.
+        TaxExemption? taxExemption = null;
+        if (_current.UserId is Guid taxUserId)
+        {
+            var exempt = await _db.Customers
+                .AsNoTracking()
+                .Where(c => c.UserId == taxUserId && c.IsTaxExempt)
+                .Select(c => new { c.TaxExemptionCertificate, c.VatId })
+                .FirstOrDefaultAsync(ct);
+            if (exempt is not null)
+                taxExemption = new TaxExemption(true, exempt.TaxExemptionCertificate, exempt.VatId);
+        }
+
         // 6. Tax (AC-CHK-003.5): origin = store address, destination = ship-to, plus the taxable shipping cost.
         var tax = await _tax.CalculateAsync(
             new TaxCalculationRequest(
                 new TaxAddress(store.CountryCode ?? string.Empty, store.StateProvince, store.PostalCode, store.City),
                 new TaxAddress(shipTo.CountryCode, shipTo.Region, shipTo.PostalCode, shipTo.City),
                 lines.Select(l => new TaxLineInput(l.ProductId, l.TaxCategoryCode, l.UnitPrice, l.Quantity)).ToList(),
-                shippingTotal),
+                shippingTotal,
+                taxExemption),
             ct);
 
         // 7. Grand total.
@@ -369,6 +391,74 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             shippingOptions, selected, shippingTotal,
             discountResult.Applied, discountResult.TotalDiscount,
             tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid);
+    }
+
+    /// <summary>
+    /// Prices a pickup-in-store checkout (REQ-SHP-004): no routing/carrier rates — the buyer's chosen store
+    /// is the fulfilling store, shipping is free, and tax is collected at the store.
+    /// </summary>
+    private async Task<PricedCheckout> BuildPickupAsync(
+        Cart cart, List<LineWork> lines, decimal subtotal, Guid? pickupStoreId,
+        string? requestCouponCode, bool forPlacement, CancellationToken ct)
+    {
+        if (pickupStoreId is not Guid storeId)
+            throw new ConflictException("A pickup store is required for pickup-in-store checkout.");
+
+        var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == storeId, ct)
+            ?? throw new ConflictException("The selected pickup store could not be found.");
+        if (!store.IsEnabled || !store.PickupEnabled)
+            throw new ConflictException("The selected store does not offer pickup-in-store.");
+
+        var isAuthenticated = _current.UserId is not null;
+        var guestOrderingAllowed = store.GuestOrderingEnabled || isAuthenticated;
+        if (forPlacement && !guestOrderingAllowed)
+            throw new UnauthorizedException(
+                "Guest checkout is not available for this order. Please log in or create an account to continue.");
+
+        // A single zero-cost pickup option replaces carrier rates (AC-SHP-004.2).
+        var pickupOption = new ShippingRateOption("pickup", "Pickup in store", "Pickup", null, 0m);
+
+        // Discounts (same engine as delivery).
+        var discountLines = lines
+            .Select(l => new DiscountCartLine(l.ProductId, l.CategoryIds, l.LineTotal, l.Quantity))
+            .ToList();
+        var discountResult = await _discounts.EvaluateAsync(discountLines, subtotal, ct);
+
+        var couponCode = FirstNonEmpty(requestCouponCode, cart.AppliedCouponCode);
+        var couponValid = couponCode is not null && (await _coupons.ValidateAsync(couponCode, ct)).IsValid;
+
+        // Tax exemption + tax collected at the store (origin = destination = store).
+        TaxExemption? taxExemption = null;
+        if (_current.UserId is Guid taxUserId)
+        {
+            var exempt = await _db.Customers
+                .AsNoTracking()
+                .Where(c => c.UserId == taxUserId && c.IsTaxExempt)
+                .Select(c => new { c.TaxExemptionCertificate, c.VatId })
+                .FirstOrDefaultAsync(ct);
+            if (exempt is not null)
+                taxExemption = new TaxExemption(true, exempt.TaxExemptionCertificate, exempt.VatId);
+        }
+
+        var storeAddress = new TaxAddress(store.CountryCode ?? string.Empty, store.StateProvince, store.PostalCode, store.City);
+        var tax = await _tax.CalculateAsync(
+            new TaxCalculationRequest(
+                storeAddress, storeAddress,
+                lines.Select(l => new TaxLineInput(l.ProductId, l.TaxCategoryCode, l.UnitPrice, l.Quantity)).ToList(),
+                0m,
+                taxExemption),
+            ct);
+
+        var total = subtotal - discountResult.TotalDiscount + tax.TotalTax;
+        var addressText = string.Join(", ",
+            new[] { store.AddressLine1, store.City, store.PostalCode }.Where(s => !string.IsNullOrWhiteSpace(s)));
+        var routing = new RoutingResult(true, storeId, addressText, Array.Empty<StoreEvaluation>());
+
+        return new PricedCheckout(
+            cart, lines, subtotal, routing, store,
+            new[] { pickupOption }, pickupOption, 0m,
+            discountResult.Applied, discountResult.TotalDiscount,
+            tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid, IsPickup: true);
     }
 
     /// <summary>
@@ -521,5 +611,6 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         decimal Total,
         bool GuestOrderingAllowed,
         string? CouponCode,
-        bool CouponValid);
+        bool CouponValid,
+        bool IsPickup = false);
 }

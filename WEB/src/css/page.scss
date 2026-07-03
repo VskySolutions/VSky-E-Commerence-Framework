@@ -24,6 +24,40 @@
   overflow: hidden;
 }
 
+// Standardized bordered toolbar (list/detail page headers).
+.app-toolbar {
+  border-radius: $generic-border-radius;
+}
+
+// Consistent vertical spacing between adjacent form fields across the whole app.
+// AppTextField / AppSelect / AppDateField all wrap their control in .app-field.
+.app-field {
+  margin-bottom: 10px;
+}
+
+// Standardized content card (detail pages). `--danger` marks a destructive panel.
+.app-section {
+  border-radius: $generic-border-radius;
+
+  .app-section__title {
+    color: $primary;
+    font-size: 15px;
+    font-weight: 600;
+  }
+
+  .app-section__head {
+    padding-bottom: 4px;
+  }
+
+  &--danger {
+    border-color: $negative;
+
+    .app-section__title {
+      color: $negative;
+    }
+  }
+}
+
 // Right-hand form/view drawer body spacing.
 .app-drawer-body {
   display: flex;

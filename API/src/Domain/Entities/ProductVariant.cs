@@ -19,6 +19,9 @@ public class ProductVariant : AuditableEntity, ISoftDeletable
     /// <summary>Per-variant backorder policy (AC-CAT-002.4).</summary>
     public bool AllowBackorder { get; set; }
 
+    /// <summary>Optional expected restock date shown while the variant is backordered (AC-CAT-013.3).</summary>
+    public DateTime? EstimatedRestockDate { get; set; }
+
     /// <summary>Whether the variant is available for purchase (AC-CAT-002.4).</summary>
     public bool IsEnabled { get; set; } = true;
 

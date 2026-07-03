@@ -8,6 +8,7 @@
  */
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
+import { setCssVar } from 'quasar'
 import { api, authApi } from 'services/api'
 import { useAuthStore } from 'stores/auth'
 import { STORAGE_KEYS, getItem, setItem, removeItem } from 'services/storage'
@@ -53,9 +54,21 @@ export const useTenantStore = defineStore('tenant', () => {
   function applyBranding (b) {
     if (typeof document === 'undefined' || !b) return
     const root = document.documentElement
-    if (b.primaryColor) root.style.setProperty('--brand-primary', b.primaryColor)
-    if (b.secondaryColor) root.style.setProperty('--brand-secondary', b.secondaryColor)
-    if (b.accentColor) root.style.setProperty('--brand-accent', b.accentColor)
+    // Map the tenant branding palette onto Quasar's brand tokens so every color="primary" /
+    // text-primary / bg-primary across the app follows the branding table, and keep the raw
+    // --brand-* custom properties for any bespoke usage.
+    if (b.primaryColor) {
+      root.style.setProperty('--brand-primary', b.primaryColor)
+      setCssVar('primary', b.primaryColor)
+    }
+    if (b.secondaryColor) {
+      root.style.setProperty('--brand-secondary', b.secondaryColor)
+      setCssVar('secondary', b.secondaryColor)
+    }
+    if (b.accentColor) {
+      root.style.setProperty('--brand-accent', b.accentColor)
+      setCssVar('accent', b.accentColor)
+    }
     if (b.fontFamily) root.style.setProperty('--brand-font-family', b.fontFamily)
   }
 

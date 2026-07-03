@@ -1,55 +1,51 @@
 <template>
   <q-page class="app-page">
-    <AppListHeader
-      :title="product?.name || 'Product'"
-      :subtitle="product ? productTypeLabel(product.productType) : ''"
+    <AppDetailHeader
+      :title="isCreate ? 'New product' : (product?.name || 'Product')"
+      :subtitle="!isCreate && product ? productTypeLabel(product.productType) : ''"
       :breadcrumbs="[
         { label: 'Home', icon: 'o_home', to: '/dashboard' },
         { label: 'Products', to: { name: 'catalog-products' } },
-        { label: product?.name || 'Product' }
+        { label: isCreate ? 'New product' : (product?.name || 'Product') }
       ]"
+      :status="!isCreate && product ? (product.isPublished ? 'Published' : 'Draft') : ''"
+      :status-color="product && product.isPublished ? 'positive' : 'grey'"
       show-back
       @back="router.back()"
-    >
-      <template #actions>
-        <q-btn
-          v-if="canWrite && product"
-          unelevated
-          color="primary"
-          icon="o_edit"
-          label="Edit core"
-          no-caps
-          @click="editOpen = true"
-        />
-      </template>
-    </AppListHeader>
+    />
 
     <q-inner-loading :showing="loading" color="primary" />
 
-    <q-banner v-if="!loading && !product" class="bg-grey-2 rounded-borders">
+    <q-banner v-if="!loading && !isCreate && !product" class="bg-grey-2 rounded-borders">
       Product not found.
     </q-banner>
 
-    <template v-if="product">
-      <!-- Core summary -->
-      <q-card flat bordered class="q-mb-md">
-        <q-card-section class="row q-col-gutter-md">
-          <div class="col-12 col-sm-4"><div class="text-caption text-grey-7">SKU</div>{{ product.sku || '—' }}</div>
-          <div class="col-12 col-sm-4"><div class="text-caption text-grey-7">Price</div>{{ formatPrice(product.price) }}</div>
-          <div class="col-12 col-sm-4"><div class="text-caption text-grey-7">Stock</div>{{ product.stockQuantity }}</div>
-          <div class="col-12 col-sm-4">
-            <div class="text-caption text-grey-7">Published</div>
-            <q-badge :color="product.isPublished ? 'positive' : 'grey'" :label="product.isPublished ? 'Published' : 'Draft'" />
-          </div>
-          <div class="col-12 col-sm-4"><div class="text-caption text-grey-7">Allow backorder</div>{{ product.allowBackorder ? 'Yes' : 'No' }}</div>
-          <div class="col-12 col-sm-4"><div class="text-caption text-grey-7">Display order</div>{{ product.displayOrder }}</div>
-        </q-card-section>
-      </q-card>
+    <template v-if="isCreate || product">
+      <!-- Basic information (create + edit) -->
+      <AppSection title="Basic information">
+        <ProductCoreForm ref="coreForm" :item="product" />
+        <template #footer>
+          <q-btn
+            v-if="canWrite"
+            unelevated
+            color="primary"
+            :label="isCreate ? 'Create product' : 'Save'"
+            :loading="savingCore"
+            no-caps
+            @click="onSaveCore"
+          />
+        </template>
+      </AppSection>
 
-      <!-- Categories -->
-      <q-card flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-subtitle1 q-mb-sm">Categories</div>
+      <div v-if="isCreate" class="text-caption text-grey-7 q-px-sm q-pb-md">
+        Save the basic information to create the product — categories, tags, prices, media and variants
+        will then appear here to manage on this same page.
+      </div>
+
+      <!-- Sub-resource management (edit only) -->
+      <template v-if="!isCreate && product">
+        <!-- Categories -->
+        <AppSection title="Categories">
           <q-select
             v-model="categoryIds"
             dense
@@ -62,16 +58,13 @@
             :disable="!canWrite"
             label="Assigned categories"
           />
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn v-if="canWrite" unelevated color="primary" label="Save categories" no-caps :loading="savingCategories" @click="saveCategories" />
-        </q-card-actions>
-      </q-card>
+          <template #footer>
+            <q-btn v-if="canWrite" unelevated color="primary" label="Save categories" no-caps :loading="savingCategories" @click="saveCategories" />
+          </template>
+        </AppSection>
 
-      <!-- Tags -->
-      <q-card flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-subtitle1 q-mb-sm">Tags</div>
+        <!-- Tags -->
+        <AppSection title="Tags">
           <q-select
             v-model="tagNames"
             dense
@@ -85,19 +78,16 @@
             label="Tags"
             hint="Type a tag and press Enter"
           />
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn v-if="canWrite" unelevated color="primary" label="Save tags" no-caps :loading="savingTags" @click="saveTags" />
-        </q-card-actions>
-      </q-card>
+          <template #footer>
+            <q-btn v-if="canWrite" unelevated color="primary" label="Save tags" no-caps :loading="savingTags" @click="saveTags" />
+          </template>
+        </AppSection>
 
-      <!-- Tier prices -->
-      <q-card flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="row items-center q-mb-sm">
-            <div class="text-subtitle1 col">Tier prices</div>
+        <!-- Tier prices -->
+        <AppSection title="Tier prices">
+          <template #actions>
             <q-btn v-if="canWrite" flat dense icon="o_add" label="Add tier" no-caps @click="addTier" />
-          </div>
+          </template>
           <div v-if="!tiers.length" class="text-grey-6 q-py-sm">No tier prices.</div>
           <div v-for="(tier, i) in tiers" :key="i" class="row q-col-gutter-sm items-center q-mb-xs">
             <div class="col">
@@ -110,16 +100,13 @@
               <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="tiers.splice(i, 1)" />
             </div>
           </div>
-        </q-card-section>
-        <q-card-actions align="right">
-          <q-btn v-if="canWrite" unelevated color="primary" label="Save tier prices" no-caps :loading="savingTiers" @click="saveTiers" />
-        </q-card-actions>
-      </q-card>
+          <template #footer>
+            <q-btn v-if="canWrite" unelevated color="primary" label="Save tier prices" no-caps :loading="savingTiers" @click="saveTiers" />
+          </template>
+        </AppSection>
 
-      <!-- Media -->
-      <q-card flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-subtitle1 q-mb-sm">Media</div>
+        <!-- Media -->
+        <AppSection title="Media">
           <ProductGalleryView
             v-if="product.images && product.images.length"
             :images="normalizedImages"
@@ -159,17 +146,13 @@
               </div>
             </div>
           </template>
-        </q-card-section>
-        <q-card-actions v-if="canWrite" align="right">
-          <q-btn unelevated color="primary" label="Add media" no-caps :loading="addingImage" @click="addImage" />
-        </q-card-actions>
-      </q-card>
+          <template v-if="canWrite" #footer>
+            <q-btn unelevated color="primary" label="Add media" no-caps :loading="addingImage" @click="addImage" />
+          </template>
+        </AppSection>
 
-      <!-- Variants (WithVariants only) -->
-      <q-card v-if="product.productType === 'WithVariants'" flat bordered class="q-mb-md">
-        <q-card-section>
-          <div class="text-subtitle1 q-mb-sm">Variants</div>
-
+        <!-- Variants (WithVariants only) -->
+        <AppSection v-if="product.productType === 'WithVariants'" title="Variants">
           <div class="text-caption text-grey-7 q-mb-xs">Attributes used for generation</div>
           <q-select
             v-model="attributeIds"
@@ -217,28 +200,22 @@
             </tbody>
           </q-markup-table>
           <div v-else class="text-grey-6">No variants yet. Assign attributes (with values) then generate.</div>
-        </q-card-section>
-      </q-card>
+        </AppSection>
+      </template>
     </template>
-
-    <ProductFormDrawer
-      v-model="editOpen"
-      :item="product"
-      :saving="savingCore"
-      @submit="onSubmitCore"
-      @cancel="editOpen = false"
-    />
   </q-page>
 </template>
 
 <script setup>
 /*
- * Product detail page (WO-15): manages a product's sub-resources — categories,
- * tags, tier prices, media and (for WithVariants) attribute assignment + variant
- * generation/editing. Each section calls its own replace-semantics endpoint and
- * then re-loads the full product graph.
+ * Product create + detail page (WO-15; unified). One full page serves both flows:
+ * - Create mode (route `catalog-product-new`): only the Basic-information section is shown; on save the
+ *   product is created and the page transitions to the manage view (all sub-resource sections appear).
+ * - Edit mode (route `catalog-product-detail`): editable Basic-information + categories, tags, tier prices,
+ *   media and (for WithVariants) variant generation/editing — each its own AppSection card, saved via its
+ *   own replace-semantics endpoint.
  */
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import {
@@ -251,7 +228,7 @@ import {
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import ProductFormDrawer from 'modules/catalog/components/ProductFormDrawer.vue'
+import ProductCoreForm from 'modules/catalog/components/ProductCoreForm.vue'
 import ProductGalleryView from 'modules/catalog/components/ProductGalleryView.vue'
 
 const route = useRoute()
@@ -260,10 +237,12 @@ const notify = useNotify()
 const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
 
+const isCreate = computed(() => route.name === 'catalog-product-new')
+
 const product = ref(null)
 const loading = ref(false)
 
-const editOpen = ref(false)
+const coreForm = ref(null)
 const savingCore = ref(false)
 
 const categoryIds = ref([])
@@ -285,11 +264,6 @@ const attributeValueMap = ref({})
 const savingAttributes = ref(false)
 const generating = ref(false)
 const variants = ref([])
-
-function formatPrice (value) {
-  if (value === null || value === undefined) return '—'
-  return Number(value).toFixed(2)
-}
 
 // The gallery component keys media by id and reads productVariantId/mediaType.
 const normalizedImages = computed(() => product.value?.images || [])
@@ -324,6 +298,39 @@ async function load () {
     notify.error(getApiErrorMessage(err))
   } finally {
     loading.value = false
+  }
+}
+
+// Re-initialise on mount and whenever the route changes (create → detail after save, or id → id).
+async function init () {
+  if (isCreate.value) {
+    product.value = null
+    loading.value = false
+    return
+  }
+  await load()
+}
+
+async function onSaveCore () {
+  const payload = await coreForm.value?.submit()
+  if (!payload) return
+
+  savingCore.value = true
+  try {
+    if (isCreate.value) {
+      const created = await productApi.create(payload)
+      notify.success('Product created')
+      // Same component: switch to the manage route; the route watcher reloads the full graph.
+      router.replace({ name: 'catalog-product-detail', params: { id: created.id } })
+    } else {
+      await productApi.update(route.params.id, payload)
+      notify.success('Product updated')
+      await load()
+    }
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    savingCore.value = false
   }
 }
 
@@ -364,20 +371,6 @@ async function loadAttributes () {
 function variantLabel (variant) {
   const parts = (variant.attributeValueIds || []).map((id) => attributeValueMap.value[id] || id)
   return parts.length ? parts.join(', ') : '(no attributes)'
-}
-
-async function onSubmitCore (payload) {
-  savingCore.value = true
-  try {
-    await productApi.update(route.params.id, payload)
-    notify.success('Product updated')
-    editOpen.value = false
-    await load()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    savingCore.value = false
-  }
 }
 
 async function saveCategories () {
@@ -520,8 +513,11 @@ async function removeVariant (variant) {
 }
 
 onMounted(() => {
-  load()
+  init()
   loadCategories()
   loadAttributes()
 })
+
+// After create we router.replace to the detail route on the same component instance — reload on change.
+watch(() => route.fullPath, () => init())
 </script>

@@ -20,4 +20,7 @@ public class OrderLineItem : BaseEntity
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
+
+    /// <summary>Units of this line already dispatched across shipments; drives partial-fulfilment state (WO-46).</summary>
+    public int QuantityShipped { get; set; }
 }

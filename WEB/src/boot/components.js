@@ -11,6 +11,7 @@ import AppSelect from 'components/common/AppSelect.vue'
 import AppDateField from 'components/common/AppDateField.vue'
 import AppListHeader from 'components/common/AppListHeader.vue'
 import AppDetailHeader from 'components/common/AppDetailHeader.vue'
+import AppSection from 'components/common/AppSection.vue'
 import AppDataTable from 'components/common/AppDataTable.vue'
 import AppDrawer from 'components/common/AppDrawer.vue'
 import AppFormDrawer from 'components/common/AppFormDrawer.vue'
@@ -28,6 +29,7 @@ const globalComponents = {
   AppDateField,
   AppListHeader,
   AppDetailHeader,
+  AppSection,
   AppDataTable,
   AppDrawer,
   AppFormDrawer,

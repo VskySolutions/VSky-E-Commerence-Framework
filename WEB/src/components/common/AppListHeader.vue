@@ -1,35 +1,22 @@
 <template>
-  <div class="app-list-header q-mb-md">
-    <q-breadcrumbs
-      v-if="breadcrumbs.length"
-      class="text-grey-7 q-mb-xs"
-      active-color="primary"
-      gutter="xs"
-    >
-      <q-breadcrumbs-el
-        v-for="(crumb, i) in breadcrumbs"
-        :key="i"
-        :label="crumb.label"
-        :icon="crumb.icon"
-        :to="crumb.to"
-      />
-    </q-breadcrumbs>
-
-    <div class="row items-center no-wrap q-gutter-sm">
-      <slot name="back">
-        <q-btn
-          v-if="showBack"
-          flat
-          round
-          dense
-          icon="o_arrow_back"
-          aria-label="Back"
-          @click="$emit('back')"
-        />
-      </slot>
-
+  <q-card flat bordered class="app-toolbar q-px-md q-py-sm q-mb-md">
+    <div class="row items-center q-gutter-sm">
       <div class="col">
-        <div class="app-page-title">{{ title }}</div>
+        <q-breadcrumbs
+          v-if="breadcrumbs.length"
+          class="text-grey-7"
+          active-color="primary"
+          gutter="xs"
+        >
+          <q-breadcrumbs-el
+            v-for="(crumb, i) in breadcrumbs"
+            :key="i"
+            :label="crumb.label"
+            :icon="crumb.icon"
+            :to="crumb.to"
+          />
+        </q-breadcrumbs>
+        <div v-if="title && !breadcrumbs.length" class="app-page-title">{{ title }}</div>
         <div v-if="subtitle" class="text-muted text-body2">{{ subtitle }}</div>
       </div>
 
@@ -46,14 +33,28 @@
           @click="$emit('add')"
         />
       </slot>
+
+      <slot name="back">
+        <q-btn
+          v-if="showBack"
+          outline
+          color="primary"
+          icon="o_arrow_back"
+          label="Back"
+          no-caps
+          @click="$emit('back')"
+        />
+      </slot>
     </div>
-  </div>
+  </q-card>
 </template>
 
 <script setup>
 /*
- * AppListHeader (WO-94 Step 10): breadcrumbs + page title, with add/back slots
- * (defaulting to standard buttons that emit `add` / `back`).
+ * AppListHeader (WO-94 Step 10; standardized): a bordered toolbar bar carrying the
+ * breadcrumb + page title on the left and the action cluster (search/filters via the
+ * `actions` slot, a primary add button, and a right-aligned outlined Back button) on
+ * the right — the portal-wide list-page header standard.
  */
 defineProps({
   title: { type: String, default: '' },

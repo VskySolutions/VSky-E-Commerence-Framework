@@ -1,5 +1,6 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Common;
 using VSky.Domain.Entities;
@@ -76,29 +77,69 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Address> Addresses => Set<Address>();
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
+    // Customer roles + group pricing (WO-22)
+    public DbSet<CustomerRole> CustomerRoles => Set<CustomerRole>();
+    public DbSet<CustomerRoleAssignment> CustomerRoleAssignments => Set<CustomerRoleAssignment>();
+    public DbSet<CustomerGroupPrice> CustomerGroupPrices => Set<CustomerGroupPrice>();
+    public DbSet<ProductRoleRestriction> ProductRoleRestrictions => Set<ProductRoleRestriction>();
+    public DbSet<CategoryRoleRestriction> CategoryRoleRestrictions => Set<CategoryRoleRestriction>();
+
     // Orders & store fulfilment (WO-51, WO-52)
     public DbSet<Order> Orders => Set<Order>();
     public DbSet<OrderLineItem> OrderLineItems => Set<OrderLineItem>();
     public DbSet<StoreManagerAssignment> StoreManagerAssignments => Set<StoreManagerAssignment>();
+    public DbSet<Shipment> Shipments => Set<Shipment>();
+    public DbSet<ShipmentLineItem> ShipmentLineItems => Set<ShipmentLineItem>();
+    public DbSet<ShipmentTracking> ShipmentTrackingEvents => Set<ShipmentTracking>();
+    public DbSet<Rma> Rmas => Set<Rma>();
+    public DbSet<RmaLineItem> RmaLineItems => Set<RmaLineItem>();
 
     // Commerce — pricing, cart, shipping, payments, tax (Phase 3)
     public DbSet<Discount> Discounts => Set<Discount>();
     public DbSet<CouponCode> CouponCodes => Set<CouponCode>();
     public DbSet<Cart> Carts => Set<Cart>();
     public DbSet<CartItem> CartItems => Set<CartItem>();
+    public DbSet<Wishlist> Wishlists => Set<Wishlist>();
+    public DbSet<WishlistItem> WishlistItems => Set<WishlistItem>();
     public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
     public DbSet<ShippingZone> ShippingZones => Set<ShippingZone>();
     public DbSet<ShippingMethodZoneRate> ShippingMethodZoneRates => Set<ShippingMethodZoneRate>();
     public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
     public DbSet<TaxProviderConfiguration> TaxProviderConfigurations => Set<TaxProviderConfiguration>();
+    public DbSet<StateNexusAccumulator> StateNexusAccumulators => Set<StateNexusAccumulator>();
     public DbSet<OrderStatusHistory> OrderStatusHistory => Set<OrderStatusHistory>();
 
     // Security config (WO-106)
     public DbSet<RecaptchaConfig> RecaptchaConfigs => Set<RecaptchaConfig>();
 
+    // Webhooks (WO-5)
+    public DbSet<WebhookSubscription> WebhookSubscriptions => Set<WebhookSubscription>();
+    public DbSet<WebhookSubscriptionEvent> WebhookSubscriptionEvents => Set<WebhookSubscriptionEvent>();
+    public DbSet<WebhookDelivery> WebhookDeliveries => Set<WebhookDelivery>();
+
+    // Localization (WO-18)
+    public DbSet<Language> Languages => Set<Language>();
+    public DbSet<ContentTranslation> ContentTranslations => Set<ContentTranslation>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Every Guid surrogate key is assigned client-side in BaseEntity's initializer, yet EF's
+        // convention marks single Guid keys as store-generated (ValueGeneratedOnAdd). That mismatch
+        // makes EF mis-classify a NEW child added to a *tracked* parent's collection as Modified
+        // (its key is already populated) instead of Added — emitting an UPDATE of a non-existent row
+        // that throws DbUpdateConcurrencyException. Declaring these keys client-generated fixes every
+        // "load aggregate, mutate children, save" handler (e.g. Set{Categories,Tags,Attributes,
+        // TierPrices}, ReplaceProductImages, GenerateVariants). It is a metadata-only change: a Guid
+        // PK carries no database default, so the column DDL is identical.
+        foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+        {
+            var key = entityType.FindPrimaryKey();
+            if (key is { Properties.Count: 1 } && key.Properties[0].ClrType == typeof(Guid))
+                key.Properties[0].ValueGenerated = ValueGenerated.Never;
+        }
+
         base.OnModelCreating(modelBuilder);
     }
 

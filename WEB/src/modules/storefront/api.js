@@ -10,7 +10,7 @@
  * JSON is camelCase and enums serialize as string names (ProductMediaType =
  * Image|Video, ProductType = Simple|Grouped|WithVariants|Downloadable|GiftCard).
  */
-import { anonApi, unwrap, qsSerializer } from 'services/api'
+import { api, anonApi, unwrap, qsSerializer } from 'services/api'
 
 const CATALOG = '/api/storefront/catalog'
 const SEARCH = '/api/storefront/search'
@@ -100,6 +100,27 @@ export const cartApi = {
   // DELETE with a body — RemoveCouponCommand binds { cartId } from the request body.
   removeCoupon (cartId) {
     return anonApi.delete(CART + '/remove-coupon', { data: { cartId } }).then(unwrap)
+  }
+}
+
+// ---- wishlist resource group (WO-29) ----------------------------------------
+// The wishlist belongs to an authenticated customer, so these use the AUTHENTICATED
+// `api` instance (a bearer token from customer login). Every mutation returns the
+// recalculated WishlistDto.
+const WISHLIST = '/api/wishlist'
+
+export const wishlistApi = {
+  get () {
+    return api.get(WISHLIST).then(unwrap)
+  },
+  addItem ({ productId, productVariantId = null }) {
+    return api.post(WISHLIST + '/items', { productId, productVariantId }).then(unwrap)
+  },
+  removeItem (itemId) {
+    return api.delete(WISHLIST + '/items/' + encodeURIComponent(itemId)).then(unwrap)
+  },
+  moveToCart (itemId, quantity = 1) {
+    return api.post(WISHLIST + '/items/' + encodeURIComponent(itemId) + '/move-to-cart', { itemId, quantity }).then(unwrap)
   }
 }
 
@@ -197,6 +218,7 @@ export function productRouteParam (product) {
 export default {
   storefrontApi,
   cartApi,
+  wishlistApi,
   checkoutApi,
   currencyApi,
   listingSortOptions,

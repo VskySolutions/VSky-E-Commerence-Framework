@@ -1,16 +1,24 @@
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
+using VSky.Domain.Entities;
+using VSky.Domain.Enums;
+using VSky.Infrastructure.Persistence;
 
 namespace VSky.Infrastructure.BackgroundTasks.Workers;
 
 /// <summary>
-/// Refreshes currency exchange rates from the configured external source on schedule (WO-90), skipping
-/// locked and base currencies. Carrier tracking sync — its other blueprint duty — lands with the
-/// shipping feature (later phase).
+/// Polls active shipments' carriers for tracking updates (REQ-SHP-002): appends a tracking checkpoint,
+/// updates the shipment status, and — on carrier-confirmed delivery — transitions the order to Delivered
+/// and notifies the buyer (AC-SHP-002.3/002.4). Carriers that are unconfigured return no update and are
+/// skipped. (Currency-rate refresh, formerly here, now lives in CurrencyRateRefreshWorker.)
 /// </summary>
 public class TrackingSyncWorker : IScheduledTask
 {
+    private const int BatchSize = 100;
+
     public string Name => "TrackingSyncWorker";
     public TimeSpan DefaultInterval => TimeSpan.FromMinutes(180);
     public string? IntervalSettingKey => "tasks.tracking-sync.interval-minutes";
@@ -18,14 +26,105 @@ public class TrackingSyncWorker : IScheduledTask
 
     public async Task RunAsync(IServiceProvider services, CancellationToken cancellationToken)
     {
+        var db = services.GetRequiredService<AppDbContext>();
+        var carriers = services.GetServices<ICarrierClient>().ToList();
+        var emails = services.GetRequiredService<IEmailEnqueuer>();
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(Name);
 
-        // Exchange-rate refresh (WO-90). No-op unless auto-refresh is enabled and a source is configured.
-        var refresher = services.GetRequiredService<ICurrencyRateRefresher>();
-        var updated = await refresher.RefreshAsync(cancellationToken);
-        if (updated > 0)
-            logger.LogInformation("{Task} refreshed {Count} currency exchange rate(s).", Name, updated);
+        var now = DateTime.UtcNow;
+        var active = await db.Shipments
+            .Where(s => s.Status != ShipmentStatus.Delivered
+                        && s.Status != ShipmentStatus.Cancelled
+                        && s.TrackingNumber != null
+                        && s.Carrier != null)
+            .OrderBy(s => s.LastPolledOnUtc)
+            .Take(BatchSize)
+            .ToListAsync(cancellationToken);
 
-        // Carrier tracking sync is pending the shipping feature (later phase).
+        if (active.Count == 0)
+        {
+            logger.LogInformation("{Task} ran; no active shipments to poll.", Name);
+            return;
+        }
+
+        var polled = 0;
+        var delivered = 0;
+        foreach (var shipment in active)
+        {
+            var carrier = carriers.FirstOrDefault(c => c.CarrierName.Equals(shipment.Carrier, StringComparison.OrdinalIgnoreCase));
+            if (carrier is null)
+                continue;
+
+            CarrierTrackingResult? result;
+            try
+            {
+                result = await carrier.GetTrackingStatusAsync(shipment.TrackingNumber!, cancellationToken);
+            }
+            catch
+            {
+                continue; // a carrier failure never blocks the rest of the batch
+            }
+
+            shipment.LastPolledOnUtc = now;
+            polled++;
+            if (result is null)
+                continue;
+
+            db.ShipmentTrackingEvents.Add(new ShipmentTracking
+            {
+                ShipmentId = shipment.Id,
+                RawStatus = result.RawStatus,
+                NormalizedStatus = result.NormalizedStatus,
+                Description = result.Description,
+                Location = result.Location,
+                CheckpointOnUtc = result.CheckpointOnUtc,
+                RecordedOnUtc = now,
+            });
+            shipment.Status = result.NormalizedStatus;
+
+            if (result.NormalizedStatus == ShipmentStatus.Delivered)
+            {
+                shipment.DeliveredOnUtc = now;
+                await MarkOrderDeliveredAsync(db, emails, shipment.OrderId, now, cancellationToken);
+                delivered++;
+            }
+        }
+
+        await db.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("{Task} ran; polled {Polled} shipment(s), {Delivered} delivered.", Name, polled, delivered);
+    }
+
+    private static async Task MarkOrderDeliveredAsync(AppDbContext db, IEmailEnqueuer emails, Guid orderId, DateTime now, CancellationToken ct)
+    {
+        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+        if (order is null || order.Status == OrderStatus.Delivered)
+            return;
+
+        // Only advance from Shipped (the lifecycle's pre-delivery state).
+        if (order.Status != OrderStatus.Shipped)
+            return;
+
+        var from = order.Status;
+        order.Status = OrderStatus.Delivered;
+        order.DeliveredOnUtc = now;
+        db.OrderStatusHistory.Add(new OrderStatusHistory
+        {
+            OrderId = order.Id,
+            FromStatus = from,
+            ToStatus = OrderStatus.Delivered,
+            ChangedOnUtc = now,
+        });
+
+        if (!string.IsNullOrWhiteSpace(order.ContactEmail))
+        {
+            await emails.EnqueueAsync(
+                "OrderDelivered",
+                order.ContactEmail!,
+                order.ContactName,
+                $"Your order {order.OrderNumber} has been delivered",
+                $"Hi {order.ContactName},\n\nYour order {order.OrderNumber} has been delivered.\n\n" +
+                "We hope you enjoy your purchase — thank you for shopping with us.",
+                cancellationToken: ct);
+        }
     }
 }

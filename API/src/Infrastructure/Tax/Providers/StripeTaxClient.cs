@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Enums;
@@ -22,14 +23,17 @@ public class StripeTaxClient : ITaxProviderClient
 {
     private const string CredentialKey = "stripe-tax";
     private const string CalculationsUrl = "https://api.stripe.com/v1/tax/calculations";
+    private const string TransactionsUrl = "https://api.stripe.com/v1/tax/transactions/create_from_calculation";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICredentialVault _vault;
+    private readonly IApplicationDbContext _db;
 
-    public StripeTaxClient(IHttpClientFactory httpClientFactory, ICredentialVault vault)
+    public StripeTaxClient(IHttpClientFactory httpClientFactory, ICredentialVault vault, IApplicationDbContext db)
     {
         _httpClientFactory = httpClientFactory;
         _vault = vault;
+        _db = db;
     }
 
     public TaxProviderType Provider => TaxProviderType.StripeTax;
@@ -54,9 +58,38 @@ public class StripeTaxClient : ITaxProviderClient
         return MapResponse(document.RootElement);
     }
 
-    // Stripe records a Tax Transaction from a prior calculation id, which is owned by the order/checkout
-    // flow (Order Management). Remittance reporting is TaxJar-only, so this is intentionally a no-op.
-    public Task ReportTransactionAsync(Guid orderId, CancellationToken ct) => Task.CompletedTask;
+    /// <summary>
+    /// Records a Stripe Tax Transaction from the calculation captured at placement (AC-TAX-004.2). Loads the
+    /// order's stored calculation reference and posts <c>create_from_calculation</c>. A no-op when the order
+    /// carries no Stripe calculation reference (e.g. tax was flat-rate/fallback or another provider was active).
+    /// </summary>
+    public async Task ReportTransactionAsync(Guid orderId, CancellationToken ct)
+    {
+        var order = await _db.Orders
+            .AsNoTracking()
+            .Where(o => o.Id == orderId)
+            .Select(o => new { o.OrderNumber, o.TaxProviderCalculationRef })
+            .FirstOrDefaultAsync(ct);
+
+        if (order is null || string.IsNullOrWhiteSpace(order.TaxProviderCalculationRef))
+            return;
+
+        var secretKey = await _vault.GetCredentialAsync(CredentialKey, ct);
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new InvalidOperationException("Stripe Tax credentials are not configured (Credential Vault key 'stripe-tax').");
+
+        var client = _httpClientFactory.CreateClient("stripe-tax");
+        client.Timeout = TimeSpan.FromSeconds(15);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+
+        using var content = new FormUrlEncodedContent(new List<KeyValuePair<string, string>>
+        {
+            new("calculation", order.TaxProviderCalculationRef!),
+            new("reference", order.OrderNumber),
+        });
+        using var response = await client.PostAsync(TransactionsUrl, content, ct);
+        response.EnsureSuccessStatusCode();
+    }
 
     private static List<KeyValuePair<string, string>> BuildForm(TaxCalculationRequest req)
     {
@@ -93,6 +126,11 @@ public class StripeTaxClient : ITaxProviderClient
     /// </summary>
     private static TaxBreakdown MapResponse(JsonElement root)
     {
+        // The calculation id is required later to record the tax transaction (WO-37 / AC-TAX-004.2).
+        var calculationId = root.TryGetProperty("id", out var idEl) && idEl.ValueKind == JsonValueKind.String
+            ? idEl.GetString()
+            : null;
+
         var totalMinor = root.TryGetProperty("tax_amount_exclusive", out var t) && t.TryGetInt64(out var tv) ? tv : 0L;
         var totalTax = totalMinor / 100m;
 
@@ -121,6 +159,6 @@ public class StripeTaxClient : ITaxProviderClient
             }
         }
 
-        return new TaxBreakdown(totalTax, jurisdictions, FallbackApplied: false);
+        return new TaxBreakdown(totalTax, jurisdictions, FallbackApplied: false, ProviderReference: calculationId);
     }
 }

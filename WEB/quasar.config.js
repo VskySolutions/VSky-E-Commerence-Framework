@@ -36,7 +36,7 @@ function srcAlias (sub) {
 export default function (/* ctx */) {
   return {
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['error', 'axios', 'interceptors', 'title', 'components', 'i18n'],
+    boot: ['fonts', 'error', 'axios', 'interceptors', 'title', 'components', 'i18n'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     // NOTE: quasar.variables.scss is auto-prepended to every SCSS file by the

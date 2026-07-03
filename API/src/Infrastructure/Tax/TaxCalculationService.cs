@@ -44,8 +44,22 @@ public class TaxCalculationService : ITaxCalculationService
         _logger = logger;
     }
 
+    public async Task ReportTransactionAsync(Guid orderId, CancellationToken cancellationToken = default)
+    {
+        var config = await LoadConfigurationAsync(cancellationToken);
+        var client = _providers.FirstOrDefault(p => p.Provider == config.ActiveProvider);
+        if (client is null)
+            return;
+        await client.ReportTransactionAsync(orderId, cancellationToken);
+    }
+
     public async Task<TaxBreakdown> CalculateAsync(TaxCalculationRequest request, CancellationToken cancellationToken = default)
     {
+        // Tax-exempt customers are charged no tax regardless of the active provider (AC-TAX-003.3).
+        // Short-circuit before any provider call/fallback so exemption holds even when the provider is down.
+        if (request.Exemption?.IsExempt == true)
+            return new TaxBreakdown(0m, new List<TaxJurisdiction>(), FallbackApplied: false);
+
         var config = await LoadConfigurationAsync(cancellationToken);
 
         // FlatRate is the configured behaviour, not a failure fallback: compute directly, no external call.

@@ -97,14 +97,22 @@ public static class DependencyInjection
         services.AddScoped<ICouponService, CouponService>();
         // Multi-currency conversion (WO-26).
         services.AddScoped<ICurrencyService, CurrencyService>();
+        // Localization: translated-content resolution with default-language fallback (WO-18).
+        services.AddScoped<ITranslationService, VSky.Infrastructure.Localization.TranslationService>();
+        // Customer roles: group pricing + catalog-access resolution (WO-22).
+        services.AddScoped<ICustomerRoleService, VSky.Infrastructure.Customers.CustomerRoleService>();
         // Shipping: custom-method + carrier rate aggregation (WO-40/43).
         services.AddScoped<ICarrierClient, DhlExpressCarrierClient>();
         services.AddScoped<ICarrierClient, UpsCarrierClient>();
+        services.AddScoped<ICarrierClient, FedExCarrierClient>();
+        services.AddScoped<ICarrierClient, UspsCarrierClient>();
         services.AddScoped<IShippingRateService, ShippingRateService>();
+        services.AddScoped<IShippingLabelService, VSky.Infrastructure.Shipping.ShippingLabelService>();
         // Tax: calculation service + provider clients with flat-rate fallback (WO-35/36).
         services.AddScoped<ITaxProviderClient, TaxJarClient>();
         services.AddScoped<ITaxProviderClient, StripeTaxClient>();
         services.AddScoped<ITaxCalculationService, TaxCalculationService>();
+        services.AddScoped<INexusTracker, VSky.Infrastructure.Tax.NexusTracker>();
         // Payments: gateway router + adapters + expired-auth scanner (WO-32/33/34).
         services.AddScoped<IPaymentGatewayAdapter, StripeGatewayAdapter>();
         services.AddScoped<IPaymentGatewayAdapter, PaypalGatewayAdapter>();
@@ -133,7 +141,11 @@ public static class DependencyInjection
         services.AddSingleton<IScheduledTask, AbandonedCartWorker>();
         services.AddSingleton<IScheduledTask, LowStockAlertWorker>();
         services.AddSingleton<IScheduledTask, TrackingSyncWorker>();
+        services.AddSingleton<IScheduledTask, CurrencyRateRefreshWorker>();
         services.AddSingleton<IScheduledTask, DatabaseCleanupWorker>();
+        services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.WebhookDispatchWorker>();
+        // Webhooks: domain event bus that enqueues signed deliveries (WO-5).
+        services.AddScoped<IDomainEventBus, VSky.Infrastructure.Webhooks.DomainEventBus>();
         services.AddHostedService<TaskSchedulerService>();
 
         return services;

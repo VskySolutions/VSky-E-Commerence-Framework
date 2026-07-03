@@ -25,7 +25,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Address", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AddressLine1")
@@ -115,7 +114,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.AdminAlert", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AlertType")
@@ -167,7 +165,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ApiKey", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -274,7 +271,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.AuditTrail", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Action")
@@ -323,7 +319,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.BackgroundTaskLog", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("CompletedOnUtc")
@@ -355,8 +350,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Cart", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("AbandonmentNotifiedOnUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<string>("AppliedCouponCode")
                         .HasMaxLength(64)
@@ -407,7 +404,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.CartItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("CartId")
@@ -448,7 +444,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Category", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CanonicalUrl")
@@ -518,10 +513,81 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("Categories", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CategoryRoleRestriction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("CustomerRoleId");
+
+                    b.HasIndex("CategoryId", "CustomerRoleId")
+                        .IsUnique();
+
+                    b.ToTable("CategoryRoleRestrictions", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ContentTranslation", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("EntityId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EntityType")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("FieldName")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("LanguageCode")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EntityType", "EntityId");
+
+                    b.HasIndex("EntityType", "EntityId", "FieldName", "LanguageCode")
+                        .IsUnique();
+
+                    b.ToTable("ContentTranslations", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.CouponCode", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Code")
@@ -582,7 +648,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Customer", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -649,10 +714,109 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("Customers", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerGroupPrice", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerRoleId");
+
+                    b.HasIndex("ProductId", "ProductVariantId");
+
+                    b.ToTable("CustomerGroupPrices", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerRole", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<decimal?>("DiscountPercent")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("decimal(5,2)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("PricingRuleType")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("CustomerRoles", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerRoleAssignment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("CustomerRoleId");
+
+                    b.HasIndex("CustomerId", "CustomerRoleId")
+                        .IsUnique();
+
+                    b.ToTable("CustomerRoleAssignments", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.DeliveryZone", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
@@ -705,7 +869,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Discount", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CategoryId")
@@ -773,7 +936,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.EmailQueue", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("AttemptCount")
@@ -830,7 +992,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.EmailTemplate", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("Category")
@@ -891,7 +1052,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.GroupedProductMember", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("DisplayOrder")
@@ -916,7 +1076,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.InventoryLevel", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -965,10 +1124,57 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("InventoryLevels", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.Language", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("nvarchar(16)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("NativeName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("Languages", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Manufacturer", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -1036,7 +1242,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.MarketingSuppression", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("RecipientEmail")
@@ -1063,7 +1268,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Order", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AddressLine1")
@@ -1127,6 +1331,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<string>("ExcludedStoreIdsJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<bool>("IsPickup")
+                        .HasColumnType("bit");
+
                     b.Property<double?>("Latitude")
                         .HasColumnType("float");
 
@@ -1187,6 +1394,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<bool>("TaxFlaggedForReview")
                         .HasColumnType("bit");
 
+                    b.Property<string>("TaxProviderCalculationRef")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("TaxTotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
@@ -1222,7 +1432,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.OrderLineItem", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("LineTotal")
@@ -1246,6 +1455,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<int>("QuantityShipped")
+                        .HasColumnType("int");
+
                     b.Property<string>("Sku")
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
@@ -1266,7 +1478,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.OrderStatusHistory", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ChangedById")
@@ -1298,7 +1509,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.PaymentRecord", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Amount")
@@ -1378,7 +1588,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.PlatformSetting", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("Category")
@@ -1428,7 +1637,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Product", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("AllowBackorder")
@@ -1533,7 +1741,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductAttribute", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -1574,7 +1781,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductAttributeMapping", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("DisplayOrder")
@@ -1599,7 +1805,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductAttributeValue", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -1635,7 +1840,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductCategory", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("CategoryId")
@@ -1660,7 +1864,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductDownload", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -1704,7 +1907,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductImage", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AltText")
@@ -1756,7 +1958,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductRelationship", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -1792,10 +1993,32 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductRelationships", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.ProductRoleRestriction", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CustomerRoleId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerRoleId");
+
+                    b.HasIndex("ProductId");
+
+                    b.HasIndex("ProductId", "CustomerRoleId")
+                        .IsUnique();
+
+                    b.ToTable("ProductRoleRestrictions", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.ProductSpecificationValue", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProductId")
@@ -1817,7 +2040,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductTag", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -1859,7 +2081,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductTagMapping", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProductId")
@@ -1881,7 +2102,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductVariant", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<bool>("AllowBackorder")
@@ -1901,6 +2121,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
+
+                    b.Property<DateTime?>("EstimatedRestockDate")
+                        .HasColumnType("datetime2");
 
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("bit");
@@ -1937,7 +2160,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductVariantAttributeValue", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("ProductAttributeValueId")
@@ -1959,7 +2181,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.RecaptchaConfig", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2027,7 +2248,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.RefreshToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CreatedByIp")
@@ -2064,10 +2284,125 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("RefreshTokens", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.Rma", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<decimal?>("RefundedAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime>("RequestedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Resolution")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ResolutionNotes")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<Guid?>("ResolvedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ResolvedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("RmaNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("RmaNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.ToTable("Rmas", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.RmaLineItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("LineReason")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<Guid>("OrderLineItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid?>("ProductVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("RmaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RmaId");
+
+                    b.ToTable("RmaLineItems", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Role", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.PrimitiveCollection<string>("AccessibleModules")
@@ -2114,7 +2449,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.SettingsChangeHistory", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("ActorId")
@@ -2145,10 +2479,166 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("SettingsChangeHistory", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.Shipment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Carrier")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("DeliveredOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LabelAssetKey")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTime?>("LabelGeneratedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LabelPdfUrl")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.Property<DateTime?>("LastPolledOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<Guid>("OrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ServiceName")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<string>("ShipmentNumber")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTime?>("ShippedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("TrackingNumber")
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OrderId");
+
+                    b.HasIndex("ShipmentNumber")
+                        .IsUnique();
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("TrackingNumber");
+
+                    b.ToTable("Shipments", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ShipmentLineItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("OrderLineItemId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ProductName")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<Guid?>("ProductVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Sku")
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.ToTable("ShipmentLineItems", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ShipmentTracking", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CheckpointOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<string>("Location")
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<int>("NormalizedStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RawStatus")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("RecordedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ShipmentId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShipmentId");
+
+                    b.ToTable("ShipmentTrackingEvents", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethod", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2202,7 +2692,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethodZoneRate", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<decimal>("Rate")
@@ -2228,7 +2717,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ShippingZone", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("CountryCode")
@@ -2282,7 +2770,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.SmtpAccount", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("AuthMethod")
@@ -2347,7 +2834,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.SpecificationAttribute", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2387,7 +2873,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.SpecificationAttributeOption", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2420,10 +2905,63 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("SpecificationAttributeOptions", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.StateNexusAccumulator", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("GrossSales")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<DateTime?>("LastAlertedAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("PeriodStartUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("StateCode")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("nvarchar(8)");
+
+                    b.Property<decimal>("ThresholdAmount")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<int?>("ThresholdTransactions")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TransactionCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<decimal>("WarningPercent")
+                        .HasPrecision(5, 4)
+                        .HasColumnType("decimal(5,4)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StateCode", "PeriodStartUtc")
+                        .IsUnique();
+
+                    b.ToTable("StateNexusAccumulators", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Store", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AddressLine1")
@@ -2497,6 +3035,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<int?>("OrderCapacityLimit")
                         .HasColumnType("int");
 
+                    b.Property<bool>("PickupEnabled")
+                        .HasColumnType("bit");
+
                     b.Property<string>("PostalCode")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
@@ -2524,7 +3065,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.StoreManagerAssignment", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2558,7 +3098,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.SupportedCurrency", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2610,7 +3149,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.TaxCategory", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2658,7 +3196,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.TaxProviderConfiguration", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<int>("ActiveProvider")
@@ -2694,7 +3231,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.TenantBranding", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("AccentColor")
@@ -2768,7 +3304,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.TenantCredential", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime>("CreatedOnUtc")
@@ -2806,7 +3341,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.TierPrice", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2846,7 +3380,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.User", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid?>("CreatedById")
@@ -2925,7 +3458,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.UserToken", b =>
                 {
                     b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<DateTime?>("ConsumedOnUtc")
@@ -2955,6 +3487,199 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.HasIndex("UserId", "Purpose");
 
                     b.ToTable("UserTokens", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WebhookDelivery", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime?>("LastAttemptOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("LastResponseBody")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<int?>("LastResponseStatus")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("NextAttemptOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("OccurredAtUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PayloadJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SubscriptionId");
+
+                    b.HasIndex("Status", "NextAttemptOnUtc");
+
+                    b.ToTable("WebhookDeliveries", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WebhookSubscription", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Secret")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("nvarchar(256)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("WebhookSubscriptions", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WebhookSubscriptionEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("EventType")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<Guid>("SubscriptionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("EventType");
+
+                    b.HasIndex("SubscriptionId", "EventType");
+
+                    b.ToTable("WebhookSubscriptionEvents", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Wishlist", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("Wishlists", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WishlistItem", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductVariantId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("WishlistId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("WishlistId", "ProductId");
+
+                    b.ToTable("WishlistItems", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.Address", b =>
@@ -2999,6 +3724,17 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CategoryRoleRestriction", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
+                        .WithMany()
+                        .HasForeignKey("CustomerRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CustomerRole");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.CouponCode", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Discount", "Discount")
@@ -3019,6 +3755,28 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerGroupPrice", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
+                        .WithMany("GroupPrices")
+                        .HasForeignKey("CustomerRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CustomerRole");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerRoleAssignment", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
+                        .WithMany()
+                        .HasForeignKey("CustomerRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CustomerRole");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.DeliveryZone", b =>
@@ -3242,6 +4000,17 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("RelatedProduct");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.ProductRoleRestriction", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
+                        .WithMany()
+                        .HasForeignKey("CustomerRoleId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CustomerRole");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.ProductSpecificationValue", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Product", "Product")
@@ -3319,6 +4088,61 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Rma", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.RmaLineItem", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Rma", "Rma")
+                        .WithMany("Lines")
+                        .HasForeignKey("RmaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Rma");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Shipment", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Order", "Order")
+                        .WithMany()
+                        .HasForeignKey("OrderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Order");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ShipmentLineItem", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Shipment", "Shipment")
+                        .WithMany("Lines")
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Shipment");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ShipmentTracking", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Shipment", "Shipment")
+                        .WithMany("TrackingEvents")
+                        .HasForeignKey("ShipmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Shipment");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethodZoneRate", b =>
@@ -3417,6 +4241,50 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.WebhookDelivery", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.WebhookSubscription", "Subscription")
+                        .WithMany()
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WebhookSubscriptionEvent", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.WebhookSubscription", "Subscription")
+                        .WithMany("Events")
+                        .HasForeignKey("SubscriptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Subscription");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Wishlist", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Customer", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WishlistItem", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Wishlist", "Wishlist")
+                        .WithMany("Items")
+                        .HasForeignKey("WishlistId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Wishlist");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Cart", b =>
                 {
                     b.Navigation("Items");
@@ -3427,6 +4295,11 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Children");
 
                     b.Navigation("ProductCategories");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerRole", b =>
+                {
+                    b.Navigation("GroupPrices");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.Discount", b =>
@@ -3496,9 +4369,21 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("TierPrices");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.Rma", b =>
+                {
+                    b.Navigation("Lines");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Role", b =>
                 {
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Shipment", b =>
+                {
+                    b.Navigation("Lines");
+
+                    b.Navigation("TrackingEvents");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethod", b =>
@@ -3538,6 +4423,16 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("RefreshTokens");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.WebhookSubscription", b =>
+                {
+                    b.Navigation("Events");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Wishlist", b =>
+                {
+                    b.Navigation("Items");
                 });
 #pragma warning restore 612, 618
         }

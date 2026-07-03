@@ -17,10 +17,9 @@ $info      : #0277BD;
 $warning   : #F9A825;
 
 // ---- Typography ------------------------------------------------------------
-// Poppins first, gracefully falling back to Roboto (loaded via extras) then
-// the platform sans-serif stack.
-$typography-font-family: 'Poppins', 'Roboto', -apple-system, 'Helvetica Neue',
-  Helvetica, Arial, sans-serif;
+// Poppins (self-hosted via @fontsource, loaded in boot/fonts.js) is the admin
+// portal's default font, falling back to the platform sans-serif stack.
+$typography-font-family: 'Poppins', sans-serif;
 
 // ---- Layout tokens ---------------------------------------------------------
 $app-drawer-width: 292px;

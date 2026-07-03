@@ -24,6 +24,10 @@ public enum OrderStatus
     Cancelled = 8,
     /// <summary>Placed and confirmed (post-checkout initial lifecycle state; WO-45 AC-ORD-001.1).</summary>
     Pending = 9,
+
+    /// <summary>A pickup-in-store order that is prepared and awaiting collection (REQ-SHP-004).</summary>
+    ReadyForPickup = 11,
+
     /// <summary>Being prepared for fulfilment (WO-45 lifecycle; synonym of Preparing).</summary>
     Processing = 10
 }

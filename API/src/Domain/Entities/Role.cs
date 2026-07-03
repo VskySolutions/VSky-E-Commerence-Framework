@@ -2,7 +2,7 @@ using VSky.Domain.Common;
 
 namespace VSky.Domain.Entities;
 
-/// <summary>A role that can be assigned to users. System roles (SuperAdmin/TenantAdmin/Operator) are seeded.</summary>
+/// <summary>A role that can be assigned to users. System roles (SuperAdmin/TenantAdmin) are seeded.</summary>
 public class Role : AuditableEntity
 {
     public string Name { get; set; } = string.Empty;

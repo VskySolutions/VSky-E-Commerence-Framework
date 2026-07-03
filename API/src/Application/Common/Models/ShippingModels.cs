@@ -35,3 +35,22 @@ public record ShippingRateOption(
     string Carrier,
     int? EstimatedDeliveryDays,
     decimal Rate);
+
+/// <summary>Input to a carrier label request (WO-42): shipment endpoints, weight, service and a reference.</summary>
+public record CarrierLabelRequest(
+    CarrierAddress Origin,
+    CarrierAddress Destination,
+    decimal WeightKg,
+    string? ServiceCode,
+    string Reference);
+
+/// <summary>Result of a carrier label generation: the tracking number and a downloadable label URL (WO-42).</summary>
+public record ShipmentLabelResult(string Carrier, string? TrackingNumber, string? LabelPdfUrl);
+
+/// <summary>A normalized carrier tracking checkpoint (WO-42). <see cref="NormalizedStatus"/> maps onto ShipmentStatus.</summary>
+public record CarrierTrackingResult(
+    string RawStatus,
+    VSky.Domain.Enums.ShipmentStatus NormalizedStatus,
+    string? Description,
+    string? Location,
+    DateTime CheckpointOnUtc);

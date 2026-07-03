@@ -1,6 +1,8 @@
+using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Features.Inventory;
 using VSky.Domain.Entities;
 
 namespace VSky.Infrastructure.Inventory;
@@ -17,11 +19,13 @@ public class InventoryService : IInventoryService
 {
     private readonly IApplicationDbContext _db;
     private readonly IAdminAlertService _alerts;
+    private readonly IPublisher _publisher;
 
-    public InventoryService(IApplicationDbContext db, IAdminAlertService alerts)
+    public InventoryService(IApplicationDbContext db, IAdminAlertService alerts, IPublisher publisher)
     {
         _db = db;
         _alerts = alerts;
+        _publisher = publisher;
     }
 
     public async Task<bool> DecrementStockAsync(Guid productId, Guid? variantId, Guid storeId, int quantity, CancellationToken ct = default)
@@ -56,9 +60,11 @@ public class InventoryService : IInventoryService
         if (level is null)
             return;
 
+        var previous = level.StockQuantity;
         level.StockQuantity += quantity;
         ClearAlertIfReplenished(level);
         await _db.SaveChangesAsync(ct);
+        await PublishReplenishedIfCrossedAsync(level, previous, quantity, ct);
     }
 
     public async Task MarkAsReceivedAsync(Guid productId, Guid? variantId, Guid storeId, int quantityAccepted, CancellationToken ct = default)
@@ -67,14 +73,18 @@ public class InventoryService : IInventoryService
         if (level is null)
             return;
 
+        var previous = level.StockQuantity;
         level.StockQuantity += quantityAccepted;
         ClearAlertIfReplenished(level);
         await _db.SaveChangesAsync(ct);
+        await PublishReplenishedIfCrossedAsync(level, previous, quantityAccepted, ct);
     }
 
     public async Task<int> SetStockLevelAsync(Guid productId, Guid? variantId, Guid storeId, int quantity, int? lowStockThreshold, CancellationToken ct = default)
     {
         var level = await FindLevelAsync(productId, variantId, storeId, ct);
+        var existedBefore = level is not null;
+        var previous = level?.StockQuantity ?? 0;
         if (level is null)
         {
             await EnsureProductAndStoreExistAsync(productId, variantId, storeId, ct);
@@ -94,12 +104,16 @@ public class InventoryService : IInventoryService
         ClearAlertIfReplenished(level);
         await _db.SaveChangesAsync(ct);
         await CheckLowStockAsync(level, ct);
+        if (existedBefore)
+            await PublishReplenishedIfCrossedAsync(level, previous, level.StockQuantity - previous, ct);
         return level.StockQuantity;
     }
 
     public async Task<int> AdjustStockAsync(Guid productId, Guid? variantId, Guid storeId, int delta, CancellationToken ct = default)
     {
         var level = await FindLevelAsync(productId, variantId, storeId, ct);
+        var existedBefore = level is not null;
+        var previous = level?.StockQuantity ?? 0;
         if (level is null)
         {
             await EnsureProductAndStoreExistAsync(productId, variantId, storeId, ct);
@@ -116,6 +130,8 @@ public class InventoryService : IInventoryService
         ClearAlertIfReplenished(level);
         await _db.SaveChangesAsync(ct);
         await CheckLowStockAsync(level, ct);
+        if (existedBefore)
+            await PublishReplenishedIfCrossedAsync(level, previous, delta, ct);
         return level.StockQuantity;
     }
 
@@ -185,6 +201,17 @@ public class InventoryService : IInventoryService
             level.LowStockAlerted = true;
             await _db.SaveChangesAsync(ct);
         }
+    }
+
+    /// <summary>
+    /// Publishes <see cref="InventoryReplenished"/> when a level crosses from ≤0 (backordered/out of stock)
+    /// back to positive, so the backorder fulfilment worker can release waiting orders (AC-CAT-013.4).
+    /// </summary>
+    private async Task PublishReplenishedIfCrossedAsync(InventoryLevel level, int previousQty, int quantityAdded, CancellationToken ct)
+    {
+        if (previousQty <= 0 && level.StockQuantity > 0 && quantityAdded > 0)
+            await _publisher.Publish(
+                new InventoryReplenished(level.ProductId, level.ProductVariantId, level.StoreId, quantityAdded), ct);
     }
 
     /// <summary>Clears the alert guard once stock rises back above the threshold so alerting can re-arm.</summary>

@@ -15,9 +15,21 @@
     @request="onRequest"
     @update:selected="$emit('update:selected', $event)"
   >
-    <!-- Forward all parent-provided slots (body-cell-*, top, header, ...). -->
+    <!-- Forward all parent-provided slots (body-cell-*, header, ...). -->
     <template v-for="name in forwardedSlots" #[name]="slotProps" :key="name">
       <slot :name="name" v-bind="slotProps || {}" />
+    </template>
+
+    <!-- Standardized card header: a parent `top` slot wins; otherwise a title + refresh. -->
+    <template v-if="hasSlot('top') || title" #top="slotProps">
+      <slot name="top" v-bind="slotProps || {}">
+        <div class="row items-center full-width no-wrap">
+          <div class="app-section__title col ellipsis">{{ title }}</div>
+          <q-btn flat round dense icon="o_refresh" :aria-label="refreshLabel" @click="$emit('refresh')">
+            <q-tooltip>{{ refreshLabel }}</q-tooltip>
+          </q-btn>
+        </div>
+      </slot>
     </template>
 
     <!-- Actions column cell -->
@@ -72,17 +84,19 @@ const props = defineProps({
   selected: { type: Array, default: () => [] },
   showActions: { type: Boolean, default: false },
   actionsLabel: { type: String, default: 'Actions' },
-  noDataLabel: { type: String, default: 'No data available' }
+  noDataLabel: { type: String, default: 'No data available' },
+  title: { type: String, default: '' },
+  refreshLabel: { type: String, default: 'Refresh' }
 })
 
-const emit = defineEmits(['request', 'update:pagination', 'update:selected'])
+const emit = defineEmits(['request', 'update:pagination', 'update:selected', 'refresh'])
 
 const slots = useSlots()
 function hasSlot (name) {
   return Object.prototype.hasOwnProperty.call(slots, name)
 }
 const forwardedSlots = computed(() =>
-  Object.keys(slots).filter((name) => name !== 'actions' && name !== 'actions-menu')
+  Object.keys(slots).filter((name) => name !== 'actions' && name !== 'actions-menu' && name !== 'top')
 )
 
 const prefs = usePreferences(props.pageKey)

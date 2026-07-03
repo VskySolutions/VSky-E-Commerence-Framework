@@ -96,3 +96,4 @@ yarn-error.log*
 
 # Uploaded media (runtime/local + test artifacts)
 media-uploads/
+API/src/API/wwwroot/uploads/

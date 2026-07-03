@@ -52,6 +52,12 @@ export default [
         component: () => import('modules/storefront/pages/cart.vue')
       },
       {
+        path: 'wishlist',
+        name: 'shop-wishlist',
+        meta: { title: 'Wishlist' },
+        component: () => import('modules/storefront/pages/wishlist.vue')
+      },
+      {
         path: 'checkout',
         name: 'shop-checkout',
         meta: { title: 'Checkout' },

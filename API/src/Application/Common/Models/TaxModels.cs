@@ -23,13 +23,22 @@ public record TaxLineInput(
 
 /// <summary>
 /// Input to a tax calculation: the ship-from <see cref="Origin"/>, ship-to <see cref="Destination"/>,
-/// the taxable <see cref="Lines"/> and the (separately taxable) <see cref="ShippingAmount"/>.
+/// the taxable <see cref="Lines"/>, the (separately taxable) <see cref="ShippingAmount"/> and an optional
+/// customer <see cref="Exemption"/> (REQ-TAX-003).
 /// </summary>
 public record TaxCalculationRequest(
     TaxAddress Origin,
     TaxAddress Destination,
     List<TaxLineInput> Lines,
-    decimal ShippingAmount);
+    decimal ShippingAmount,
+    TaxExemption? Exemption = null);
+
+/// <summary>
+/// A customer's tax-exemption status carried into a calculation (AC-TAX-003.3). When
+/// <see cref="IsExempt"/> is set the calculation yields zero tax; the certificate / VAT id are captured
+/// for the audit trail and, where supported, forwarded to the provider.
+/// </summary>
+public record TaxExemption(bool IsExempt, string? CertificateNumber = null, string? VatId = null);
 
 /// <summary>
 /// One jurisdiction's contribution to the total tax (e.g. country/state/county/city/special district).
@@ -49,4 +58,5 @@ public record TaxJurisdiction(
 public record TaxBreakdown(
     decimal TotalTax,
     List<TaxJurisdiction> Jurisdictions,
-    bool FallbackApplied);
+    bool FallbackApplied,
+    string? ProviderReference = null);

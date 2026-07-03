@@ -30,6 +30,8 @@ public static class Modules
     public const string Payments = "Payments";
     public const string Tax = "Tax";
     public const string Orders = "Orders";
+    public const string Webhooks = "Webhooks";
+    public const string Languages = "Languages";
 
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
@@ -54,6 +56,8 @@ public static class Modules
         new(Payments, "Payment Management"),
         new(Tax, "Tax Configuration"),
         new(Orders, "Order Management"),
+        new(Webhooks, "Webhooks"),
+        new(Languages, "Languages & Translations"),
     };
 
     private static readonly HashSet<string> Keys = new(All.Select(m => m.Key), StringComparer.Ordinal);

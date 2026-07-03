@@ -1,11 +1,10 @@
 namespace VSky.Domain.Enums;
 
-/// <summary>Three-tier authorization model (API Server blueprint, System Contracts).</summary>
+/// <summary>Two-tier authorization model (API Server blueprint, System Contracts).</summary>
 public enum RoleType
 {
     SuperAdmin = 0,
-    TenantAdmin = 1,
-    Operator = 2
+    TenantAdmin = 1
 }
 
 /// <summary>Notification category that drives SMTP account resolution and suppression checks.</summary>

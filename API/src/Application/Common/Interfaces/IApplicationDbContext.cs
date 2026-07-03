@@ -60,25 +60,49 @@ public interface IApplicationDbContext
     DbSet<Address> Addresses { get; }
     DbSet<UserToken> UserTokens { get; }
 
+    // Customer roles + group pricing (WO-22)
+    DbSet<CustomerRole> CustomerRoles { get; }
+    DbSet<CustomerRoleAssignment> CustomerRoleAssignments { get; }
+    DbSet<CustomerGroupPrice> CustomerGroupPrices { get; }
+    DbSet<ProductRoleRestriction> ProductRoleRestrictions { get; }
+    DbSet<CategoryRoleRestriction> CategoryRoleRestrictions { get; }
+
     // Orders & store fulfilment (WO-51, WO-52)
     DbSet<Order> Orders { get; }
     DbSet<OrderLineItem> OrderLineItems { get; }
     DbSet<StoreManagerAssignment> StoreManagerAssignments { get; }
+    DbSet<Shipment> Shipments { get; }
+    DbSet<ShipmentLineItem> ShipmentLineItems { get; }
+    DbSet<ShipmentTracking> ShipmentTrackingEvents { get; }
+    DbSet<Rma> Rmas { get; }
+    DbSet<RmaLineItem> RmaLineItems { get; }
 
     // Commerce — pricing, cart, shipping, payments, tax (Phase 3)
     DbSet<Discount> Discounts { get; }
     DbSet<CouponCode> CouponCodes { get; }
     DbSet<Cart> Carts { get; }
     DbSet<CartItem> CartItems { get; }
+    DbSet<Wishlist> Wishlists { get; }
+    DbSet<WishlistItem> WishlistItems { get; }
     DbSet<ShippingMethod> ShippingMethods { get; }
     DbSet<ShippingZone> ShippingZones { get; }
     DbSet<ShippingMethodZoneRate> ShippingMethodZoneRates { get; }
     DbSet<PaymentRecord> PaymentRecords { get; }
     DbSet<TaxProviderConfiguration> TaxProviderConfigurations { get; }
+    DbSet<StateNexusAccumulator> StateNexusAccumulators { get; }
     DbSet<OrderStatusHistory> OrderStatusHistory { get; }
 
     // Security config (WO-106)
     DbSet<RecaptchaConfig> RecaptchaConfigs { get; }
+
+    // Webhooks (WO-5)
+    DbSet<WebhookSubscription> WebhookSubscriptions { get; }
+    DbSet<WebhookSubscriptionEvent> WebhookSubscriptionEvents { get; }
+    DbSet<WebhookDelivery> WebhookDeliveries { get; }
+
+    // Localization (WO-18)
+    DbSet<Language> Languages { get; }
+    DbSet<ContentTranslation> ContentTranslations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

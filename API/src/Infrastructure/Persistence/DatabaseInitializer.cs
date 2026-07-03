@@ -38,6 +38,7 @@ public class DatabaseInitializer
         await SeedPlatformSettingsAsync(cancellationToken);
         await SeedEmailTemplatesAsync(cancellationToken);
         await SeedBaseCurrencyAsync(cancellationToken);
+        await SeedTaxCategoriesAsync(cancellationToken);
     }
 
     private async Task SeedRolesAsync(CancellationToken ct)
@@ -46,7 +47,6 @@ public class DatabaseInitializer
         {
             (nameof(RoleType.SuperAdmin), "Platform-wide access."),
             (nameof(RoleType.TenantAdmin), "Full access within the deployment."),
-            (nameof(RoleType.Operator), "Restricted module-level permissions."),
         };
 
         var existing = await _db.Roles.Select(r => r.Name).ToListAsync(ct);
@@ -115,6 +115,24 @@ public class DatabaseInitializer
         });
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Seeded default base currency (USD).");
+    }
+
+    private async Task SeedTaxCategoriesAsync(CancellationToken ct)
+    {
+        // Every product must reference a tax category (AC-CAT-001.6); guarantee at least one exists so
+        // the catalog is usable out of the box. Authoritative rates are owned by the Tax feature.
+        if (await _db.TaxCategories.AnyAsync(ct))
+            return;
+
+        _db.TaxCategories.Add(new TaxCategory
+        {
+            Name = "Standard",
+            Description = "Default tax category.",
+            DisplayOrder = 0,
+            IsActive = true,
+        });
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Seeded default tax category (Standard).");
     }
 }
 

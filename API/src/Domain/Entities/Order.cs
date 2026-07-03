@@ -34,6 +34,9 @@ public class Order : AuditableEntity, ISoftDeletable
 
     // Routing outcome.
     public Guid? AssignedStoreId { get; set; }
+
+    /// <summary>True when the order is fulfilled by pickup-in-store rather than carrier delivery (REQ-SHP-004).</summary>
+    public bool IsPickup { get; set; }
     public Store? AssignedStore { get; set; }
     public DateTime PlacedOnUtc { get; set; }
     public DateTime? RoutedOnUtc { get; set; }
@@ -53,6 +56,8 @@ public class Order : AuditableEntity, ISoftDeletable
     public string? TaxBreakdownJson { get; set; }
     /// <summary>Set when the flat-rate tax fallback was applied and the order needs tax review (AC-TAX-001.4).</summary>
     public bool TaxFlaggedForReview { get; set; }
+    /// <summary>Provider calculation reference captured at placement, used for transaction reporting (e.g. Stripe Tax calculation id; WO-37).</summary>
+    public string? TaxProviderCalculationRef { get; set; }
 
     public string? AppliedCouponCode { get; set; }
 

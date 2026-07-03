@@ -63,6 +63,15 @@
               no-caps
               @click="onToggleCompare"
             />
+            <q-btn
+              outline
+              color="pink-6"
+              icon="o_favorite_border"
+              label="Wishlist"
+              no-caps
+              :loading="addingToWishlist"
+              @click="onAddToWishlist"
+            />
           </div>
 
           <div v-if="product.tagNames && product.tagNames.length" class="q-mt-lg">
@@ -122,7 +131,7 @@
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { storefrontApi, formatPrice } from 'modules/storefront/api'
+import { storefrontApi, wishlistApi, formatPrice } from 'modules/storefront/api'
 import { useRecentlyViewed, useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useNotify } from 'composables/useNotify'
@@ -142,6 +151,7 @@ const product = ref(null)
 const loading = ref(false)
 const variantId = ref(null)
 const addingToCart = ref(false)
+const addingToWishlist = ref(false)
 
 // ProductGalleryView requires a stable per-image id (the DTO omits one).
 const galleryImages = computed(() =>
@@ -168,6 +178,22 @@ const availability = computed(() => {
 })
 
 const inCompare = computed(() => (product.value ? has(product.value.id) : false))
+
+// Save the current product/variant to the authenticated customer's wishlist (WO-29). The wishlist is
+// registered-buyers-only, so an unauthenticated shopper is nudged to sign in rather than erroring.
+async function onAddToWishlist () {
+  if (!product.value) return
+  addingToWishlist.value = true
+  try {
+    await wishlistApi.addItem({ productId: product.value.id, productVariantId: variantId.value || null })
+    notify.success('Saved to your wishlist')
+  } catch (err) {
+    if (err?.response?.status === 401) notify.warning('Sign in to save items to your wishlist')
+    else notify.error(getApiErrorMessage(err))
+  } finally {
+    addingToWishlist.value = false
+  }
+}
 
 const sections = computed(() =>
   [

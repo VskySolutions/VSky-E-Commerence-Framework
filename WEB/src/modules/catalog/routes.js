@@ -7,6 +7,13 @@ export default [
     component: () => import('modules/catalog/pages/products.vue')
   },
   {
+    // Create: the same detail page in "create mode" (must precede the :id route).
+    path: 'catalog/products/new',
+    name: 'catalog-product-new',
+    meta: { title: 'New product', permissions: ['Catalog.Write'] },
+    component: () => import('modules/catalog/pages/product-detail.vue')
+  },
+  {
     path: 'catalog/products/:id',
     name: 'catalog-product-detail',
     meta: { title: 'Product', permissions: ['Catalog.Read'] },

@@ -75,8 +75,6 @@ public static class DependencyInjection
                 p.RequireRole(nameof(RoleType.SuperAdmin)));
             options.AddPolicy(Policies.TenantAdmin, p =>
                 p.RequireRole(nameof(RoleType.SuperAdmin), nameof(RoleType.TenantAdmin)));
-            options.AddPolicy(Policies.Operator, p =>
-                p.RequireRole(nameof(RoleType.SuperAdmin), nameof(RoleType.TenantAdmin), nameof(RoleType.Operator)));
         });
 
         // Module-based access ([RequireModule(...)]): dynamic "module:*" policies + handler.

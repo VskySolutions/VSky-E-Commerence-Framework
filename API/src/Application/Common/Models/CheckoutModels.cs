@@ -29,7 +29,9 @@ public record CheckoutQuoteRequest(
     Guid? CartId,
     string? SessionId,
     CheckoutAddress ShipTo,
-    string? ShippingMethodId);
+    string? ShippingMethodId,
+    bool PickupInStore = false,
+    Guid? PickupStoreId = null);
 
 /// <summary>
 /// The priced outcome of a checkout quote: the cart subtotal, itemized discounts, the available
@@ -66,7 +68,9 @@ public record PlaceCheckoutRequest(
     PaymentMethodType PaymentMethod,
     string? PaymentToken,
     string? CouponCode,
-    string? RecaptchaToken = null);
+    string? RecaptchaToken = null,
+    bool PickupInStore = false,
+    Guid? PickupStoreId = null);
 
 /// <summary>
 /// The outcome of placing a checkout: the created order's id/number/status and grand total, the

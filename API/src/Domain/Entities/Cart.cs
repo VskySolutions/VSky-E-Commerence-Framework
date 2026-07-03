@@ -18,6 +18,9 @@ public class Cart : AuditableEntity, ISoftDeletable
     public string CurrencyCode { get; set; } = "USD";
     public bool IsCheckedOut { get; set; }
 
+    /// <summary>When a recovery email was sent for this abandoned cart; null = not yet notified (WO-31).</summary>
+    public DateTime? AbandonmentNotifiedOnUtc { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 

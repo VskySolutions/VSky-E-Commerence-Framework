@@ -19,4 +19,9 @@ public class AdminTaxController : ApiControllerBase
     [HttpPut]
     public async Task<ActionResult<TaxConfigurationDto>> Update([FromBody] UpdateTaxConfigurationCommand command)
         => Ok(await Mediator.Send(command));
+
+    /// <summary>US economic-nexus status per state (gross sales / transactions vs statutory thresholds).</summary>
+    [HttpGet("nexus-status")]
+    public async Task<ActionResult<List<NexusStateStatusDto>>> NexusStatus([FromQuery] int? year = null)
+        => Ok(await Mediator.Send(new GetNexusStatusQuery(year)));
 }

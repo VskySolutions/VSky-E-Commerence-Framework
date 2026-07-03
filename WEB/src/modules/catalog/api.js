@@ -114,6 +114,18 @@ export const manufacturerApi = {
   }
 }
 
+// ---- Tax categories ---------------------------------------------------------
+export const taxCategoryApi = {
+  list (params = {}) {
+    return api
+      .get('/api/admin/tax-categories', { params, paramsSerializer: qsSerializer })
+      .then(unwrap)
+  },
+  create (payload) {
+    return api.post('/api/admin/tax-categories', payload).then(unwrap)
+  }
+}
+
 // ---- Product attributes (read-only helper for variant generation) -----------
 export const productAttributeApi = {
   list (params = {}) {
@@ -154,6 +166,7 @@ export default {
   productApi,
   categoryApi,
   manufacturerApi,
+  taxCategoryApi,
   productAttributeApi,
   productTypeOptions,
   giftCardTypeOptions,

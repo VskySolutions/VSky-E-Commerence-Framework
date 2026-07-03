@@ -51,13 +51,21 @@
     <AppDataTable
       page-key="catalog-products"
       row-key="id"
+      title="All products"
       :rows="rows"
       :columns="columns"
       :loading="loading"
       :pagination="pagination"
       show-actions
       @request="onRequest"
+      @refresh="reload"
     >
+      <template #body-cell-name="cell">
+        <q-td :props="cell">
+          <a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.name }}</a>
+        </q-td>
+      </template>
+
       <template #body-cell-productType="cell">
         <q-td :props="cell">
           <q-badge outline color="primary" :label="productTypeLabel(cell.row.productType)" />
@@ -79,32 +87,21 @@
 
       <template #actions="{ row }">
         <q-btn flat round dense icon="o_tune" @click="onManage(row)">
-          <q-tooltip>Manage details</q-tooltip>
-        </q-btn>
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onEdit(row)">
-          <q-tooltip>Edit</q-tooltip>
+          <q-tooltip>Manage</q-tooltip>
         </q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
           <q-tooltip>Delete</q-tooltip>
         </q-btn>
       </template>
     </AppDataTable>
-
-    <ProductFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
   </q-page>
 </template>
 
 <script setup>
 /*
- * Products list page (WO-15): AppListHeader (search + type + published filters)
- * + AppDataTable (server pagination) + ProductFormDrawer. Sub-resources are
- * managed on the product detail page.
+ * Products list page (WO-15; standardized). AppListHeader toolbar (search + type + published filters)
+ * + AppDataTable (server pagination, card title + refresh). Create and edit both use the full-page
+ * product create/detail page (`catalog-product-new` / `catalog-product-detail`) — no drawer.
  */
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -113,7 +110,6 @@ import { productApi, productTypeOptions, productTypeLabel } from 'modules/catalo
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import ProductFormDrawer from 'modules/catalog/components/ProductFormDrawer.vue'
 
 const router = useRouter()
 const notify = useNotify()
@@ -141,10 +137,6 @@ const search = ref('')
 const typeFilter = ref(null)
 const publishedFilter = ref(null)
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0 })
-
-const drawerOpen = ref(false)
-const editing = ref(null)
-const saving = ref(false)
 
 function formatPrice (value) {
   if (value === null || value === undefined) return '—'
@@ -184,42 +176,11 @@ function reload () {
 }
 
 function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
-
-function onEdit (row) {
-  editing.value = { ...row }
-  drawerOpen.value = true
+  router.push({ name: 'catalog-product-new' })
 }
 
 function onManage (row) {
   router.push({ name: 'catalog-product-detail', params: { id: row.id } })
-}
-
-async function onSubmit (payload) {
-  saving.value = true
-  try {
-    if (editing.value && editing.value.id) {
-      await productApi.update(editing.value.id, payload)
-      notify.success('Product updated')
-    } else {
-      const created = await productApi.create(payload)
-      notify.success('Product created')
-      drawerOpen.value = false
-      // Send the user straight to the detail page to manage sub-resources.
-      if (created && created.id) {
-        router.push({ name: 'catalog-product-detail', params: { id: created.id } })
-        return
-      }
-    }
-    drawerOpen.value = false
-    reload()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
 }
 
 async function onDelete (row) {
