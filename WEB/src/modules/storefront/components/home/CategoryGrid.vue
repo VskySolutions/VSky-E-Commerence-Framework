@@ -8,7 +8,7 @@
             <div class="sf-cat-card__overlay">
               <div class="sf-cat-card__name">{{ cat.name }}</div>
               <div v-if="cat.productCount" class="sf-cat-card__count">{{ cat.productCount }} products</div>
-              <span class="sf-cat-card__link">Shop Now <q-icon name="arrow_forward" size="14px" /></span>
+              <span class="sf-cat-card__link">Shop Now <q-icon name="o_arrow_forward" size="14px" /></span>
             </div>
           </router-link>
         </div>

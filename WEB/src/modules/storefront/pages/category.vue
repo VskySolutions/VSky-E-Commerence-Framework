@@ -118,9 +118,9 @@
                 unelevated
                 toggle-color="primary"
                 :options="[
-                  { value: 'grid4', icon: 'grid_view' },
-                  { value: 'grid3', icon: 'grid_on' },
-                  { value: 'list', icon: 'view_list' }
+                  { value: 'grid4', icon: 'o_grid_view' },
+                  { value: 'grid3', icon: 'o_grid_on' },
+                  { value: 'list', icon: 'o_view_list' }
                 ]"
               />
               <q-select

@@ -25,8 +25,8 @@
 
     <div v-for="(val, i) in form.values" :key="val._key" class="row items-center q-col-gutter-xs q-mb-xs no-wrap">
       <div class="col-auto column">
-        <q-btn flat dense round size="sm" icon="keyboard_arrow_up" :disable="i === 0" @click="move(i, -1)" />
-        <q-btn flat dense round size="sm" icon="keyboard_arrow_down" :disable="i === form.values.length - 1" @click="move(i, 1)" />
+        <q-btn flat dense round size="sm" icon="o_keyboard_arrow_up" :disable="i === 0" @click="move(i, -1)" />
+        <q-btn flat dense round size="sm" icon="o_keyboard_arrow_down" :disable="i === form.values.length - 1" @click="move(i, 1)" />
       </div>
       <div v-if="isSwatch" class="col-auto">
         <input

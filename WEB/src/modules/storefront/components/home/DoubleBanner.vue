@@ -7,7 +7,7 @@
             <div class="sf-promo__body">
               <div class="sf-promo__label">{{ b.label }}</div>
               <div class="sf-promo__title">{{ b.title }}</div>
-              <span class="sf-promo__cta">{{ b.cta }} <q-icon name="arrow_forward" size="16px" /></span>
+              <span class="sf-promo__cta">{{ b.cta }} <q-icon name="o_arrow_forward" size="16px" /></span>
             </div>
           </router-link>
         </div>

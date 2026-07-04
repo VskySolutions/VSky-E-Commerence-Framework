@@ -6,7 +6,7 @@
       dense
       unelevated
       class="sf-carousel__arrow sf-carousel__arrow--prev"
-      icon="chevron_left"
+      icon="o_chevron_left"
       color="white"
       text-color="dark"
       @click="scrollBy(-1)"
@@ -22,7 +22,7 @@
       dense
       unelevated
       class="sf-carousel__arrow sf-carousel__arrow--next"
-      icon="chevron_right"
+      icon="o_chevron_right"
       color="white"
       text-color="dark"
       @click="scrollBy(1)"

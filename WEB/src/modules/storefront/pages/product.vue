@@ -62,9 +62,9 @@
             <!-- Quantity + actions -->
             <div class="row items-center q-gutter-md q-mb-md">
               <div class="sf-qty row items-center no-wrap">
-                <q-btn flat dense icon="remove" :disable="quantity <= 1" @click="quantity = Math.max(1, quantity - 1)" />
+                <q-btn flat dense icon="o_remove" :disable="quantity <= 1" @click="quantity = Math.max(1, quantity - 1)" />
                 <input v-model.number="quantity" type="number" min="1" class="sf-qty__input">
-                <q-btn flat dense icon="add" @click="quantity = quantity + 1" />
+                <q-btn flat dense icon="o_add" @click="quantity = quantity + 1" />
               </div>
               <button
                 class="sf-btn sf-btn--primary col"

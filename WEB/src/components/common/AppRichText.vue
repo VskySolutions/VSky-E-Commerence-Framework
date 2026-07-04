@@ -48,7 +48,7 @@ const emit = defineEmits(['update:modelValue'])
 
 const toolbar = [
   ['bold', 'italic', 'underline', 'strike'],
-  [{ label: 'Format', icon: 'format_size', list: 'no-icons', options: ['p', 'h2', 'h3', 'h4'] }],
+  [{ label: 'Format', icon: 'o_format_size', list: 'no-icons', options: ['p', 'h2', 'h3', 'h4'] }],
   ['unordered', 'ordered'],
   ['quote', 'link'],
   ['undo', 'redo'],
@@ -56,7 +56,7 @@ const toolbar = [
 ]
 
 const definitions = {
-  link: { label: 'Link', icon: 'link' }
+  link: { label: 'Link', icon: 'o_link' }
 }
 
 // Placeholder shows only when the editor has no meaningful content.

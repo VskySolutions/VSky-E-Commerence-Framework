@@ -32,8 +32,8 @@
 
     <div v-for="(opt, i) in form.options" :key="opt._key" class="row items-center q-col-gutter-xs q-mb-xs no-wrap">
       <div class="col-auto column">
-        <q-btn flat dense round size="sm" icon="keyboard_arrow_up" :disable="i === 0" @click="move(i, -1)" />
-        <q-btn flat dense round size="sm" icon="keyboard_arrow_down" :disable="i === form.options.length - 1" @click="move(i, 1)" />
+        <q-btn flat dense round size="sm" icon="o_keyboard_arrow_up" :disable="i === 0" @click="move(i, -1)" />
+        <q-btn flat dense round size="sm" icon="o_keyboard_arrow_down" :disable="i === form.options.length - 1" @click="move(i, 1)" />
       </div>
       <div class="col">
         <q-input v-model="opt.value" dense outlined placeholder="Option label" />
