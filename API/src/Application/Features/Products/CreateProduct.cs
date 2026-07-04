@@ -16,6 +16,9 @@ public record CreateProductCommand(
     string? Slug = null,
     string? ShortDescription = null,
     string? FullDescription = null,
+    string? MetaTitle = null,
+    string? MetaDescription = null,
+    string? MetaKeywords = null,
     string? Sku = null,
     decimal? Price = null,
     int StockQuantity = 0,
@@ -25,6 +28,8 @@ public record CreateProductCommand(
     bool IsPublished = false,
     bool ReviewsEnabled = true,
     int DisplayOrder = 0,
+    bool IsFeatured = false,
+    int FeaturedDisplayOrder = 0,
     int? DownloadExpiryDays = null,
     int? DownloadLimit = null,
     GiftCardType? GiftCardType = null,
@@ -38,6 +43,9 @@ public class CreateProductCommandValidator : AbstractValidator<CreateProductComm
         RuleFor(x => x.TaxCategoryId).NotEmpty();
         RuleFor(x => x.Slug).MaximumLength(400);
         RuleFor(x => x.Sku).MaximumLength(400);
+        RuleFor(x => x.MetaTitle).MaximumLength(300);
+        RuleFor(x => x.MetaDescription).MaximumLength(500);
+        RuleFor(x => x.MetaKeywords).MaximumLength(500);
     }
 }
 
@@ -63,6 +71,9 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             ProductType = request.ProductType,
             ShortDescription = request.ShortDescription,
             FullDescription = request.FullDescription,
+            MetaTitle = request.MetaTitle,
+            MetaDescription = request.MetaDescription,
+            MetaKeywords = request.MetaKeywords,
             Sku = request.Sku,
             Price = request.Price,
             StockQuantity = request.StockQuantity,
@@ -73,6 +84,8 @@ public class CreateProductCommandHandler : IRequestHandler<CreateProductCommand,
             IsPublished = request.IsPublished,
             ReviewsEnabled = request.ReviewsEnabled,
             DisplayOrder = request.DisplayOrder,
+            IsFeatured = request.IsFeatured,
+            FeaturedDisplayOrder = request.FeaturedDisplayOrder,
             DownloadExpiryDays = request.DownloadExpiryDays,
             DownloadLimit = request.DownloadLimit,
             GiftCardType = request.GiftCardType,

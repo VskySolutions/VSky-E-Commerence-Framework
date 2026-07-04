@@ -15,7 +15,8 @@ public record ListProductsQuery(
     ProductType? Type = null,
     bool? IsPublished = null,
     Guid? CategoryId = null,
-    Guid? ManufacturerId = null) : IRequest<PaginatedList<ProductListItemDto>>;
+    Guid? ManufacturerId = null,
+    bool? IsFeatured = null) : IRequest<PaginatedList<ProductListItemDto>>;
 
 public class ListProductsQueryHandler : IRequestHandler<ListProductsQuery, PaginatedList<ProductListItemDto>>
 {
@@ -38,6 +39,9 @@ public class ListProductsQueryHandler : IRequestHandler<ListProductsQuery, Pagin
 
         if (request.IsPublished.HasValue)
             query = query.Where(p => p.IsPublished == request.IsPublished.Value);
+
+        if (request.IsFeatured.HasValue)
+            query = query.Where(p => p.IsFeatured == request.IsFeatured.Value);
 
         if (request.ManufacturerId.HasValue)
             query = query.Where(p => p.ManufacturerId == request.ManufacturerId.Value);

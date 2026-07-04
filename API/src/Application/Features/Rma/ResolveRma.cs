@@ -25,17 +25,19 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
     private readonly IInventoryService _inventory;
+    private readonly IStoreCreditService _storeCredit;
     private readonly ISender _mediator;
     private readonly IEmailEnqueuer _emails;
     private readonly IDateTimeProvider _clock;
 
     public ResolveRmaCommandHandler(
         IApplicationDbContext db, ICurrentUserService current, IInventoryService inventory,
-        ISender mediator, IEmailEnqueuer emails, IDateTimeProvider clock)
+        IStoreCreditService storeCredit, ISender mediator, IEmailEnqueuer emails, IDateTimeProvider clock)
     {
         _db = db;
         _current = current;
         _inventory = inventory;
+        _storeCredit = storeCredit;
         _mediator = mediator;
         _emails = emails;
         _clock = clock;
@@ -77,20 +79,39 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
                 await _inventory.MarkAsReceivedAsync(line.ProductId, line.ProductVariantId, storeId, line.Quantity, cancellationToken);
         }
 
-        if (request.Resolution == RmaResolution.Refund)
+        // Resolution-specific downstream flow (AC-ORD-004.3/004.4).
+        switch (request.Resolution)
         {
-            // Amount: explicit, else the returned units' value from the order lines.
-            var amount = request.RefundAmount;
-            if (amount is null)
+            case RmaResolution.Refund:
             {
-                var unitPrices = order.Lines.ToDictionary(l => l.Id, l => l.UnitPrice);
-                amount = rma.Lines.Sum(l => (unitPrices.TryGetValue(l.OrderLineItemId, out var up) ? up : 0m) * l.Quantity);
+                var amount = request.RefundAmount ?? ReturnedValue(order, rma);
+                if (amount > 0)
+                {
+                    await _mediator.Send(new RefundOrderCommand(order.Id, null, amount, $"RMA {rma.RmaNumber}"), cancellationToken);
+                    rma.RefundedAmount = amount;
+                }
+                break;
             }
-
-            if (amount > 0)
+            case RmaResolution.StoreCredit:
             {
-                await _mediator.Send(new RefundOrderCommand(order.Id, null, amount, $"RMA {rma.RmaNumber}"), cancellationToken);
-                rma.RefundedAmount = amount;
+                // Issue the returned value as store credit to the buyer's ledger balance.
+                var amount = request.RefundAmount ?? ReturnedValue(order, rma);
+                if (amount > 0)
+                {
+                    await _storeCredit.IssueAsync(
+                        rma.CustomerId, amount, order.CurrencyCode,
+                        $"Store credit for return {rma.RmaNumber}", rma.Id, order.Id, cancellationToken);
+                    rma.StoreCreditIssued = amount;
+                }
+                break;
+            }
+            case RmaResolution.Replacement:
+            {
+                // Create a no-charge replacement order for the returned units, fulfilled from the same store.
+                var replacement = CreateReplacementOrder(order, rma, now);
+                _db.Orders.Add(replacement);
+                rma.ReplacementOrderId = replacement.Id;
+                break;
             }
         }
 
@@ -103,6 +124,66 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
 
         await NotifyAsync(order, rma, approved: true, cancellationToken);
         return RmaDto.From(rma);
+    }
+
+    /// <summary>The monetary value of the returned units, from the original order lines' unit prices.</summary>
+    private static decimal ReturnedValue(Order order, Domain.Entities.Rma rma)
+    {
+        var unitPrices = order.Lines.ToDictionary(l => l.Id, l => l.UnitPrice);
+        return rma.Lines.Sum(l => (unitPrices.TryGetValue(l.OrderLineItemId, out var up) ? up : 0m) * l.Quantity);
+    }
+
+    /// <summary>
+    /// Builds a no-charge replacement order for the returned units, copying the original order's delivery
+    /// target and fulfilling store. It enters the normal fulfilment lifecycle at Processing.
+    /// </summary>
+    private static Order CreateReplacementOrder(Order order, Domain.Entities.Rma rma, DateTime now)
+    {
+        var seq = rma.RmaNumber.Split('-').LastOrDefault() ?? "1";
+        var replacement = new Order
+        {
+            OrderNumber = $"{order.OrderNumber}-R{seq}",
+            CustomerId = order.CustomerId,
+            Status = OrderStatus.Processing,
+            PaymentStatus = PaymentStatus.Captured, // no-charge: the original order already paid
+            ContactName = order.ContactName,
+            ContactEmail = order.ContactEmail,
+            Latitude = order.Latitude,
+            Longitude = order.Longitude,
+            CountryCode = order.CountryCode,
+            Region = order.Region,
+            PostalCode = order.PostalCode,
+            AddressLine1 = order.AddressLine1,
+            AddressLine2 = order.AddressLine2,
+            City = order.City,
+            StateProvince = order.StateProvince,
+            AssignedStoreId = order.AssignedStoreId,
+            IsPickup = order.IsPickup,
+            CurrencyCode = order.CurrencyCode,
+            Subtotal = 0m,
+            DiscountTotal = 0m,
+            ShippingTotal = 0m,
+            TaxTotal = 0m,
+            TotalAmount = 0m,
+            PlacedOnUtc = now,
+            RoutedOnUtc = order.AssignedStoreId is null ? null : now,
+        };
+
+        foreach (var line in rma.Lines)
+        {
+            replacement.Lines.Add(new OrderLineItem
+            {
+                ProductId = line.ProductId,
+                ProductVariantId = line.ProductVariantId,
+                ProductName = line.ProductName,
+                Sku = line.Sku,
+                Quantity = line.Quantity,
+                UnitPrice = 0m,
+                LineTotal = 0m,
+            });
+        }
+
+        return replacement;
     }
 
     private async Task NotifyAsync(Order order, Domain.Entities.Rma rma, bool approved, CancellationToken ct)

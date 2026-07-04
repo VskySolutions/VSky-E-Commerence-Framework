@@ -13,7 +13,9 @@ export const customerAdminApi = {
   getRoles (id) { return api.get(`${CUSTOMERS}/${id}/roles`).then(unwrap) },
   setRoles (id, roleIds) { return api.put(`${CUSTOMERS}/${id}/roles`, { customerId: id, roleIds }).then(unwrap) },
   getTaxExemption (id) { return api.get(`${CUSTOMERS}/${id}/tax-exemption`).then(unwrap) },
-  setTaxExemption (id, payload) { return api.put(`${CUSTOMERS}/${id}/tax-exemption`, { customerId: id, ...payload }).then(unwrap) }
+  setTaxExemption (id, payload) { return api.put(`${CUSTOMERS}/${id}/tax-exemption`, { customerId: id, ...payload }).then(unwrap) },
+  getStoreCredit (id) { return api.get(`${CUSTOMERS}/${id}/store-credit`).then(unwrap) },
+  issueStoreCredit (id, payload) { return api.post(`${CUSTOMERS}/${id}/store-credit`, { customerId: id, ...payload }).then(unwrap) }
 }
 
 export const customerRoleApi = {

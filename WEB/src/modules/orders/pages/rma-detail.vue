@@ -20,6 +20,8 @@
             <div class="col-6 col-sm-4"><div class="text-caption text-grey-7">Requested</div>{{ formatDate(rma.requestedOnUtc, true) }}</div>
             <div class="col-6 col-sm-4"><div class="text-caption text-grey-7">Resolution</div>{{ rma.resolution }}</div>
             <div v-if="rma.refundedAmount != null" class="col-6 col-sm-4"><div class="text-caption text-grey-7">Refunded</div>{{ formatMoney(rma.refundedAmount) }}</div>
+            <div v-if="rma.storeCreditIssued != null" class="col-6 col-sm-4"><div class="text-caption text-grey-7">Store credit issued</div>{{ formatMoney(rma.storeCreditIssued) }}</div>
+            <div v-if="rma.replacementOrderId" class="col-6 col-sm-4"><div class="text-caption text-grey-7">Replacement order</div><a class="text-primary cursor-pointer" @click="openReplacement">View order</a></div>
             <div class="col-12"><div class="text-caption text-grey-7">Reason</div>{{ rma.reason || '—' }}</div>
             <div v-if="rma.resolutionNotes" class="col-12"><div class="text-caption text-grey-7">Resolution notes</div>{{ rma.resolutionNotes }}</div>
           </div>
@@ -46,7 +48,16 @@
         <AppSection title="Review">
           <template v-if="rma.status === 'Requested'">
             <AppSelect v-model="form.resolution" label="Resolution" :options="rmaResolutionOptions" />
-            <q-input v-if="form.resolution === 'Refund'" v-model.number="form.refundAmount" type="number" dense outlined label="Refund amount (optional)" step="0.01" class="q-mt-sm" hint="Blank = sum of returned line values" />
+            <div v-if="form.resolution === 'Replacement'" class="text-caption text-grey-7 q-mt-sm">
+              Approving creates a no-charge replacement order for the returned items.
+            </div>
+            <q-input
+              v-if="form.resolution === 'Refund' || form.resolution === 'StoreCredit'"
+              v-model.number="form.refundAmount"
+              type="number" dense outlined step="0.01" class="q-mt-sm"
+              :label="`${form.resolution === 'Refund' ? 'Refund' : 'Store credit'} amount (optional)`"
+              hint="Blank = sum of returned line values"
+            />
             <q-input v-model="form.notes" type="textarea" autogrow dense outlined label="Notes" class="q-mt-sm" />
             <div class="column q-gutter-sm q-mt-md">
               <q-btn color="positive" unelevated no-caps icon="o_check" label="Approve" :loading="busy" @click="resolve(true)" />
@@ -63,13 +74,18 @@
 <script setup>
 /* Admin RMA detail + approve/reject/resolve (WO-114, WO-48). */
 import { ref, reactive, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { rmaApi, rmaStatusColor, rmaResolutionOptions, formatMoney, formatDate } from 'modules/orders/api'
 
 const route = useRoute()
+const router = useRouter()
 const notify = useNotify()
+
+function openReplacement () {
+  if (rma.value?.replacementOrderId) router.push({ name: 'admin-order-detail', params: { id: rma.value.replacementOrderId } })
+}
 
 const rma = ref(null)
 const loading = ref(false)
@@ -94,7 +110,7 @@ async function resolve (approve) {
     await rmaApi.resolve(route.params.id, {
       approve,
       resolution: approve ? form.resolution : 'None',
-      refundAmount: approve && form.resolution === 'Refund' && form.refundAmount ? Number(form.refundAmount) : null,
+      refundAmount: approve && (form.resolution === 'Refund' || form.resolution === 'StoreCredit') && form.refundAmount ? Number(form.refundAmount) : null,
       notes: form.notes || null
     })
     notify.success(approve ? 'Return approved' : 'Return rejected')

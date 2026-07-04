@@ -23,8 +23,9 @@ public class AdminProductsController : ApiControllerBase
         [FromQuery] ProductType? type = null,
         [FromQuery] bool? isPublished = null,
         [FromQuery] Guid? categoryId = null,
-        [FromQuery] Guid? manufacturerId = null)
-        => Ok(await Mediator.Send(new ListProductsQuery(page, pageSize, search, type, isPublished, categoryId, manufacturerId)));
+        [FromQuery] Guid? manufacturerId = null,
+        [FromQuery] bool? isFeatured = null)
+        => Ok(await Mediator.Send(new ListProductsQuery(page, pageSize, search, type, isPublished, categoryId, manufacturerId, isFeatured)));
 
     /// <summary>Get a single product with its full child graph.</summary>
     [HttpGet("{id:guid}")]
@@ -128,6 +129,26 @@ public class AdminProductsController : ApiControllerBase
     public async Task<IActionResult> DeleteImage(Guid imageId)
     {
         await Mediator.Send(new DeleteProductImageCommand(imageId));
+        return NoContent();
+    }
+
+    // ----- Pictures (Media-library backed, WO-123) -----------------------------------------------
+
+    /// <summary>List the product's Media-backed pictures (ordered) with resolved public URLs.</summary>
+    [HttpGet("{id:guid}/pictures")]
+    public async Task<ActionResult<List<ProductPictureDto>>> ListPictures(Guid id)
+        => Ok(await Mediator.Send(new ListProductPicturesQuery(id)));
+
+    /// <summary>Assign a committed Media asset to the product as a picture.</summary>
+    [HttpPost("{id:guid}/pictures")]
+    public async Task<ActionResult<ProductPictureDto>> AssignPicture(Guid id, [FromBody] AssignProductPictureCommand command)
+        => Ok(await Mediator.Send(command with { ProductId = id }));
+
+    /// <summary>Remove a product picture (the underlying Media asset is left intact).</summary>
+    [HttpDelete("pictures/{pictureId:guid}")]
+    public async Task<IActionResult> RemovePicture(Guid pictureId)
+    {
+        await Mediator.Send(new RemoveProductPictureCommand(pictureId));
         return NoContent();
     }
 

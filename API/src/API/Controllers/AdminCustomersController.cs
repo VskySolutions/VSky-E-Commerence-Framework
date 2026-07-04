@@ -33,6 +33,16 @@ public class AdminCustomersController : ApiControllerBase
     public async Task<ActionResult<CustomerTaxExemptionDto>> SetTaxExemption(Guid id, [FromBody] SetCustomerTaxExemptionCommand command)
         => Ok(await Mediator.Send(command with { CustomerId = id }));
 
+    /// <summary>Get the customer's store-credit balance and ledger (WO-48).</summary>
+    [HttpGet("{id:guid}/store-credit")]
+    public async Task<ActionResult<StoreCreditDto>> GetStoreCredit(Guid id)
+        => Ok(await Mediator.Send(new GetCustomerStoreCreditQuery(id)));
+
+    /// <summary>Manually grant store credit to the customer (WO-48).</summary>
+    [HttpPost("{id:guid}/store-credit")]
+    public async Task<ActionResult<StoreCreditDto>> IssueStoreCredit(Guid id, [FromBody] IssueStoreCreditCommand command)
+        => Ok(await Mediator.Send(command with { CustomerId = id }));
+
     /// <summary>Get the customer's assigned customer roles.</summary>
     [HttpGet("{id:guid}/roles")]
     public async Task<ActionResult<List<CustomerRoleDto>>> GetRoles(Guid id)

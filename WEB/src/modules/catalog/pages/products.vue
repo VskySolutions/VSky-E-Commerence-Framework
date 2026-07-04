@@ -45,6 +45,12 @@
         :options="publishedOptions"
         @update:model-value="reload"
       />
+      <AppSelect
+        v-model="featuredFilter"
+        label="Featured"
+        :options="featuredOptions"
+        @update:model-value="reload"
+      />
     </AppFilterDrawer>
 
     <AppDataTable
@@ -81,6 +87,13 @@
             :color="cell.row.isPublished ? 'positive' : 'grey'"
             :label="cell.row.isPublished ? 'Published' : 'Draft'"
           />
+        </q-td>
+      </template>
+
+      <template #body-cell-isFeatured="cell">
+        <q-td :props="cell">
+          <q-icon v-if="cell.row.isFeatured" name="o_star" color="amber-7" size="20px"><q-tooltip>Featured</q-tooltip></q-icon>
+          <span v-else class="text-grey-5">—</span>
         </q-td>
       </template>
 
@@ -121,7 +134,8 @@ const columns = [
   { name: 'productType', label: 'Type', field: 'productType', align: 'left' },
   { name: 'price', label: 'Price', field: 'price', align: 'right' },
   { name: 'stockQuantity', label: 'Stock', field: 'stockQuantity', align: 'right' },
-  { name: 'isPublished', label: 'Published', field: 'isPublished', align: 'center' }
+  { name: 'isPublished', label: 'Published', field: 'isPublished', align: 'center' },
+  { name: 'isFeatured', label: 'Featured', field: 'isFeatured', align: 'center' }
 ]
 
 const publishedOptions = [
@@ -130,22 +144,30 @@ const publishedOptions = [
   { label: 'Draft', value: false }
 ]
 
+const featuredOptions = [
+  { label: 'All', value: null },
+  { label: 'Featured', value: true },
+  { label: 'Not featured', value: false }
+]
+
 const rows = ref([])
 const loading = ref(false)
 const search = ref('')
 const typeFilter = ref(null)
 const publishedFilter = ref(null)
+const featuredFilter = ref(null)
 const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0 })
 
 // Count of active advanced filters (drives the "Advanced" button badge).
 const activeFilterCount = computed(() =>
-  (typeFilter.value ? 1 : 0) + (publishedFilter.value !== null ? 1 : 0)
+  (typeFilter.value ? 1 : 0) + (publishedFilter.value !== null ? 1 : 0) + (featuredFilter.value !== null ? 1 : 0)
 )
 
 function clearFilters () {
   typeFilter.value = null
   publishedFilter.value = null
+  featuredFilter.value = null
   reload()
 }
 
@@ -163,7 +185,8 @@ async function fetch (props) {
       pageSize: p.rowsPerPage,
       search: search.value || undefined,
       type: typeFilter.value || undefined,
-      isPublished: publishedFilter.value === null ? undefined : publishedFilter.value
+      isPublished: publishedFilter.value === null ? undefined : publishedFilter.value,
+      isFeatured: featuredFilter.value === null ? undefined : featuredFilter.value
     })
     const items = Array.isArray(result) ? result : result?.items || []
     const total = Array.isArray(result) ? result.length : result?.totalCount ?? items.length

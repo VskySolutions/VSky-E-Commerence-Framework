@@ -68,6 +68,17 @@ export const productApi = {
     return api.delete(`/api/admin/products/images/${imageId}`).then(unwrap)
   },
 
+  // Media-library-backed pictures (WO-123): list / assign / remove product pictures.
+  listPictures (id) {
+    return api.get(`/api/admin/products/${id}/pictures`).then(unwrap)
+  },
+  assignPicture (id, payload) {
+    return api.post(`/api/admin/products/${id}/pictures`, payload).then(unwrap)
+  },
+  removePicture (pictureId) {
+    return api.delete(`/api/admin/products/pictures/${pictureId}`).then(unwrap)
+  },
+
   // Bulk import / export (WO-124 UI over the WO-13 CSV endpoints). Export returns the raw
   // blob response so the caller can trigger a browser download; import posts a multipart file
   // and unwraps the ImportResultDto (Success / Created / Updated / Errors).
@@ -78,6 +89,20 @@ export const productApi = {
     const fd = new FormData()
     fd.append('file', file)
     return api.post('/api/admin/products/import', fd).then(unwrap)
+  }
+}
+
+// ---- Media (WO-122 two-step upload: prepare -> commit) ----------------------
+export const mediaApi = {
+  // Step 1: upload bytes in-memory; returns a draft with a suggested SEO file name (no DB write).
+  prepare (file) {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/api/admin/media/prepare', fd).then(unwrap)
+  },
+  // Step 2: commit the prepared upload with reviewed metadata; returns { mediaId, publicUrl }.
+  commit (payload) {
+    return api.post('/api/admin/media', payload).then(unwrap)
   }
 }
 

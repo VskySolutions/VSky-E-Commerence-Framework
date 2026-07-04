@@ -71,6 +71,9 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         b.Property(x => x.Slug).HasMaxLength(400);
         b.Property(x => x.ShortDescription).HasMaxLength(1000);
         b.Property(x => x.Sku).HasMaxLength(100);
+        b.Property(x => x.MetaTitle).HasMaxLength(300);
+        b.Property(x => x.MetaDescription).HasMaxLength(500);
+        b.Property(x => x.MetaKeywords).HasMaxLength(500);
         b.Property(x => x.Price).HasPrecision(18, 2);
         b.Property(x => x.GiftCardAmount).HasPrecision(18, 2);
         b.Property(x => x.ProductType).HasConversion<int>();
@@ -89,6 +92,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         b.HasIndex(x => x.Slug).IsUnique().HasFilter("[Slug] IS NOT NULL AND [Deleted] = 0");
         b.HasIndex(x => x.ProductType);
         b.HasIndex(x => x.IsPublished);
+        b.HasIndex(x => new { x.IsFeatured, x.FeaturedDisplayOrder });
         b.HasIndex(x => x.ManufacturerId);
         b.HasQueryFilter(x => !x.Deleted);
     }
@@ -195,6 +199,28 @@ public class ProductImageConfiguration : IEntityTypeConfiguration<ProductImage>
             .OnDelete(DeleteBehavior.NoAction);
 
         b.HasIndex(x => x.ProductId);
+    }
+}
+
+/// <summary>Media-library-backed product pictures (WO-123): product cascades; Media is a NoAction lookup.</summary>
+public class ProductPictureConfiguration : IEntityTypeConfiguration<ProductPicture>
+{
+    public void Configure(EntityTypeBuilder<ProductPicture> b)
+    {
+        b.ToTable("ProductPictures");
+        b.HasKey(x => x.Id);
+
+        b.HasOne(x => x.Product)
+            .WithMany(p => p.Pictures)
+            .HasForeignKey(x => x.ProductId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.Media)
+            .WithMany()
+            .HasForeignKey(x => x.MediaId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasIndex(x => new { x.ProductId, x.DisplayOrder });
     }
 }
 

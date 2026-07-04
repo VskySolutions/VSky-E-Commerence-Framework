@@ -30,6 +30,11 @@ public class Rma : AuditableEntity, ISoftDeletable
     public Guid? ResolvedById { get; set; }
     public decimal? RefundedAmount { get; set; }
 
+    /// <summary>Store credit issued to the buyer when resolved with <see cref="RmaResolution.StoreCredit"/> (WO-48).</summary>
+    public decimal? StoreCreditIssued { get; set; }
+    /// <summary>The replacement order created when resolved with <see cref="RmaResolution.Replacement"/> (WO-48).</summary>
+    public Guid? ReplacementOrderId { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 

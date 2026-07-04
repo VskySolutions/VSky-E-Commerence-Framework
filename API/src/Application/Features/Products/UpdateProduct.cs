@@ -17,6 +17,9 @@ public record UpdateProductCommand(
     string? Slug = null,
     string? ShortDescription = null,
     string? FullDescription = null,
+    string? MetaTitle = null,
+    string? MetaDescription = null,
+    string? MetaKeywords = null,
     string? Sku = null,
     decimal? Price = null,
     int StockQuantity = 0,
@@ -26,6 +29,8 @@ public record UpdateProductCommand(
     bool IsPublished = false,
     bool ReviewsEnabled = true,
     int DisplayOrder = 0,
+    bool IsFeatured = false,
+    int FeaturedDisplayOrder = 0,
     int? DownloadExpiryDays = null,
     int? DownloadLimit = null,
     GiftCardType? GiftCardType = null,
@@ -40,6 +45,9 @@ public class UpdateProductCommandValidator : AbstractValidator<UpdateProductComm
         RuleFor(x => x.TaxCategoryId).NotEmpty();
         RuleFor(x => x.Slug).MaximumLength(400);
         RuleFor(x => x.Sku).MaximumLength(400);
+        RuleFor(x => x.MetaTitle).MaximumLength(300);
+        RuleFor(x => x.MetaDescription).MaximumLength(500);
+        RuleFor(x => x.MetaKeywords).MaximumLength(500);
     }
 }
 
@@ -69,6 +77,9 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         entity.ProductType = request.ProductType;
         entity.ShortDescription = request.ShortDescription;
         entity.FullDescription = request.FullDescription;
+        entity.MetaTitle = request.MetaTitle;
+        entity.MetaDescription = request.MetaDescription;
+        entity.MetaKeywords = request.MetaKeywords;
         entity.Sku = request.Sku;
         entity.Price = request.Price;
         entity.StockQuantity = request.StockQuantity;
@@ -79,6 +90,8 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         entity.IsPublished = request.IsPublished;
         entity.ReviewsEnabled = request.ReviewsEnabled;
         entity.DisplayOrder = request.DisplayOrder;
+        entity.IsFeatured = request.IsFeatured;
+        entity.FeaturedDisplayOrder = request.FeaturedDisplayOrder;
         entity.DownloadExpiryDays = request.DownloadExpiryDays;
         entity.DownloadLimit = request.DownloadLimit;
         entity.GiftCardType = request.GiftCardType;

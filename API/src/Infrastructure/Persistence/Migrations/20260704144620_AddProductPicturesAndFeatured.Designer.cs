@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VSky.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using VSky.Infrastructure.Persistence;
 namespace VSky.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260704144620_AddProductPicturesAndFeatured")]
+    partial class AddProductPicturesAndFeatured
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -2651,9 +2654,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<Guid?>("ReplacementOrderId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTime>("RequestedOnUtc")
                         .HasColumnType("datetime2");
 
@@ -2677,10 +2677,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
-
-                    b.Property<decimal?>("StoreCreditIssued")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -3402,57 +3398,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Stores", (string)null);
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.StoreCreditTransaction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("CreatedById")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CurrencyCode")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<Guid>("CustomerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("OrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.Property<Guid?>("RmaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("UpdatedById")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerId");
-
-                    b.HasIndex("RmaId");
-
-                    b.ToTable("StoreCreditTransactions", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.StoreManagerAssignment", b =>
@@ -4626,17 +4571,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("SpecificationAttribute");
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.StoreCreditTransaction", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.Customer", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.StoreManagerAssignment", b =>

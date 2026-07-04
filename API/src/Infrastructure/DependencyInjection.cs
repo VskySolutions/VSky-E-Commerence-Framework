@@ -105,6 +105,7 @@ public static class DependencyInjection
         services.AddScoped<ITranslationService, VSky.Infrastructure.Localization.TranslationService>();
         // Customer roles: group pricing + catalog-access resolution (WO-22).
         services.AddScoped<ICustomerRoleService, VSky.Infrastructure.Customers.CustomerRoleService>();
+        services.AddScoped<IStoreCreditService, VSky.Infrastructure.Customers.StoreCreditService>();
         // Shipping: custom-method + carrier rate aggregation (WO-40/43).
         services.AddScoped<ICarrierClient, DhlExpressCarrierClient>();
         services.AddScoped<ICarrierClient, UpsCarrierClient>();

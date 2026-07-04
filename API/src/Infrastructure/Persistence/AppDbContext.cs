@@ -68,6 +68,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<SpecificationAttribute> SpecificationAttributes => Set<SpecificationAttribute>();
     public DbSet<SpecificationAttributeOption> SpecificationAttributeOptions => Set<SpecificationAttributeOption>();
     public DbSet<ProductImage> ProductImages => Set<ProductImage>();
+    public DbSet<ProductPicture> ProductPictures => Set<ProductPicture>();
     public DbSet<TierPrice> TierPrices => Set<TierPrice>();
     public DbSet<ProductRelationship> ProductRelationships => Set<ProductRelationship>();
     public DbSet<ProductTag> ProductTags => Set<ProductTag>();
@@ -101,6 +102,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<ShipmentLineItem> ShipmentLineItems => Set<ShipmentLineItem>();
     public DbSet<ShipmentTracking> ShipmentTrackingEvents => Set<ShipmentTracking>();
     public DbSet<Rma> Rmas => Set<Rma>();
+    public DbSet<StoreCreditTransaction> StoreCreditTransactions => Set<StoreCreditTransaction>();
     public DbSet<RmaLineItem> RmaLineItems => Set<RmaLineItem>();
 
     // Commerce — pricing, cart, shipping, payments, tax (Phase 3)

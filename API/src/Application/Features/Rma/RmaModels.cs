@@ -17,6 +17,8 @@ public class RmaDto
     public DateTime RequestedOnUtc { get; set; }
     public DateTime? ResolvedOnUtc { get; set; }
     public decimal? RefundedAmount { get; set; }
+    public decimal? StoreCreditIssued { get; set; }
+    public Guid? ReplacementOrderId { get; set; }
     public List<RmaLineItemDto> Lines { get; set; } = new();
 
     public static RmaDto From(VSky.Domain.Entities.Rma r) => new()
@@ -32,6 +34,8 @@ public class RmaDto
         RequestedOnUtc = r.RequestedOnUtc,
         ResolvedOnUtc = r.ResolvedOnUtc,
         RefundedAmount = r.RefundedAmount,
+        StoreCreditIssued = r.StoreCreditIssued,
+        ReplacementOrderId = r.ReplacementOrderId,
         Lines = r.Lines.Select(RmaLineItemDto.From).ToList(),
     };
 }

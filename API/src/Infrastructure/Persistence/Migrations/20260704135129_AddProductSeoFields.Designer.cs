@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VSky.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using VSky.Infrastructure.Persistence;
 namespace VSky.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260704135129_AddProductSeoFields")]
+    partial class AddProductSeoFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1951,9 +1954,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<DateTime?>("EstimatedRestockDate")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("FeaturedDisplayOrder")
-                        .HasColumnType("int");
-
                     b.Property<string>("FullDescription")
                         .HasColumnType("nvarchar(max)");
 
@@ -1963,9 +1963,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<int?>("GiftCardType")
                         .HasColumnType("int");
-
-                    b.Property<bool>("IsFeatured")
-                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPublished")
                         .HasColumnType("bit");
@@ -2037,8 +2034,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasFilter("[Slug] IS NOT NULL AND [Deleted] = 0");
 
                     b.HasIndex("TaxCategoryId");
-
-                    b.HasIndex("IsFeatured", "FeaturedDisplayOrder");
 
                     b.ToTable("Products", (string)null);
                 });
@@ -2265,29 +2260,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProductVariantId");
 
                     b.ToTable("ProductImages", (string)null);
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.ProductPicture", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("MediaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("MediaId");
-
-                    b.HasIndex("ProductId", "DisplayOrder");
-
-                    b.ToTable("ProductPictures", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ProductRelationship", b =>
@@ -2651,9 +2623,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
 
-                    b.Property<Guid?>("ReplacementOrderId")
-                        .HasColumnType("uniqueidentifier");
-
                     b.Property<DateTime>("RequestedOnUtc")
                         .HasColumnType("datetime2");
 
@@ -2677,10 +2646,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Status")
                         .HasColumnType("int");
-
-                    b.Property<decimal?>("StoreCreditIssued")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -3402,57 +3367,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("Stores", (string)null);
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.StoreCreditTransaction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Amount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("CreatedById")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("CurrencyCode")
-                        .IsRequired()
-                        .HasMaxLength(3)
-                        .HasColumnType("nvarchar(3)");
-
-                    b.Property<Guid>("CustomerId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("OrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Reason")
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.Property<Guid?>("RmaId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("Type")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("UpdatedById")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerId");
-
-                    b.HasIndex("RmaId");
-
-                    b.ToTable("StoreCreditTransactions", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.StoreManagerAssignment", b =>
@@ -4415,25 +4329,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("ProductVariant");
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.ProductPicture", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.Media", "Media")
-                        .WithMany()
-                        .HasForeignKey("MediaId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.HasOne("VSky.Domain.Entities.Product", "Product")
-                        .WithMany("Pictures")
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Media");
-
-                    b.Navigation("Product");
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.ProductRelationship", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Product", "Product")
@@ -4628,17 +4523,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("SpecificationAttribute");
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.StoreCreditTransaction", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.Customer", "Customer")
-                        .WithMany()
-                        .HasForeignKey("CustomerId")
-                        .OnDelete(DeleteBehavior.NoAction)
-                        .IsRequired();
-
-                    b.Navigation("Customer");
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.StoreManagerAssignment", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Store", "Store")
@@ -4813,8 +4697,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Images");
 
                     b.Navigation("InventoryLevels");
-
-                    b.Navigation("Pictures");
 
                     b.Navigation("ProductCategories");
 

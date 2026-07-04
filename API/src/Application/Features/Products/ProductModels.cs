@@ -12,6 +12,9 @@ public class ProductDto
     public ProductType ProductType { get; set; }
     public string? ShortDescription { get; set; }
     public string? FullDescription { get; set; }
+    public string? MetaTitle { get; set; }
+    public string? MetaDescription { get; set; }
+    public string? MetaKeywords { get; set; }
     public string? Sku { get; set; }
     public decimal? Price { get; set; }
     public int StockQuantity { get; set; }
@@ -22,6 +25,8 @@ public class ProductDto
     public bool IsPublished { get; set; }
     public bool ReviewsEnabled { get; set; }
     public int DisplayOrder { get; set; }
+    public bool IsFeatured { get; set; }
+    public int FeaturedDisplayOrder { get; set; }
     public int? DownloadExpiryDays { get; set; }
     public int? DownloadLimit { get; set; }
     public GiftCardType? GiftCardType { get; set; }
@@ -47,6 +52,9 @@ public class ProductDto
         ProductType = p.ProductType,
         ShortDescription = p.ShortDescription,
         FullDescription = p.FullDescription,
+        MetaTitle = p.MetaTitle,
+        MetaDescription = p.MetaDescription,
+        MetaKeywords = p.MetaKeywords,
         Sku = p.Sku,
         Price = p.Price,
         StockQuantity = p.StockQuantity,
@@ -57,6 +65,8 @@ public class ProductDto
         IsPublished = p.IsPublished,
         ReviewsEnabled = p.ReviewsEnabled,
         DisplayOrder = p.DisplayOrder,
+        IsFeatured = p.IsFeatured,
+        FeaturedDisplayOrder = p.FeaturedDisplayOrder,
         DownloadExpiryDays = p.DownloadExpiryDays,
         DownloadLimit = p.DownloadLimit,
         GiftCardType = p.GiftCardType,
@@ -118,6 +128,7 @@ public class ProductListItemDto
     public decimal? Price { get; set; }
     public int StockQuantity { get; set; }
     public bool IsPublished { get; set; }
+    public bool IsFeatured { get; set; }
     public int DisplayOrder { get; set; }
     public Guid TaxCategoryId { get; set; }
     public Guid? ManufacturerId { get; set; }
@@ -132,6 +143,7 @@ public class ProductListItemDto
         Price = p.Price,
         StockQuantity = p.StockQuantity,
         IsPublished = p.IsPublished,
+        IsFeatured = p.IsFeatured,
         DisplayOrder = p.DisplayOrder,
         TaxCategoryId = p.TaxCategoryId,
         ManufacturerId = p.ManufacturerId,

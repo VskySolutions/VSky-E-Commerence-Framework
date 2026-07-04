@@ -14,6 +14,7 @@ public class RmaConfiguration : IEntityTypeConfiguration<Rma>
         b.Property(x => x.Reason).HasMaxLength(1024);
         b.Property(x => x.ResolutionNotes).HasMaxLength(1024);
         b.Property(x => x.RefundedAmount).HasPrecision(18, 2);
+        b.Property(x => x.StoreCreditIssued).HasPrecision(18, 2);
 
         // Order is a lookup here; avoid a second cascade path (Order already cascades its own children).
         b.HasOne(x => x.Order)

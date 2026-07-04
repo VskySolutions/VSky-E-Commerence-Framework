@@ -18,6 +18,12 @@ public class Product : AuditableEntity, ISoftDeletable
     public string? ShortDescription { get; set; }
     public string? FullDescription { get; set; }
 
+    // SEO metadata (REQ-CAT-001) — overrides the name/description in the storefront page's
+    // search-engine markup. Fall back to Name / ShortDescription when null.
+    public string? MetaTitle { get; set; }
+    public string? MetaDescription { get; set; }
+    public string? MetaKeywords { get; set; }
+
     // Simple-product fields (also the default/base for other types).
     public string? Sku { get; set; }
     public decimal? Price { get; set; }
@@ -37,6 +43,11 @@ public class Product : AuditableEntity, ISoftDeletable
     public bool ReviewsEnabled { get; set; } = true;
     public int DisplayOrder { get; set; }
 
+    /// <summary>Featured designation for the storefront (REQ-CNT-011). Default not featured.</summary>
+    public bool IsFeatured { get; set; }
+    /// <summary>Ordering among featured products (AC-CNT-011.2); only meaningful when <see cref="IsFeatured"/>.</summary>
+    public int FeaturedDisplayOrder { get; set; }
+
     // Downloadable-product config (AC-CAT-001.4).
     public int? DownloadExpiryDays { get; set; }
     public int? DownloadLimit { get; set; }
@@ -51,6 +62,8 @@ public class Product : AuditableEntity, ISoftDeletable
     // Navigation collections.
     public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
     public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
+    /// <summary>Media-library-backed pictures (WO-123): the centralized image assignment (REQ-CAT-012).</summary>
+    public ICollection<ProductPicture> Pictures { get; set; } = new List<ProductPicture>();
     public ICollection<TierPrice> TierPrices { get; set; } = new List<TierPrice>();
     public ICollection<ProductCategory> ProductCategories { get; set; } = new List<ProductCategory>();
     public ICollection<ProductTagMapping> Tags { get; set; } = new List<ProductTagMapping>();

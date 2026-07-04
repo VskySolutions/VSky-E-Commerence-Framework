@@ -48,6 +48,28 @@
               <AppTextField v-model="form.vatId" label="VAT ID" placeholder="e.g. GB123456789" hint="Buyer's VAT / tax registration id" :disable="!canWrite" />
             </template>
           </AppSection>
+
+          <AppSection title="Store credit">
+            <template #actions>
+              <q-btn v-if="canWrite" color="primary" outline dense no-caps icon="o_add" label="Grant" @click="grantDialog = true" />
+            </template>
+            <div class="row items-baseline q-gutter-sm q-mb-sm">
+              <div class="text-h5 text-primary">{{ formatMoney(storeCredit.balance) }}</div>
+              <div class="text-caption text-grey-6">{{ storeCredit.currencyCode }} balance</div>
+            </div>
+            <q-list v-if="storeCredit.transactions.length" dense separator bordered class="rounded-borders">
+              <q-item v-for="t in storeCredit.transactions.slice(0, 6)" :key="t.id">
+                <q-item-section>
+                  <q-item-label>{{ t.reason || t.type }}</q-item-label>
+                  <q-item-label caption>{{ formatDate(t.createdOnUtc) }} · {{ t.type }}</q-item-label>
+                </q-item-section>
+                <q-item-section side :class="t.amount < 0 ? 'text-negative' : 'text-positive'">
+                  {{ t.amount < 0 ? '' : '+' }}{{ formatMoney(t.amount) }}
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <div v-else class="text-grey-6 text-caption">No store-credit activity.</div>
+          </AppSection>
         </div>
 
         <!-- Right column: stats + orders + addresses -->
@@ -111,6 +133,23 @@
           </AppSection>
         </div>
       </div>
+
+      <!-- Grant store credit -->
+      <q-dialog v-model="grantDialog">
+        <q-card style="min-width: 380px">
+          <q-card-section class="text-subtitle1 text-weight-medium">Grant store credit</q-card-section>
+          <q-separator />
+          <q-card-section class="q-gutter-sm">
+            <AppTextField v-model="grantForm.amount" label="Amount" type="number" step="0.01" placeholder="e.g. 25.00" />
+            <AppTextField v-model="grantForm.reason" label="Reason" placeholder="e.g. Goodwill credit" />
+          </q-card-section>
+          <q-separator />
+          <q-card-actions align="right">
+            <q-btn flat no-caps label="Cancel" v-close-popup />
+            <q-btn color="primary" unelevated no-caps label="Grant" :loading="granting" @click="grant" />
+          </q-card-actions>
+        </q-card>
+      </q-dialog>
     </template>
   </q-page>
 </template>
@@ -145,6 +184,11 @@ const saving = ref(false)
 const roleOptions = ref([])
 const form = reactive({ roleIds: [], isTaxExempt: false, certificateNumber: '', vatId: '' })
 
+const storeCredit = ref({ balance: 0, currencyCode: 'USD', transactions: [] })
+const grantDialog = ref(false)
+const granting = ref(false)
+const grantForm = reactive({ amount: null, reason: '' })
+
 const fullName = computed(() => customer.value ? `${customer.value.firstName} ${customer.value.lastName}`.trim() : '')
 
 async function load () {
@@ -156,7 +200,27 @@ async function load () {
     form.isTaxExempt = c.isTaxExempt || false
     form.certificateNumber = c.taxExemptionCertificate || ''
     form.vatId = c.vatId || ''
+    loadStoreCredit()
   } catch (e) { notify.error(getApiErrorMessage(e)) } finally { loading.value = false }
+}
+
+async function loadStoreCredit () {
+  try {
+    storeCredit.value = await customerAdminApi.getStoreCredit(route.params.id)
+  } catch (e) { storeCredit.value = { balance: 0, currencyCode: 'USD', transactions: [] } }
+}
+
+async function grant () {
+  const amount = Number(grantForm.amount)
+  if (!amount || amount <= 0) { notify.warning('Enter an amount greater than zero'); return }
+  granting.value = true
+  try {
+    storeCredit.value = await customerAdminApi.issueStoreCredit(route.params.id, { amount, reason: grantForm.reason || null })
+    notify.success('Store credit granted')
+    grantDialog.value = false
+    grantForm.amount = null
+    grantForm.reason = ''
+  } catch (e) { notify.error(getApiErrorMessage(e)) } finally { granting.value = false }
 }
 
 async function loadRoleOptions () {

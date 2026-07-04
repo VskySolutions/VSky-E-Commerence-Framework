@@ -51,6 +51,7 @@ public interface IApplicationDbContext
     DbSet<SpecificationAttribute> SpecificationAttributes { get; }
     DbSet<SpecificationAttributeOption> SpecificationAttributeOptions { get; }
     DbSet<ProductImage> ProductImages { get; }
+    DbSet<ProductPicture> ProductPictures { get; }
     DbSet<TierPrice> TierPrices { get; }
     DbSet<ProductRelationship> ProductRelationships { get; }
     DbSet<ProductTag> ProductTags { get; }
@@ -85,6 +86,7 @@ public interface IApplicationDbContext
     DbSet<ShipmentTracking> ShipmentTrackingEvents { get; }
     DbSet<Rma> Rmas { get; }
     DbSet<RmaLineItem> RmaLineItems { get; }
+    DbSet<StoreCreditTransaction> StoreCreditTransactions { get; }
 
     // Commerce — pricing, cart, shipping, payments, tax (Phase 3)
     DbSet<Discount> Discounts { get; }
