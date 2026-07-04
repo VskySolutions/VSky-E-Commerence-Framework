@@ -37,6 +37,7 @@ import customersRoutes from 'modules/customers/routes'
 import storefrontRoutes from 'modules/storefront/routes'
 import storageRoutes from 'modules/storage/routes'
 import emailAccountsRoutes from 'modules/email-accounts/routes'
+import webhooksRoutes from 'modules/webhooks/routes'
 
 // Append every app-module child route under the authenticated shell.
 const moduleChildren = [
@@ -58,7 +59,8 @@ const moduleChildren = [
   ...taxRoutes,
   ...customersRoutes,
   ...storageRoutes,
-  ...emailAccountsRoutes
+  ...emailAccountsRoutes,
+  ...webhooksRoutes
 ]
 appShellRoute.children.push(...moduleChildren)
 

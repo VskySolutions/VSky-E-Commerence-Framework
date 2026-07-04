@@ -28,6 +28,13 @@ public class Discount : AuditableEntity, ISoftDeletable
     public bool IsExclusive { get; set; }
     public bool IsActive { get; set; } = true;
 
+    /// <summary>
+    /// When true this discount is coupon-gated: the discount engine never applies it automatically —
+    /// it only takes effect when a valid coupon code bound to it (see <see cref="CouponCodes"/>) is
+    /// present on the cart/checkout (REQ-PRP-002). When false the rule auto-applies to every eligible cart.
+    /// </summary>
+    public bool RequiresCoupon { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 

@@ -21,7 +21,8 @@ public record UpdateDiscountCommand(
     DateTime? EndDateUtc = null,
     decimal? MinimumOrderValue = null,
     bool IsExclusive = false,
-    bool IsActive = true) : IRequest<DiscountDto>;
+    bool IsActive = true,
+    bool RequiresCoupon = false) : IRequest<DiscountDto>;
 
 public class UpdateDiscountCommandValidator : AbstractValidator<UpdateDiscountCommand>
 {
@@ -70,6 +71,7 @@ public class UpdateDiscountCommandHandler : IRequestHandler<UpdateDiscountComman
         entity.MinimumOrderValue = request.MinimumOrderValue;
         entity.IsExclusive = request.IsExclusive;
         entity.IsActive = request.IsActive;
+        entity.RequiresCoupon = request.RequiresCoupon;
 
         await _db.SaveChangesAsync(cancellationToken);
         return DiscountDto.From(entity);

@@ -14,6 +14,13 @@ export default [
     component: () => import('modules/catalog/pages/product-detail.vue')
   },
   {
+    // Bulk import/export (WO-124) — static segment, must precede the :id route.
+    path: 'catalog/products/import-export',
+    name: 'catalog-product-import-export',
+    meta: { title: 'Import & Export', permissions: ['Catalog.Write'] },
+    component: () => import('modules/catalog/pages/product-import-export.vue')
+  },
+  {
     path: 'catalog/products/:id',
     name: 'catalog-product-detail',
     meta: { title: 'Product', permissions: ['Catalog.Read'] },

@@ -20,7 +20,8 @@ public class DiscountService : IDiscountService
     public DiscountService(IApplicationDbContext db) => _db = db;
 
     public async Task<DiscountEvaluationResult> EvaluateAsync(
-        IReadOnlyList<DiscountCartLine> lines, decimal subtotal, CancellationToken ct = default)
+        IReadOnlyList<DiscountCartLine> lines, decimal subtotal,
+        IReadOnlyCollection<Guid>? unlockedDiscountIds = null, CancellationToken ct = default)
     {
         var now = DateTime.UtcNow;
 
@@ -37,6 +38,11 @@ public class DiscountService : IDiscountService
         var candidates = new List<(Discount Discount, AppliedDiscount Applied)>();
         foreach (var d in discounts)
         {
+            // Coupon-gated rules (REQ-PRP-002) apply only when a valid coupon bound to them is present;
+            // otherwise they never contribute, so entering the code is what actually unlocks the price.
+            if (d.RequiresCoupon && (unlockedDiscountIds is null || !unlockedDiscountIds.Contains(d.Id)))
+                continue;
+
             var amount = ComputeReduction(d, lines, subtotal);
             if (amount <= 0m)
                 continue;

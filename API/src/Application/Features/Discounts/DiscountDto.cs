@@ -18,6 +18,7 @@ public class DiscountDto
     public decimal? MinimumOrderValue { get; set; }
     public bool IsExclusive { get; set; }
     public bool IsActive { get; set; }
+    public bool RequiresCoupon { get; set; }
 
     public static DiscountDto From(Discount d) => new()
     {
@@ -33,5 +34,6 @@ public class DiscountDto
         MinimumOrderValue = d.MinimumOrderValue,
         IsExclusive = d.IsExclusive,
         IsActive = d.IsActive,
+        RequiresCoupon = d.RequiresCoupon,
     };
 }

@@ -4,6 +4,14 @@
       <q-btn v-if="canWrite" color="primary" unelevated no-caps icon="o_add" label="New discount" @click="onAdd" />
     </div>
     <AppDataTable page-key="pricing-discounts" row-key="id" :rows="rows" :columns="columns" :loading="loading" :pagination="pagination" show-actions @request="onRequest">
+      <template #body-cell-name="cell">
+        <q-td :props="cell">
+          {{ cell.row.name }}
+          <q-badge v-if="cell.row.requiresCoupon" color="deep-orange" outline class="q-ml-xs" label="Coupon">
+            <q-tooltip>Applies only with a linked coupon code</q-tooltip>
+          </q-badge>
+        </q-td>
+      </template>
       <template #body-cell-value="cell">
         <q-td :props="cell">{{ discountValueLabel(cell.row) }}</q-td>
       </template>

@@ -18,6 +18,11 @@ public class AdminCustomersController : ApiControllerBase
         [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
         => Ok(await Mediator.Send(new ListCustomersQuery(page, pageSize, search)));
 
+    /// <summary>Get a single customer's full detail: profile, tax-exemption, roles, addresses and order history.</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<CustomerDetailDto>> Get(Guid id)
+        => Ok(await Mediator.Send(new GetCustomerDetailQuery(id)));
+
     /// <summary>Get a customer's tax-exemption configuration.</summary>
     [HttpGet("{id:guid}/tax-exemption")]
     public async Task<ActionResult<CustomerTaxExemptionDto>> GetTaxExemption(Guid id)

@@ -344,23 +344,25 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         }
         var shippingTotal = selected?.Rate ?? 0m;
 
-        // 5. Discounts: the discount engine evaluates every active, in-window rule (including coupon-bound
-        // ones), so a valid coupon's discount is already reflected in the result. Validating the coupon
-        // here gates redemption and records the applied code on the order.
-        var discountLines = lines
-            .Select(l => new DiscountCartLine(l.ProductId, l.CategoryIds, l.LineTotal, l.Quantity))
-            .ToList();
-        var discountResult = await _discounts.EvaluateAsync(discountLines, subtotal, ct);
-
+        // 5. Coupon + discounts. Validate the coupon first so its bound discount is "unlocked" for the
+        // engine: coupon-gated rules (RequiresCoupon) apply only when a valid code carrying them is present,
+        // while auto-apply rules stack as normal. An invalid coupon is ignored (not applied, not recorded)
+        // so checkout stays resilient; cart-applied coupons were already validated at apply time.
         var couponCode = FirstNonEmpty(requestCouponCode, cart.AppliedCouponCode);
         var couponValid = false;
+        var unlockedDiscountIds = new List<Guid>();
         if (couponCode is not null)
         {
             var validation = await _coupons.ValidateAsync(couponCode, ct);
             couponValid = validation.IsValid;
-            // An invalid coupon is ignored (not applied, not recorded) so checkout stays resilient;
-            // cart-applied coupons were already validated at apply time.
+            if (validation.IsValid && validation.DiscountId is Guid unlockedId)
+                unlockedDiscountIds.Add(unlockedId);
         }
+
+        var discountLines = lines
+            .Select(l => new DiscountCartLine(l.ProductId, l.CategoryIds, l.LineTotal, l.Quantity))
+            .ToList();
+        var discountResult = await _discounts.EvaluateAsync(discountLines, subtotal, unlockedDiscountIds, ct);
 
         // Tax exemption (AC-TAX-003.3): an authenticated, flagged customer is calculated at zero tax.
         // Resolved here in the shared build path so the quote and the placed order agree. Guests are never exempt.
@@ -421,14 +423,23 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         // A single zero-cost pickup option replaces carrier rates (AC-SHP-004.2).
         var pickupOption = new ShippingRateOption("pickup", "Pickup in store", "Pickup", null, 0m);
 
-        // Discounts (same engine as delivery).
+        // Coupon + discounts (same engine as delivery): validate first so a coupon-gated discount is
+        // unlocked only when its valid code is present.
+        var couponCode = FirstNonEmpty(requestCouponCode, cart.AppliedCouponCode);
+        var couponValid = false;
+        var unlockedDiscountIds = new List<Guid>();
+        if (couponCode is not null)
+        {
+            var validation = await _coupons.ValidateAsync(couponCode, ct);
+            couponValid = validation.IsValid;
+            if (validation.IsValid && validation.DiscountId is Guid unlockedId)
+                unlockedDiscountIds.Add(unlockedId);
+        }
+
         var discountLines = lines
             .Select(l => new DiscountCartLine(l.ProductId, l.CategoryIds, l.LineTotal, l.Quantity))
             .ToList();
-        var discountResult = await _discounts.EvaluateAsync(discountLines, subtotal, ct);
-
-        var couponCode = FirstNonEmpty(requestCouponCode, cart.AppliedCouponCode);
-        var couponValid = couponCode is not null && (await _coupons.ValidateAsync(couponCode, ct)).IsValid;
+        var discountResult = await _discounts.EvaluateAsync(discountLines, subtotal, unlockedDiscountIds, ct);
 
         // Tax exemption + tax collected at the store (origin = destination = store).
         TaxExemption? taxExemption = null;

@@ -26,6 +26,7 @@
         <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" class="q-mr-sm" @click="filtersOpen = true">
           <q-badge v-if="activeFilterCount" color="red" floating>{{ activeFilterCount }}</q-badge>
         </q-btn>
+        <q-btn v-if="canWrite" outline color="primary" no-caps icon="o_swap_vert" label="Import / Export" @click="goImportExport" />
       </template>
     </AppListHeader>
 
@@ -187,6 +188,10 @@ function reload () {
 
 function onAdd () {
   router.push({ name: 'catalog-product-new' })
+}
+
+function goImportExport () {
+  router.push({ name: 'catalog-product-import-export' })
 }
 
 function onManage (row) {

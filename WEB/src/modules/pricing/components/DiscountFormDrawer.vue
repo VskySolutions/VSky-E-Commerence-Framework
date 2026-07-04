@@ -49,6 +49,10 @@
     <AppTextField v-model="form.minimumOrderValue" label="Minimum order value" type="number" step="0.01" placeholder="Optional threshold" />
 
     <div class="column q-gutter-xs q-mt-sm">
+      <q-toggle v-model="form.requiresCoupon" label="Requires a coupon code" color="primary" />
+      <div class="text-caption text-grey-6 q-mb-xs">
+        When on, this discount is applied only when a customer enters a coupon code linked to it (set up under the Coupons tab). When off, it applies automatically to every eligible cart.
+      </div>
       <q-toggle v-model="form.isExclusive" label="Exclusive (cannot combine with other discounts)" color="primary" />
       <q-toggle v-model="form.isActive" label="Active" color="primary" />
     </div>
@@ -79,7 +83,7 @@ const isEdit = computed(() => !!(props.item && props.item.id))
 const EMPTY = {
   name: '', scope: 'CartTotal', type: 'Percentage', value: null,
   productId: null, categoryId: null, startDate: '', endDate: '', minimumOrderValue: null,
-  isExclusive: false, isActive: true
+  isExclusive: false, isActive: true, requiresCoupon: false
 }
 const form = reactive({ ...EMPTY })
 
@@ -129,7 +133,8 @@ async function onSubmit () {
     endDateUtc: form.endDate || null,
     minimumOrderValue: toNumberOrNull(form.minimumOrderValue),
     isExclusive: form.isExclusive,
-    isActive: form.isActive
+    isActive: form.isActive,
+    requiresCoupon: form.requiresCoupon
   })
 }
 

@@ -13,7 +13,11 @@ public interface IDiscountService
     /// <summary>
     /// Computes the discounts that apply to the given cart lines and subtotal and their total
     /// reduction. Only active, in-window discounts whose minimum-order threshold is met are considered.
+    /// A coupon-gated discount (<see cref="VSky.Domain.Entities.Discount.RequiresCoupon"/>) is skipped
+    /// unless its id appears in <paramref name="unlockedDiscountIds"/> — the ids of the discounts bound
+    /// to the valid coupon codes on the cart (REQ-PRP-002).
     /// </summary>
     Task<DiscountEvaluationResult> EvaluateAsync(
-        IReadOnlyList<DiscountCartLine> lines, decimal subtotal, CancellationToken ct = default);
+        IReadOnlyList<DiscountCartLine> lines, decimal subtotal,
+        IReadOnlyCollection<Guid>? unlockedDiscountIds = null, CancellationToken ct = default);
 }

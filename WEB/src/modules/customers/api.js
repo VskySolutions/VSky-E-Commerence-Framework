@@ -9,6 +9,7 @@ const CUSTOMERS = '/api/admin/customers'
 
 export const customerAdminApi = {
   list (params = {}) { return api.get(CUSTOMERS, { params, paramsSerializer: qsSerializer }).then(unwrap) },
+  get (id) { return api.get(`${CUSTOMERS}/${id}`).then(unwrap) },
   getRoles (id) { return api.get(`${CUSTOMERS}/${id}/roles`).then(unwrap) },
   setRoles (id, roleIds) { return api.put(`${CUSTOMERS}/${id}/roles`, { customerId: id, roleIds }).then(unwrap) },
   getTaxExemption (id) { return api.get(`${CUSTOMERS}/${id}/tax-exemption`).then(unwrap) },

@@ -97,7 +97,8 @@ const sections = [
     items: [
       { label: 'Settings', icon: 'o_settings', to: '/settings', permissions: [Permissions.SettingsRead] },
       { label: 'Credentials', icon: 'o_key', to: '/credentials', permissions: [Permissions.CredentialsRead] },
-      { label: 'File Storage', icon: 'o_storage', to: '/storage', permissions: [Permissions.StorageRead] }
+      { label: 'File Storage', icon: 'o_storage', to: '/storage', permissions: [Permissions.StorageRead] },
+      { label: 'Webhooks', icon: 'o_webhook', to: '/webhooks', permissions: [Permissions.WebhooksRead] }
     ]
   },
   {

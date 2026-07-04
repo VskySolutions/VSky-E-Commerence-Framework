@@ -18,7 +18,8 @@ public record CreateDiscountCommand(
     DateTime? EndDateUtc = null,
     decimal? MinimumOrderValue = null,
     bool IsExclusive = false,
-    bool IsActive = true) : IRequest<DiscountDto>;
+    bool IsActive = true,
+    bool RequiresCoupon = false) : IRequest<DiscountDto>;
 
 public class CreateDiscountCommandValidator : AbstractValidator<CreateDiscountCommand>
 {
@@ -64,6 +65,7 @@ public class CreateDiscountCommandHandler : IRequestHandler<CreateDiscountComman
             MinimumOrderValue = request.MinimumOrderValue,
             IsExclusive = request.IsExclusive,
             IsActive = request.IsActive,
+            RequiresCoupon = request.RequiresCoupon,
         };
 
         _db.Discounts.Add(entity);

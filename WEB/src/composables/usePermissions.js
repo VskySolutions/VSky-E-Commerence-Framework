@@ -33,7 +33,9 @@ export const Permissions = Object.freeze({
   SmtpAccountsRead: 'SmtpAccounts.Read',
   SmtpAccountsWrite: 'SmtpAccounts.Write',
   OrdersRead: 'Orders.Read',
-  OrdersWrite: 'Orders.Write'
+  OrdersWrite: 'Orders.Write',
+  WebhooksRead: 'Webhooks.Read',
+  WebhooksWrite: 'Webhooks.Write'
 })
 
 export function usePermissions () {

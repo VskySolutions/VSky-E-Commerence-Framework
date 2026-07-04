@@ -21,6 +21,16 @@ public class AdminWebhooksController : ApiControllerBase
     public async Task<ActionResult<List<WebhookSubscriptionDto>>> List()
         => Ok(await Mediator.Send(new ListWebhookSubscriptionsQuery()));
 
+    /// <summary>Update an endpoint's URL, subscribed events, description and active state (the secret is preserved).</summary>
+    [HttpPut("subscriptions/{id:guid}")]
+    public async Task<ActionResult<WebhookSubscriptionDto>> Update(Guid id, [FromBody] UpdateWebhookSubscriptionCommand command)
+        => Ok(await Mediator.Send(command with { Id = id }));
+
+    /// <summary>The catalog of event types a subscription can subscribe to.</summary>
+    [HttpGet("event-types")]
+    public ActionResult<IReadOnlyList<string>> EventTypes()
+        => Ok(WebhookEventTypes.All);
+
     /// <summary>Remove an endpoint.</summary>
     [HttpDelete("subscriptions/{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)

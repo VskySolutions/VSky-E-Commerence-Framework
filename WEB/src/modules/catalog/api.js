@@ -66,6 +66,18 @@ export const productApi = {
   },
   deleteImage (imageId) {
     return api.delete(`/api/admin/products/images/${imageId}`).then(unwrap)
+  },
+
+  // Bulk import / export (WO-124 UI over the WO-13 CSV endpoints). Export returns the raw
+  // blob response so the caller can trigger a browser download; import posts a multipart file
+  // and unwraps the ImportResultDto (Success / Created / Updated / Errors).
+  exportCsv (params = {}) {
+    return api.get('/api/admin/products/export', { params, paramsSerializer: qsSerializer, responseType: 'blob' })
+  },
+  importCsv (file) {
+    const fd = new FormData()
+    fd.append('file', file)
+    return api.post('/api/admin/products/import', fd).then(unwrap)
   }
 }
 

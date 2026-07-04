@@ -53,6 +53,64 @@ public class CreateWebhookSubscriptionCommandHandler : IRequestHandler<CreateWeb
     }
 }
 
+// ---- Update ------------------------------------------------------------------
+
+/// <summary>
+/// Updates a webhook endpoint's URL, subscribed events, description and active state (AC-PLT-003.1).
+/// The signing secret is preserved (never rotated here) so existing receivers keep verifying.
+/// </summary>
+public record UpdateWebhookSubscriptionCommand(
+    Guid Id, string Url, List<string> EventTypes, bool IsActive, string? Description = null)
+    : IRequest<WebhookSubscriptionDto>;
+
+public class UpdateWebhookSubscriptionCommandValidator : AbstractValidator<UpdateWebhookSubscriptionCommand>
+{
+    public UpdateWebhookSubscriptionCommandValidator()
+    {
+        RuleFor(x => x.Id).NotEmpty();
+        RuleFor(x => x.Url).NotEmpty().MaximumLength(2048)
+            .Must(u => Uri.TryCreate(u, UriKind.Absolute, out var uri) && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            .WithMessage("A valid absolute http(s) URL is required.");
+        RuleFor(x => x.EventTypes).NotEmpty();
+        RuleForEach(x => x.EventTypes).NotEmpty().MaximumLength(128);
+    }
+}
+
+public class UpdateWebhookSubscriptionCommandHandler : IRequestHandler<UpdateWebhookSubscriptionCommand, WebhookSubscriptionDto>
+{
+    private readonly IApplicationDbContext _db;
+    public UpdateWebhookSubscriptionCommandHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<WebhookSubscriptionDto> Handle(UpdateWebhookSubscriptionCommand request, CancellationToken cancellationToken)
+    {
+        var subscription = await _db.WebhookSubscriptions
+            .Include(s => s.Events)
+            .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
+            ?? throw new NotFoundException(nameof(WebhookSubscription), request.Id);
+
+        subscription.Url = request.Url;
+        subscription.Description = request.Description;
+        subscription.IsActive = request.IsActive;
+
+        var desired = request.EventTypes.Select(e => e.Trim()).Where(e => e.Length > 0).Distinct(StringComparer.Ordinal).ToList();
+
+        // Reconcile the event set: drop the ones no longer wanted, add the new ones, keep the rest.
+        var toRemove = subscription.Events.Where(e => !desired.Contains(e.EventType)).ToList();
+        foreach (var e in toRemove)
+        {
+            subscription.Events.Remove(e);
+            _db.WebhookSubscriptionEvents.Remove(e);
+        }
+
+        var existingTypes = subscription.Events.Select(e => e.EventType).ToHashSet(StringComparer.Ordinal);
+        foreach (var eventType in desired.Where(e => !existingTypes.Contains(e)))
+            subscription.Events.Add(new WebhookSubscriptionEvent { EventType = eventType });
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return WebhookSubscriptionDto.From(subscription);
+    }
+}
+
 // ---- List --------------------------------------------------------------------
 
 /// <summary>Lists registered webhook endpoints (secrets are never returned) (AC-PLT-003.4).</summary>

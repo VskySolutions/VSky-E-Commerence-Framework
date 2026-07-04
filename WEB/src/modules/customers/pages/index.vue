@@ -9,10 +9,13 @@
     </AppListHeader>
 
     <AppDataTable page-key="admin-customers" row-key="id" title="All customers" :rows="rows" :columns="columns" :loading="loading" :pagination="pagination" show-actions @request="onRequest" @refresh="reload">
-      <template #body-cell-name="cell"><q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="manage(cell.row)">{{ cell.row.firstName }} {{ cell.row.lastName }}</a></q-td></template>
+      <template #body-cell-name="cell"><q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="view(cell.row)">{{ cell.row.firstName }} {{ cell.row.lastName }}</a></q-td></template>
       <template #body-cell-emailVerified="cell"><q-td :props="cell"><q-badge :color="cell.row.emailVerified ? 'positive' : 'orange'" :label="cell.row.emailVerified ? 'Verified' : 'Unverified'" /></q-td></template>
       <template #body-cell-createdOnUtc="cell"><q-td :props="cell">{{ formatDate(cell.row.createdOnUtc) }}</q-td></template>
-      <template #actions="{ row }"><q-btn flat round dense icon="o_manage_accounts" @click="manage(row)"><q-tooltip>Manage</q-tooltip></q-btn></template>
+      <template #actions="{ row }">
+        <q-btn flat round dense icon="o_visibility" @click="view(row)"><q-tooltip>View</q-tooltip></q-btn>
+        <q-btn flat round dense icon="o_manage_accounts" @click="manage(row)"><q-tooltip>Quick manage</q-tooltip></q-btn>
+      </template>
     </AppDataTable>
 
     <!-- Manage dialog: roles + tax exemption -->
@@ -45,6 +48,7 @@
 <script setup>
 /* Admin customer management (WO-117): list + role assignment + tax exemption. */
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { customerAdminApi, customerRoleApi } from 'modules/customers/api'
@@ -54,6 +58,9 @@ import AppFieldLabel from 'components/common/AppFieldLabel.vue'
 import AppTextField from 'components/common/AppTextField.vue'
 
 const notify = useNotify()
+const router = useRouter()
+
+function view (row) { router.push({ name: 'admin-customer-detail', params: { id: row.id } }) }
 
 const columns = [
   { name: 'name', label: 'Name', field: 'firstName', align: 'left' },
