@@ -31,6 +31,15 @@ public interface IApplicationDbContext
     DbSet<AuditTrail> AuditTrails { get; }
     DbSet<BackgroundTaskLog> BackgroundTaskLogs { get; }
 
+    // Central media library (WO-122)
+    DbSet<Media> Media { get; }
+
+    // Integration Credential Vault (WO-7)
+    DbSet<IntegrationCategory> IntegrationCategories { get; }
+    DbSet<IntegrationProvider> IntegrationProviders { get; }
+    DbSet<CredentialDefinition> CredentialDefinitions { get; }
+    DbSet<IntegrationCredential> IntegrationCredentials { get; }
+
     // Catalog (WO-10, WO-11)
     DbSet<TaxCategory> TaxCategories { get; }
     DbSet<Category> Categories { get; }

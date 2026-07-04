@@ -25,9 +25,6 @@ public class ChangeMyEmailCommandValidator : AbstractValidator<ChangeMyEmailComm
 
 public class ChangeMyEmailCommandHandler : IRequestHandler<ChangeMyEmailCommand>
 {
-    // Public storefront base URL used to build the verification link in the outbound email.
-    // TODO: source this from configuration (storefront/public-site settings) rather than hard-coding.
-    private const string PublicBaseUrl = "https://localhost:9000";
     private const string EmailVerificationTemplateKey = "CustomerEmailVerification";
     private const int TokenLifetimeHours = 24;
 
@@ -36,19 +33,22 @@ public class ChangeMyEmailCommandHandler : IRequestHandler<ChangeMyEmailCommand>
     private readonly IJwtTokenService _tokens;
     private readonly IEmailEnqueuer _emails;
     private readonly IDateTimeProvider _clock;
+    private readonly IStorefrontUrlBuilder _urls;
 
     public ChangeMyEmailCommandHandler(
         IApplicationDbContext db,
         ICurrentUserService current,
         IJwtTokenService tokens,
         IEmailEnqueuer emails,
-        IDateTimeProvider clock)
+        IDateTimeProvider clock,
+        IStorefrontUrlBuilder urls)
     {
         _db = db;
         _current = current;
         _tokens = tokens;
         _emails = emails;
         _clock = clock;
+        _urls = urls;
     }
 
     public async Task Handle(ChangeMyEmailCommand request, CancellationToken cancellationToken)
@@ -87,7 +87,7 @@ public class ChangeMyEmailCommandHandler : IRequestHandler<ChangeMyEmailCommand>
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        var verifyUrl = $"{PublicBaseUrl}/verify-email?token={rawToken}";
+        var verifyUrl = _urls.EmailVerificationUrl(rawToken);
         var fullName = $"{customer.FirstName} {customer.LastName}".Trim();
         var body =
             $"Hi {fullName},\n\n" +

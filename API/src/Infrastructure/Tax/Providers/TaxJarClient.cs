@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Enums;
@@ -31,11 +32,13 @@ public class TaxJarClient : ITaxProviderClient
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICredentialVault _vault;
+    private readonly IApplicationDbContext _db;
 
-    public TaxJarClient(IHttpClientFactory httpClientFactory, ICredentialVault vault)
+    public TaxJarClient(IHttpClientFactory httpClientFactory, ICredentialVault vault, IApplicationDbContext db)
     {
         _httpClientFactory = httpClientFactory;
         _vault = vault;
+        _db = db;
     }
 
     public TaxProviderType Provider => TaxProviderType.TaxJar;
@@ -75,16 +78,40 @@ public class TaxJarClient : ITaxProviderClient
 
     public async Task ReportTransactionAsync(Guid orderId, CancellationToken ct)
     {
-        // Records the finalized order with TaxJar for reporting/remittance. A production implementation
-        // loads the order's amounts, line items and addresses and maps them onto this payload — order
-        // persistence is owned by Order Management, so this client only owns the TaxJar call shape.
-        // Live TaxJar credentials are required; CreateClientAsync throws when they are missing.
+        // Records the finalized order with TaxJar for reporting/remittance (AC-TAX-004.2). Loads the order's
+        // amounts, addresses and line items and maps them onto the /v2/transactions/orders payload. A no-op
+        // when the order is missing, uncharged, or its tax came from the flat-rate fallback (nothing to remit).
+        var order = await _db.Orders
+            .AsNoTracking()
+            .Include(o => o.Lines)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct);
+
+        if (order is null || order.TaxFlaggedForReview || order.TaxTotal <= 0m)
+            return;
+
         var client = await CreateClientAsync(ct);
 
         var payload = new
         {
-            transaction_id = orderId.ToString(),
-            transaction_date = DateTime.UtcNow.ToString("O"),
+            transaction_id = order.OrderNumber,
+            transaction_date = order.PlacedOnUtc.ToString("O"),
+            to_country = order.CountryCode,
+            to_zip = order.PostalCode,
+            to_state = order.Region ?? order.StateProvince,
+            to_city = order.City,
+            to_street = order.AddressLine1,
+            // TaxJar `amount` is the order total incl. shipping but EXCLUDING sales tax.
+            amount = order.TotalAmount - order.TaxTotal,
+            shipping = order.ShippingTotal,
+            sales_tax = order.TaxTotal,
+            line_items = order.Lines.Select((l, i) => new
+            {
+                id = (i + 1).ToString(CultureInfo.InvariantCulture),
+                quantity = l.Quantity,
+                product_identifier = l.Sku ?? l.ProductId.ToString(),
+                description = l.ProductName,
+                unit_price = l.UnitPrice,
+            }).ToArray(),
         };
 
         using var response = await client.PostAsJsonAsync($"{BaseUrl}/v2/transactions/orders", payload, JsonOptions, ct);

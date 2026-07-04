@@ -24,28 +24,27 @@ public class RequestPasswordResetCommandValidator : AbstractValidator<RequestPas
 
 public class RequestPasswordResetCommandHandler : IRequestHandler<RequestPasswordResetCommand>
 {
-    // Public storefront base URL used to build the reset link in the outbound email.
-    // TODO: source this from configuration (storefront/public-site settings) rather than hard-coding.
-    private const string PublicBaseUrl = "https://localhost:9000";
-
     private readonly IApplicationDbContext _db;
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
     private readonly IEmailEnqueuer _emails;
     private readonly IRecaptchaVerifier _recaptcha;
+    private readonly IStorefrontUrlBuilder _urls;
 
     public RequestPasswordResetCommandHandler(
         IApplicationDbContext db,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
         IEmailEnqueuer emails,
-        IRecaptchaVerifier recaptcha)
+        IRecaptchaVerifier recaptcha,
+        IStorefrontUrlBuilder urls)
     {
         _db = db;
         _tokens = tokens;
         _clock = clock;
         _emails = emails;
         _recaptcha = recaptcha;
+        _urls = urls;
     }
 
     public async Task Handle(RequestPasswordResetCommand request, CancellationToken cancellationToken)
@@ -78,7 +77,7 @@ public class RequestPasswordResetCommandHandler : IRequestHandler<RequestPasswor
             ? string.Empty
             : $"{user.Customer.FirstName} {user.Customer.LastName}".Trim();
         var greeting = string.IsNullOrWhiteSpace(fullName) ? "there" : fullName;
-        var resetUrl = $"{PublicBaseUrl}/reset-password?token={rawToken}";
+        var resetUrl = _urls.PasswordResetUrl(rawToken);
         var body =
             $"Hi {greeting},\n\n" +
             "We received a request to reset your password. Open the link below to choose a new one:\n\n" +

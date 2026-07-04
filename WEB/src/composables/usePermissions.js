@@ -31,7 +31,9 @@ export const Permissions = Object.freeze({
   StorageRead: 'Storage.Read',
   StorageWrite: 'Storage.Write',
   SmtpAccountsRead: 'SmtpAccounts.Read',
-  SmtpAccountsWrite: 'SmtpAccounts.Write'
+  SmtpAccountsWrite: 'SmtpAccounts.Write',
+  OrdersRead: 'Orders.Read',
+  OrdersWrite: 'Orders.Write'
 })
 
 export function usePermissions () {

@@ -1,119 +1,253 @@
 <template>
-  <q-layout view="hHh lpR fFf">
-    <q-header elevated class="bg-white text-dark">
-      <q-toolbar class="storefront-toolbar q-py-sm">
-        <q-btn
-          flat
-          no-caps
-          :to="{ name: 'shop-home' }"
-          class="text-weight-bold q-px-sm"
-          aria-label="Home"
-        >
-          <q-icon name="o_storefront" size="24px" color="primary" :class="$q.screen.gt.xs ? 'q-mr-sm' : ''" />
-          <span class="gt-xs">VSky Shop</span>
-        </q-btn>
+  <q-layout view="hHh lpR fFf" class="storefront-root">
+    <q-header>
+      <!-- ===== Top info bar ===== -->
+      <div class="sf-topbar">
+        <div class="sf-container row items-center justify-between q-py-xs">
+          <div class="row items-center q-gutter-md">
+            <a v-if="branding.supportPhone" :href="`tel:${branding.supportPhone}`" class="sf-topbar__item gt-xs">
+              <q-icon name="o_call" size="16px" /> {{ branding.supportPhone }}
+            </a>
+            <a v-if="branding.supportEmail" :href="`mailto:${branding.supportEmail}`" class="sf-topbar__item gt-sm">
+              <q-icon name="o_mail" size="16px" /> {{ branding.supportEmail }}
+            </a>
+            <span v-if="!branding.supportPhone && !branding.supportEmail" class="sf-topbar__item">
+              Welcome to {{ branding.brandName }}
+            </span>
+          </div>
 
-        <!-- Prominent search with autocomplete -->
-        <q-input
-          v-model="searchText"
-          dense
-          rounded
-          outlined
-          bg-color="grey-1"
-          placeholder="Search products"
-          class="storefront-search col q-mx-sm"
-          debounce="300"
-          @update:model-value="onQueryChange"
-          @keyup.enter="onEnter"
-        >
-          <template #prepend>
-            <q-icon name="o_search" class="cursor-pointer" @click="onEnter" />
-          </template>
-          <template #append>
-            <q-icon v-if="searchText" name="o_close" class="cursor-pointer" @click="clearSearch" />
-          </template>
+          <div class="row items-center q-gutter-sm no-wrap">
+            <CurrencySelector />
+            <LanguageSelector class="gt-xs" />
+            <router-link :to="{ name: 'shop-compare' }" class="sf-topbar__item gt-xs">
+              Compare<span v-if="compareIds.length">&nbsp;({{ compareIds.length }})</span>
+            </router-link>
 
-          <q-menu
-            v-model="suggestOpen"
-            fit
-            no-focus
-            no-refocus
-            no-parent-event
-            anchor="bottom left"
-            self="top left"
-          >
-            <q-list style="min-width: 240px">
-              <template v-if="suggestions.products.length">
-                <q-item-label header class="q-py-xs">Products</q-item-label>
-                <q-item
-                  v-for="(name, i) in suggestions.products"
-                  :key="'p-' + i"
-                  v-close-popup
-                  clickable
-                  dense
-                  @click="selectSuggestion(name)"
-                >
-                  <q-item-section avatar>
-                    <q-icon name="o_inventory_2" size="18px" color="grey-6" />
-                  </q-item-section>
-                  <q-item-section>{{ name }}</q-item-section>
-                </q-item>
-              </template>
+            <span v-if="!customerAuth.isAuthenticated" class="row items-center no-wrap">
+              <router-link :to="{ name: 'shop-login' }" class="sf-topbar__item">Sign in</router-link>
+              <span class="q-mx-xs">/</span>
+              <router-link :to="{ name: 'shop-register' }" class="sf-topbar__item">Register</router-link>
+            </span>
+            <a v-else class="sf-topbar__item cursor-pointer">
+              <q-icon name="o_account_circle" size="16px" /> {{ accountLabel }}
+              <q-menu>
+                <q-list style="min-width: 180px">
+                  <q-item clickable v-close-popup :to="{ name: 'shop-account-profile' }">
+                    <q-item-section avatar><q-icon name="o_person" /></q-item-section>
+                    <q-item-section>My profile</q-item-section>
+                  </q-item>
+                  <q-item clickable v-close-popup :to="{ name: 'shop-account-addresses' }">
+                    <q-item-section avatar><q-icon name="o_home_pin" /></q-item-section>
+                    <q-item-section>Addresses</q-item-section>
+                  </q-item>
+                  <q-item clickable v-close-popup :to="{ name: 'shop-account-orders' }">
+                    <q-item-section avatar><q-icon name="o_receipt_long" /></q-item-section>
+                    <q-item-section>Orders</q-item-section>
+                  </q-item>
+                  <q-separator />
+                  <q-item clickable v-close-popup @click="onLogout">
+                    <q-item-section avatar><q-icon name="o_logout" /></q-item-section>
+                    <q-item-section>Sign out</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </a>
+          </div>
+        </div>
+      </div>
 
-              <template v-if="suggestions.categories.length">
-                <q-item-label header class="q-py-xs">Categories</q-item-label>
-                <q-item
-                  v-for="(name, i) in suggestions.categories"
-                  :key="'c-' + i"
-                  v-close-popup
-                  clickable
-                  dense
-                  @click="selectSuggestion(name)"
-                >
-                  <q-item-section avatar>
-                    <q-icon name="o_category" size="18px" color="grey-6" />
-                  </q-item-section>
-                  <q-item-section>{{ name }}</q-item-section>
-                </q-item>
-              </template>
-            </q-list>
-          </q-menu>
-        </q-input>
+      <!-- ===== Main header ===== -->
+      <div class="sf-header">
+        <div class="sf-container row items-center no-wrap q-py-md q-gutter-md">
+          <router-link :to="{ name: 'shop-home' }" class="sf-header__logo" aria-label="Home">
+            <img v-if="branding.logoUrl" :src="branding.logoUrl" :alt="branding.brandName" class="sf-header__logo-img">
+            <template v-else>
+              <q-icon name="o_storefront" size="26px" />
+              <span class="gt-xs">{{ branding.brandName }}</span>
+            </template>
+          </router-link>
 
-        <CurrencySelector class="q-mr-xs" />
+          <!-- Search with category prefix + submit -->
+          <div class="sf-search col">
+            <div class="sf-search__cat gt-sm" @click="catMenu = true">
+              {{ searchCategoryLabel }}
+              <q-icon name="o_expand_more" size="16px" class="q-ml-xs" />
+              <q-menu v-model="catMenu" fit>
+                <q-list style="min-width: 180px">
+                  <q-item clickable v-close-popup @click="searchCategory = null">
+                    <q-item-section>All categories</q-item-section>
+                  </q-item>
+                  <q-item
+                    v-for="cat in topCategories"
+                    :key="cat.id"
+                    clickable
+                    v-close-popup
+                    @click="searchCategory = cat"
+                  >
+                    <q-item-section>{{ cat.name }}</q-item-section>
+                  </q-item>
+                </q-list>
+              </q-menu>
+            </div>
+            <q-input
+              v-model="searchText"
+              dense
+              borderless
+              class="sf-search__input q-px-sm"
+              placeholder="Search products…"
+              debounce="300"
+              @update:model-value="onQueryChange"
+              @keyup.enter="onEnter"
+            >
+              <q-menu
+                v-model="suggestOpen"
+                fit
+                no-focus
+                no-refocus
+                no-parent-event
+                anchor="bottom left"
+                self="top left"
+              >
+                <q-list style="min-width: 240px">
+                  <template v-if="suggestions.products.length">
+                    <q-item-label header class="q-py-xs">Products</q-item-label>
+                    <q-item
+                      v-for="(name, i) in suggestions.products"
+                      :key="'p-' + i"
+                      v-close-popup
+                      clickable
+                      dense
+                      @click="selectSuggestion(name)"
+                    >
+                      <q-item-section avatar><q-icon name="o_inventory_2" size="18px" color="grey-6" /></q-item-section>
+                      <q-item-section>{{ name }}</q-item-section>
+                    </q-item>
+                  </template>
+                  <template v-if="suggestions.categories.length">
+                    <q-item-label header class="q-py-xs">Categories</q-item-label>
+                    <q-item
+                      v-for="(name, i) in suggestions.categories"
+                      :key="'c-' + i"
+                      v-close-popup
+                      clickable
+                      dense
+                      @click="selectSuggestion(name)"
+                    >
+                      <q-item-section avatar><q-icon name="o_category" size="18px" color="grey-6" /></q-item-section>
+                      <q-item-section>{{ name }}</q-item-section>
+                    </q-item>
+                  </template>
+                </q-list>
+              </q-menu>
+            </q-input>
+            <button class="sf-search__btn" aria-label="Search" @click="onEnter">
+              <q-icon name="o_search" size="20px" />
+            </button>
+          </div>
 
-        <LanguageSelector class="q-mr-xs" />
+          <!-- Icon group -->
+          <div class="row items-center no-wrap q-gutter-sm">
+            <q-btn
+              flat
+              round
+              dense
+              class="sf-header__icon"
+              icon="o_favorite_border"
+              :to="{ name: 'shop-wishlist' }"
+              aria-label="Wishlist"
+            >
+              <q-tooltip>Wishlist</q-tooltip>
+            </q-btn>
+            <q-btn
+              flat
+              round
+              dense
+              class="sf-header__icon"
+              icon="o_shopping_cart"
+              aria-label="Cart"
+              @click="cartDrawer = true"
+            >
+              <q-badge v-if="cartCount" color="red" floating>{{ cartCount }}</q-badge>
+              <q-tooltip>Cart</q-tooltip>
+            </q-btn>
+          </div>
+        </div>
+      </div>
 
-        <CartIndicator class="q-mr-xs" />
-
-        <q-btn
-          flat
-          no-caps
-          dense
-          icon="o_compare"
-          :label="$q.screen.gt.sm ? 'Compare' : ''"
-          :to="{ name: 'shop-compare' }"
-          aria-label="Compare"
-        >
-          <q-badge v-if="compareIds.length" color="red" floating>{{ compareIds.length }}</q-badge>
-          <q-tooltip>Compare products</q-tooltip>
-        </q-btn>
-      </q-toolbar>
+      <!-- ===== Mega-menu ===== -->
+      <MegaMenu />
     </q-header>
+
+    <CartDrawer v-model="cartDrawer" />
 
     <q-page-container>
       <router-view />
     </q-page-container>
 
-    <q-footer class="bg-grey-9 text-grey-4">
-      <div class="storefront-footer q-pa-md row items-center justify-between">
-        <div class="row items-center">
-          <q-icon name="o_storefront" size="20px" class="q-mr-sm" />
-          <span>VSky Shop &copy; {{ year }}</span>
+    <!-- ===== Footer ===== -->
+    <q-footer class="sf-footer">
+      <div class="sf-container">
+        <div class="row q-col-gutter-xl q-pb-lg">
+          <!-- Brand + social -->
+          <div class="col-12 col-sm-6 col-md-3">
+            <div class="row items-center q-gutter-sm q-mb-md">
+              <img v-if="branding.logoUrl" :src="branding.logoUrl" :alt="branding.brandName" style="max-height: 34px">
+              <template v-else>
+                <q-icon name="o_storefront" size="24px" color="white" />
+                <span class="text-white text-h6 text-weight-bold">{{ branding.brandName }}</span>
+              </template>
+            </div>
+            <p class="text-body2">{{ branding.tagline }}</p>
+            <div class="row q-gutter-sm q-mt-md">
+              <a
+                v-for="s in branding.social"
+                :key="s.platform"
+                :href="s.url"
+                target="_blank"
+                rel="noopener"
+                class="sf-footer__social"
+                :aria-label="s.platform"
+              >
+                <q-icon :name="s.icon" size="16px" />
+              </a>
+            </div>
+          </div>
+
+          <!-- Information (CMS links — static fallback; see WO-110 flag) -->
+          <div class="col-6 col-md-3">
+            <div class="sf-footer__title">Information</div>
+            <a v-for="link in informationLinks" :key="link.label" class="sf-footer__link" :href="link.href">{{ link.label }}</a>
+          </div>
+
+          <!-- Quick links -->
+          <div class="col-6 col-md-3">
+            <div class="sf-footer__title">Quick Links</div>
+            <router-link class="sf-footer__link" :to="{ name: 'shop-account-profile' }">My Account</router-link>
+            <router-link class="sf-footer__link" :to="{ name: 'shop-wishlist' }">Wishlist</router-link>
+            <router-link class="sf-footer__link" :to="{ name: 'shop-cart' }">Cart</router-link>
+            <router-link class="sf-footer__link" :to="{ name: 'shop-account-orders' }">Track Order</router-link>
+            <router-link class="sf-footer__link" :to="{ name: 'shop-compare' }">Compare</router-link>
+          </div>
+
+          <!-- Contact + newsletter -->
+          <div class="col-12 col-md-3">
+            <div class="sf-footer__title">Stay in touch</div>
+            <div v-if="branding.supportPhone" class="q-mb-xs"><q-icon name="o_call" size="16px" class="q-mr-xs" />{{ branding.supportPhone }}</div>
+            <div v-if="branding.supportEmail" class="q-mb-md"><q-icon name="o_mail" size="16px" class="q-mr-xs" />{{ branding.supportEmail }}</div>
+            <NewsletterForm compact />
+          </div>
         </div>
-        <div class="row q-gutter-md">
-          <q-btn flat dense no-caps size="sm" label="Home" :to="{ name: 'shop-home' }" />
-          <q-btn flat dense no-caps size="sm" label="Compare" :to="{ name: 'shop-compare' }" />
+
+        <!-- Bottom bar -->
+        <div class="sf-footer__bottom row items-center justify-between">
+          <div>&copy; {{ year }} {{ branding.brandName }}. All rights reserved.</div>
+          <div class="row items-center q-gutter-xs">
+            <span class="sf-footer__pay">VISA</span>
+            <span class="sf-footer__pay">MC</span>
+            <span class="sf-footer__pay">AMEX</span>
+            <span class="sf-footer__pay">PayPal</span>
+            <span class="sf-footer__pay">Stripe</span>
+          </div>
         </div>
       </div>
     </q-footer>
@@ -122,30 +256,60 @@
 
 <script setup>
 /*
- * Public storefront shell (WO-19). Chrome-light layout for anonymous shoppers:
- * a brand/home link, a prominent debounced search with autocomplete suggestions
- * (products + categories) that navigate to the search results route, a language
- * selector and a compare link with a live count badge. No admin drawer, no auth
- * requirement, no authenticated-user assumptions.
+ * Porto-inspired public storefront shell (WO-109). Top info bar (contact +
+ * currency/language/account), sticky navy header (logo, search with category
+ * prefix, wishlist + cart-drawer icons), a category mega-menu, and a 4-column
+ * footer. Branding (logo/colours/phone/email/social/tagline) is loaded from the
+ * public tenant-branding endpoint and applied onto the Porto `--sf-*` tokens.
+ *
+ * PRESERVES the WO-21 isolated customer session: the account control uses
+ * useCustomerAuthStore (sign-in/register when anonymous; profile/addresses/
+ * orders/sign-out when authenticated), never the admin auth store.
  */
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { useQuasar } from 'quasar'
 import { storefrontApi } from 'modules/storefront/api'
 import { useCompare } from 'modules/storefront/composables/useStorefrontStorage'
+import { useCustomerAuthStore } from 'stores/customerAuth'
+import { useStorefront } from 'modules/storefront/composables/useStorefront'
+import { useCategories } from 'modules/storefront/composables/useCategories'
+import { useCart } from 'modules/storefront/composables/useCart'
 import LanguageSelector from 'modules/storefront/components/LanguageSelector.vue'
 import CurrencySelector from 'modules/storefront/components/CurrencySelector.vue'
-import CartIndicator from 'modules/storefront/components/CartIndicator.vue'
+import MegaMenu from 'modules/storefront/components/MegaMenu.vue'
+import CartDrawer from 'modules/storefront/components/CartDrawer.vue'
+import NewsletterForm from 'modules/storefront/components/NewsletterForm.vue'
 
 const router = useRouter()
-const $q = useQuasar()
 const { compareIds } = useCompare()
+const customerAuth = useCustomerAuthStore()
+const { branding, loadBranding } = useStorefront()
+const { categories, loadCategories } = useCategories()
+const { itemCount, ensureLoaded } = useCart()
 
 const year = new Date().getFullYear()
+const accountLabel = computed(() => customerAuth.displayName || 'Account')
+const cartCount = computed(() => itemCount.value)
+const topCategories = computed(() => categories.value.slice(0, 12))
 
+const cartDrawer = ref(false)
+const catMenu = ref(false)
+
+// Static footer "Information" links — no CMS Page Groups API exists yet (WO-110 flag).
+const informationLinks = [
+  { label: 'About Us', href: '#' },
+  { label: 'Shipping & Returns', href: '#' },
+  { label: 'Privacy Policy', href: '#' },
+  { label: 'Terms & Conditions', href: '#' },
+  { label: 'Contact Us', href: '#' }
+]
+
+// ---- Search ----
 const searchText = ref('')
+const searchCategory = ref(null)
 const suggestions = ref({ products: [], categories: [] })
 const suggestOpen = ref(false)
+const searchCategoryLabel = computed(() => (searchCategory.value ? searchCategory.value.name : 'All categories'))
 
 async function onQueryChange (val) {
   const q = (val || '').trim()
@@ -157,9 +321,9 @@ async function onQueryChange (val) {
   try {
     const result = await storefrontApi.autocomplete(q)
     const products = Array.isArray(result?.products) ? result.products : []
-    const categories = Array.isArray(result?.categories) ? result.categories : []
-    suggestions.value = { products, categories }
-    suggestOpen.value = products.length > 0 || categories.length > 0
+    const categoriesList = Array.isArray(result?.categories) ? result.categories : []
+    suggestions.value = { products, categories: categoriesList }
+    suggestOpen.value = products.length > 0 || categoriesList.length > 0
   } catch (e) {
     suggestOpen.value = false
     suggestions.value = { products: [], categories: [] }
@@ -170,11 +334,12 @@ function goSearch (q) {
   suggestOpen.value = false
   const term = (q || '').trim()
   if (!term) return
-  router.push({ name: 'shop-search', query: { q: term } })
+  const query = { q: term }
+  if (searchCategory.value) query.categoryId = searchCategory.value.id
+  router.push({ name: 'shop-search', query })
 }
 
 function onEnter (evt) {
-  // Prefer the live DOM value in case the debounced v-model has not caught up.
   const value = evt && evt.target ? evt.target.value : searchText.value
   goSearch(value)
 }
@@ -184,24 +349,14 @@ function selectSuggestion (name) {
   goSearch(name)
 }
 
-function clearSearch () {
-  searchText.value = ''
-  suggestOpen.value = false
-  suggestions.value = { products: [], categories: [] }
+function onLogout () {
+  customerAuth.logout()
+  router.push({ name: 'shop-home' })
 }
+
+onMounted(() => {
+  loadBranding()
+  loadCategories()
+  ensureLoaded()
+})
 </script>
-
-<style scoped lang="scss">
-.storefront-toolbar {
-  gap: 4px;
-}
-
-.storefront-search {
-  max-width: 640px;
-}
-
-.storefront-footer {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-</style>

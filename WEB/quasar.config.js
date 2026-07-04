@@ -41,7 +41,7 @@ export default function (/* ctx */) {
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     // NOTE: quasar.variables.scss is auto-prepended to every SCSS file by the
     // Quasar Vite plugin, so it is intentionally NOT listed here.
-    css: ['typography.scss', 'app.scss', 'page.scss', 'custom.scss'],
+    css: ['typography.scss', 'app.scss', 'page.scss', 'custom.scss', 'storefront.scss'],
 
     // https://github.com/quasarframework/quasar/tree/dev/extras
     extras: [

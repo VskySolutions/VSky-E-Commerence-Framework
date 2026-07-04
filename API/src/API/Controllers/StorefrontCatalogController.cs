@@ -14,6 +14,11 @@ namespace VSky.API.Controllers;
 [AllowAnonymous]
 public class StorefrontCatalogController : ApiControllerBase
 {
+    /// <summary>The enabled category tree (nested) with published-product counts — powers the header menu and home category grid.</summary>
+    [HttpGet("categories")]
+    public async Task<ActionResult<List<StorefrontCategoryNodeDto>>> Categories()
+        => Ok(await Mediator.Send(new GetStorefrontCategoriesQuery()));
+
     /// <summary>Category page for an enabled category (by id or slug): paged published products plus filterable spec attributes.</summary>
     [HttpGet("category/{idOrSlug}")]
     public async Task<ActionResult<CategoryPageDto>> GetCategory(

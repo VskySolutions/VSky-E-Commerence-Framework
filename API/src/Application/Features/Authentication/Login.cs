@@ -52,9 +52,16 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponse>
         if (user is null || !_hasher.Verify(user.PasswordHash, request.Password))
             throw new UnauthorizedException("Invalid email or password.");
 
+        var (roles, modules) = AccessScope.From(user.UserRoles);
+
+        // Unified login (WO-112): a pure customer (Customer profile, no assigned role) must verify their
+        // email before signing in (AC-CUS-001.3). Staff/admin accounts carry roles and are exempt — they
+        // may be created unverified — so enforcing this here never locks an admin out.
+        if (!user.EmailVerified && user.Customer is not null && roles.Count == 0)
+            throw new UnauthorizedException("Please verify your email address before signing in.");
+
         user.LastLoginOnUtc = _clock.UtcNow;
 
-        var (roles, modules) = AccessScope.From(user.UserRoles);
         var (accessToken, expiresAt) = _tokens.CreateAccessToken(user, roles, modules);
         var refreshToken = _tokens.GenerateRefreshToken();
 

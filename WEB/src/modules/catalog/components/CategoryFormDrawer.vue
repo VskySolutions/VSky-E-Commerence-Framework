@@ -7,22 +7,23 @@
     @submit="onSubmit"
     @cancel="$emit('cancel')"
   >
-    <AppTextField v-model="form.name" label="Name" required :v="v$.name" />
+    <AppTextField v-model="form.name" label="Name" required :v="v$.name" placeholder="e.g. Men's Clothing" />
     <AppSelect
       v-model="form.parentId"
       label="Parent category"
+      placeholder="None (top-level category)"
       :options="availableParents"
       clearable
     />
-    <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" />
-    <AppTextField v-model="form.description" label="Description" type="textarea" autogrow />
+    <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" placeholder="Auto-generated from the name if left blank" />
+    <AppRichText v-model="form.description" label="Description" placeholder="Describe this category…" />
 
     <q-separator class="q-my-sm" />
     <div class="text-caption text-grey-7 q-mb-xs">SEO metadata</div>
-    <AppTextField v-model="form.metaTitle" label="Meta title" />
-    <AppTextField v-model="form.metaDescription" label="Meta description" type="textarea" autogrow />
-    <AppTextField v-model="form.metaKeywords" label="Meta keywords" />
-    <AppTextField v-model="form.canonicalUrl" label="Canonical URL" />
+    <AppTextField v-model="form.metaTitle" label="Meta title" placeholder="Falls back to the name if left blank" />
+    <AppTextField v-model="form.metaDescription" label="Meta description" type="textarea" autogrow placeholder="Plain-text summary for search engines (≤160 chars)" />
+    <AppTextField v-model="form.metaKeywords" label="Meta keywords" placeholder="Comma-separated keywords" />
+    <AppTextField v-model="form.canonicalUrl" label="Canonical URL" placeholder="Optional — for duplicate-content canonicalization" />
 
     <div class="row q-col-gutter-sm items-center q-mt-xs">
       <div class="col-6">

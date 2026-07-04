@@ -48,6 +48,15 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<AuditTrail> AuditTrails => Set<AuditTrail>();
     public DbSet<BackgroundTaskLog> BackgroundTaskLogs => Set<BackgroundTaskLog>();
 
+    // Central media library (WO-122)
+    public DbSet<Media> Media => Set<Media>();
+
+    // Integration Credential Vault (WO-7)
+    public DbSet<IntegrationCategory> IntegrationCategories => Set<IntegrationCategory>();
+    public DbSet<IntegrationProvider> IntegrationProviders => Set<IntegrationProvider>();
+    public DbSet<CredentialDefinition> CredentialDefinitions => Set<CredentialDefinition>();
+    public DbSet<IntegrationCredential> IntegrationCredentials => Set<IntegrationCredential>();
+
     // Catalog (WO-10, WO-11)
     public DbSet<TaxCategory> TaxCategories => Set<TaxCategory>();
     public DbSet<Category> Categories => Set<Category>();

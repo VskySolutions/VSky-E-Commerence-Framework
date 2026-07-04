@@ -26,37 +26,8 @@
 
     <q-separator class="q-my-md" />
     <div class="text-subtitle2 text-grey-8 q-mb-sm">Logo &amp; favicon</div>
-    <AppTextField v-model="form.logoUrl" label="Logo URL" :v="v$.logoUrl" placeholder="https://…" maxlength="500" />
-    <q-file
-      v-model="logoFile"
-      dense
-      outlined
-      class="q-mb-md"
-      label="Upload logo image"
-      accept="image/*"
-      :max-file-size="2000000"
-      :loading="uploadingLogo"
-      @update:model-value="onPickLogo"
-      @rejected="onFileRejected"
-    >
-      <template #prepend><q-icon name="o_upload" /></template>
-    </q-file>
-
-    <AppTextField v-model="form.faviconUrl" label="Favicon URL" :v="v$.faviconUrl" placeholder="https://…" maxlength="500" />
-    <q-file
-      v-model="faviconFile"
-      dense
-      outlined
-      class="q-mb-md"
-      label="Upload favicon image"
-      accept="image/*"
-      :max-file-size="2000000"
-      :loading="uploadingFavicon"
-      @update:model-value="onPickFavicon"
-      @rejected="onFileRejected"
-    >
-      <template #prepend><q-icon name="o_upload" /></template>
-    </q-file>
+    <AppFileUpload v-model="form.logoUrl" label="Logo" folder="branding" accept="image/*" extensions-label="PNG, JPG, SVG" />
+    <AppFileUpload v-model="form.faviconUrl" label="Favicon" folder="branding" accept="image/*,.ico" extensions-label="PNG, ICO, SVG" />
 
     <q-separator class="q-my-md" />
     <div class="text-subtitle2 text-grey-8 q-mb-sm">Contact</div>

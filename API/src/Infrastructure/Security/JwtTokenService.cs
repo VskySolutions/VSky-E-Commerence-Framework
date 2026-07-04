@@ -21,7 +21,7 @@ public class JwtTokenService : IJwtTokenService
         _keys = keys;
     }
 
-    public int RefreshTokenDays => _options.RefreshTokenDays <= 0 ? 7 : _options.RefreshTokenDays;
+    public int RefreshTokenDays => _options.RefreshTokenDays <= 0 ? 30 : _options.RefreshTokenDays;
 
     public (string token, DateTime expiresAtUtc) CreateAccessToken(
         User user, IReadOnlyCollection<string> roles, IReadOnlyCollection<string> accessibleModules)

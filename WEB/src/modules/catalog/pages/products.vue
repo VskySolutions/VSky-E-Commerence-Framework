@@ -2,7 +2,6 @@
   <q-page class="app-page">
     <AppListHeader
       title="Products"
-      subtitle="Manage catalog products."
       :breadcrumbs="[{ label: 'Home', icon: 'o_home', to: '/dashboard' }, { label: 'Products' }]"
       :show-add="canWrite"
       add-label="New product"
@@ -14,39 +13,38 @@
           dense
           outlined
           debounce="400"
-          placeholder="Search"
+          placeholder="Quick search by name or SKU"
           class="q-mr-sm"
-          style="min-width: 200px"
+          style="min-width: 240px"
           @update:model-value="reload"
         >
           <template #prepend><q-icon name="o_search" /></template>
+          <template v-if="search" #append>
+            <q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" />
+          </template>
         </q-input>
-        <q-select
-          v-model="typeFilter"
-          dense
-          outlined
-          clearable
-          emit-value
-          map-options
-          :options="productTypeOptions"
-          placeholder="Type"
-          class="q-mr-sm"
-          style="min-width: 160px"
-          @update:model-value="reload"
-        />
-        <q-select
-          v-model="publishedFilter"
-          dense
-          outlined
-          emit-value
-          map-options
-          :options="publishedOptions"
-          class="q-mr-sm"
-          style="min-width: 150px"
-          @update:model-value="reload"
-        />
+        <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" class="q-mr-sm" @click="filtersOpen = true">
+          <q-badge v-if="activeFilterCount" color="red" floating>{{ activeFilterCount }}</q-badge>
+        </q-btn>
       </template>
     </AppListHeader>
+
+    <AppFilterDrawer v-model="filtersOpen" title="Filter products" @clear="clearFilters">
+      <AppSelect
+        v-model="typeFilter"
+        label="Product type"
+        clearable
+        placeholder="Any type"
+        :options="productTypeOptions"
+        @update:model-value="reload"
+      />
+      <AppSelect
+        v-model="publishedFilter"
+        label="Status"
+        :options="publishedOptions"
+        @update:model-value="reload"
+      />
+    </AppFilterDrawer>
 
     <AppDataTable
       page-key="catalog-products"
@@ -136,7 +134,19 @@ const loading = ref(false)
 const search = ref('')
 const typeFilter = ref(null)
 const publishedFilter = ref(null)
+const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0 })
+
+// Count of active advanced filters (drives the "Advanced" button badge).
+const activeFilterCount = computed(() =>
+  (typeFilter.value ? 1 : 0) + (publishedFilter.value !== null ? 1 : 0)
+)
+
+function clearFilters () {
+  typeFilter.value = null
+  publishedFilter.value = null
+  reload()
+}
 
 function formatPrice (value) {
   if (value === null || value === undefined) return '—'

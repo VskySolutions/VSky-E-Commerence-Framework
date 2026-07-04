@@ -17,7 +17,7 @@ import { getStoredToken, getStoredUser } from 'src/services/storage'
 
 const API_BASE_URL = process.env.API_BASE_URL || ''
 
-// ---- Authenticated instance -------------------------------------------------
+// ---- Authenticated instance (admin) -----------------------------------------
 const http = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000
@@ -25,6 +25,16 @@ const http = axios.create({
 
 // ---- Anonymous instance -----------------------------------------------------
 const http2 = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: 30000
+})
+
+// ---- Storefront customer instance -------------------------------------------
+// Since WO-112 unified authentication into a single session, this instance carries
+// the SAME bearer token as the admin `http` instance (one login for all roles); it
+// stays a separate axios instance only so the storefront's response interceptor can
+// redirect to the unified login on 401.
+const http3 = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000
 })
@@ -74,11 +84,28 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+// ---- Request interceptor (customer instance) --------------------------------
+http3.interceptors.request.use((config) => {
+  config.headers = config.headers || {}
+
+  // Unified session (WO-112): read the single shared token slot.
+  const token = getStoredToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+
+  config.headers['X-Correlation-Id'] = uuidV4()
+  config.headers['X-Site-Timezone'] = browserTimeZone()
+
+  return config
+})
+
 export default ({ app }) => {
-  // Make instances available as $api / $anonApi / $axios inside templates.
+  // Make instances available as $api / $anonApi / $customerApi / $axios inside templates.
   app.config.globalProperties.$axios = axios
   app.config.globalProperties.$api = http
   app.config.globalProperties.$anonApi = http2
+  app.config.globalProperties.$customerApi = http3
 }
 
-export { http, http2 }
+export { http, http2, http3 }

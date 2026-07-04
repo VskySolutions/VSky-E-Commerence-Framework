@@ -143,7 +143,7 @@
                 Guest checkout is not available for this store. Please log in or create an account to continue.
               </div>
             </div>
-            <q-btn unelevated color="primary" no-caps label="Sign in" :to="{ name: 'login' }" class="q-ml-md" />
+            <q-btn unelevated color="primary" no-caps label="Sign in" :to="{ name: 'shop-login' }" class="q-ml-md" />
           </q-card-section>
         </q-card>
 
@@ -301,7 +301,7 @@
               class="full-width q-mt-md"
               no-caps
               label="Sign in to continue"
-              :to="{ name: 'login' }"
+              :to="{ name: 'shop-login' }"
             />
 
             <q-btn

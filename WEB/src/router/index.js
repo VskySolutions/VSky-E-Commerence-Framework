@@ -28,6 +28,12 @@ import credentialsRoutes from 'modules/credentials/routes'
 import usersRoutes from 'modules/users/routes'
 import rolesRoutes from 'modules/roles/routes'
 import catalogRoutes from 'modules/catalog/routes'
+import ordersRoutes from 'modules/orders/routes'
+import pricingRoutes from 'modules/pricing/routes'
+import shippingRoutes from 'modules/shipping/routes'
+import reportsRoutes from 'modules/reports/routes'
+import taxRoutes from 'modules/tax/routes'
+import customersRoutes from 'modules/customers/routes'
 import storefrontRoutes from 'modules/storefront/routes'
 import storageRoutes from 'modules/storage/routes'
 import emailAccountsRoutes from 'modules/email-accounts/routes'
@@ -45,6 +51,12 @@ const moduleChildren = [
   ...usersRoutes,
   ...rolesRoutes,
   ...catalogRoutes,
+  ...ordersRoutes,
+  ...pricingRoutes,
+  ...shippingRoutes,
+  ...reportsRoutes,
+  ...taxRoutes,
+  ...customersRoutes,
   ...storageRoutes,
   ...emailAccountsRoutes
 ]
@@ -88,9 +100,10 @@ export default function () {
       return { path: '/auth/login', query: redirect ? { redirect } : undefined }
     }
 
-    // (2) Already signed in but visiting the auth area.
+    // (2) Already signed in but visiting the auth area — send each role to its home
+    // (WO-112 unified login: staff → dashboard, customers (no role) → storefront).
     if (isAuthed && isAuthArea) {
-      return { path: '/dashboard' }
+      return { path: auth.roles.length ? '/dashboard' : '/shop' }
     }
 
     // (3) Forced password change.

@@ -26,6 +26,7 @@ using VSky.Infrastructure.Security;
 using VSky.Infrastructure.Services;
 using VSky.Infrastructure.Settings;
 using VSky.Infrastructure.Storage;
+using VSky.Infrastructure.Storefront;
 
 namespace VSky.Infrastructure;
 
@@ -49,6 +50,9 @@ public static class DependencyInjection
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
         services.AddScoped<DatabaseInitializer>();
+
+        // Builds public storefront email links (verification/reset) from configuration.
+        services.AddSingleton<IStorefrontUrlBuilder, StorefrontUrlBuilder>();
 
         // Authentication / security (WO-1).
         services.Configure<JwtOptions>(configuration.GetSection("Jwt"));
@@ -134,6 +138,8 @@ public static class DependencyInjection
         services.AddScoped<IFileStorageAdapter, LocalFilesystemAdapter>();
         services.AddScoped<IFileStorageAdapter, AzureBlobAdapter>();
         services.AddScoped<IFileStorage, FileStorageService>();
+        // Central media library: short-lived prepared-upload store for the two-step flow (WO-122).
+        services.AddSingleton<IMediaTempStore, VSky.Infrastructure.Storage.MediaTempStore>();
 
         // Background task scheduler (WO-4).
         services.AddSingleton<TaskScheduleRegistry>();
@@ -142,6 +148,7 @@ public static class DependencyInjection
         services.AddSingleton<IScheduledTask, LowStockAlertWorker>();
         services.AddSingleton<IScheduledTask, TrackingSyncWorker>();
         services.AddSingleton<IScheduledTask, CurrencyRateRefreshWorker>();
+        services.AddSingleton<IScheduledTask, ExpiredAuthorizationWorker>();
         services.AddSingleton<IScheduledTask, DatabaseCleanupWorker>();
         services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.WebhookDispatchWorker>();
         // Webhooks: domain event bus that enqueues signed deliveries (WO-5).

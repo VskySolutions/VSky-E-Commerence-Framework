@@ -1,0 +1,105 @@
+<template>
+  <div class="account-auth-page">
+    <q-card flat bordered class="account-auth-card">
+      <q-card-section>
+        <div class="text-h6 text-weight-bold">Choose a new password</div>
+      </q-card-section>
+
+      <template v-if="!done">
+        <q-banner v-if="!hasToken" dense class="bg-red-1 text-negative q-mx-md q-mb-sm rounded-borders">
+          This reset link is missing its token. Request a new one from the sign-in page.
+        </q-banner>
+        <q-form @submit.prevent="onSubmit">
+          <q-card-section class="q-gutter-md">
+            <q-input
+              v-model="password"
+              :type="showPassword ? 'text' : 'password'"
+              label="New password"
+              outlined
+              dense
+              hint="At least 8 characters"
+              :rules="[(v) => (v && v.length >= 8) || 'Password must be at least 8 characters']"
+              autocomplete="new-password"
+            >
+              <template #append>
+                <q-icon
+                  :name="showPassword ? 'o_visibility_off' : 'o_visibility'"
+                  class="cursor-pointer"
+                  @click="showPassword = !showPassword"
+                />
+              </template>
+            </q-input>
+            <q-input
+              v-model="confirm"
+              :type="showPassword ? 'text' : 'password'"
+              label="Confirm new password"
+              outlined
+              dense
+              :rules="[(v) => v === password || 'Passwords do not match']"
+              autocomplete="new-password"
+            />
+          </q-card-section>
+          <q-card-actions class="q-px-md q-pb-md">
+            <q-btn type="submit" color="primary" no-caps unelevated label="Update password" :loading="loading" :disable="!hasToken" class="full-width" />
+          </q-card-actions>
+        </q-form>
+      </template>
+
+      <q-card-section v-else class="text-center q-gutter-sm">
+        <q-icon name="o_lock_reset" color="positive" size="48px" />
+        <div class="text-subtitle1 text-weight-medium">Password updated</div>
+        <div class="text-grey-7">You can now sign in with your new password.</div>
+        <q-btn color="primary" no-caps unelevated label="Sign in" :to="{ name: 'shop-login' }" />
+      </q-card-section>
+    </q-card>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
+import { useQuasar } from 'quasar'
+import { useCustomerAuthStore } from 'stores/customerAuth'
+import { getApiErrorMessage } from 'services/api'
+
+const route = useRoute()
+const $q = useQuasar()
+const auth = useCustomerAuthStore()
+
+const token = computed(() => (typeof route.query.token === 'string' ? route.query.token : ''))
+const hasToken = computed(() => !!token.value)
+
+const password = ref('')
+const confirm = ref('')
+const showPassword = ref(false)
+const loading = ref(false)
+const done = ref(false)
+
+async function onSubmit () {
+  if (!hasToken.value) return
+  loading.value = true
+  try {
+    await auth.resetPassword(token.value, password.value)
+    done.value = true
+  } catch (e) {
+    $q.notify({ type: 'negative', message: getApiErrorMessage(e) })
+  } finally {
+    loading.value = false
+  }
+}
+</script>
+
+<style scoped lang="scss">
+.account-auth-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+}
+.account-auth-card {
+  width: 100%;
+  max-width: 420px;
+  border-radius: 12px;
+}
+</style>

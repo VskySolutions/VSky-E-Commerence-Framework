@@ -645,6 +645,64 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("CouponCodes", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CredentialDefinition", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("DataType")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("FieldCode")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<string>("FieldName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("HelpText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsSecret")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Placeholder")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProviderId", "FieldCode")
+                        .IsUnique();
+
+                    b.ToTable("CredentialDefinitions", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Customer", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1073,6 +1131,149 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("GroupedProductMembers", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationCategory", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Code")
+                        .IsUnique();
+
+                    b.ToTable("IntegrationCategories", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationCredential", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("DefinitionId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsSecret")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("LastFourChars")
+                        .HasMaxLength(4)
+                        .HasColumnType("nvarchar(4)");
+
+                    b.Property<Guid>("ProviderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DefinitionId");
+
+                    b.HasIndex("ProviderId", "DefinitionId")
+                        .IsUnique();
+
+                    b.ToTable("IntegrationCredentials", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationProvider", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Code")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CategoryId");
+
+                    b.HasIndex("Code")
+                        .IsUnique()
+                        .HasFilter("[Deleted] = 0");
+
+                    b.ToTable("IntegrationProviders", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.InventoryLevel", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1263,6 +1464,87 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("MarketingSuppressions", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.Media", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AltText")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("AssetKey")
+                        .IsRequired()
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<string>("Caption")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long>("FileSizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("Height")
+                        .HasColumnType("int");
+
+                    b.Property<int>("MediaType")
+                        .HasColumnType("int");
+
+                    b.Property<string>("MimeType")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("SeoFileName")
+                        .IsRequired()
+                        .HasMaxLength(400)
+                        .HasColumnType("nvarchar(400)");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int?>("Width")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MediaType");
+
+                    b.HasIndex("SeoFileName")
+                        .IsUnique()
+                        .HasFilter("[Deleted] = 0");
+
+                    b.ToTable("Media", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.Order", b =>
@@ -1762,6 +2044,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<int>("DisplayOrder")
                         .HasColumnType("int");
 
+                    b.Property<int>("DisplayType")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(200)
@@ -1806,6 +2091,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ColorHex")
+                        .HasMaxLength(9)
+                        .HasColumnType("nvarchar(9)");
 
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uniqueidentifier");
@@ -3746,6 +4035,17 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Discount");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CredentialDefinition", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.IntegrationProvider", "Provider")
+                        .WithMany("Definitions")
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Provider");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Customer", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.User", "User")
@@ -3807,6 +4107,36 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("GroupedProduct");
 
                     b.Navigation("MemberProduct");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationCredential", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.CredentialDefinition", "Definition")
+                        .WithMany("Values")
+                        .HasForeignKey("DefinitionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.HasOne("VSky.Domain.Entities.IntegrationProvider", "Provider")
+                        .WithMany("Credentials")
+                        .HasForeignKey("ProviderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Definition");
+
+                    b.Navigation("Provider");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationProvider", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.IntegrationCategory", "Category")
+                        .WithMany("Providers")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Category");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.InventoryLevel", b =>
@@ -4297,6 +4627,11 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("ProductCategories");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CredentialDefinition", b =>
+                {
+                    b.Navigation("Values");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.CustomerRole", b =>
                 {
                     b.Navigation("GroupPrices");
@@ -4305,6 +4640,18 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.Discount", b =>
                 {
                     b.Navigation("CouponCodes");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationCategory", b =>
+                {
+                    b.Navigation("Providers");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.IntegrationProvider", b =>
+                {
+                    b.Navigation("Credentials");
+
+                    b.Navigation("Definitions");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.Manufacturer", b =>

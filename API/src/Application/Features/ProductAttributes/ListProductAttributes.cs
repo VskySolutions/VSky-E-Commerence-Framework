@@ -18,7 +18,9 @@ public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttr
 
     public async Task<PaginatedList<ProductAttributeDto>> Handle(ListProductAttributesQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<ProductAttribute> query = _db.ProductAttributes.AsNoTracking();
+        IQueryable<ProductAttribute> query = _db.ProductAttributes
+            .AsNoTracking()
+            .Include(a => a.Values);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -30,6 +32,22 @@ public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttr
 
         var page = await PaginatedList<ProductAttribute>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ProductAttributeDto.From).ToList();
+
+        // Populate the "In use" product count per attribute (drives the list column + delete protection).
+        var ids = items.Select(i => i.Id).ToList();
+        if (ids.Count > 0)
+        {
+            var usage = await _db.ProductAttributeMappings
+                .AsNoTracking()
+                .Where(m => ids.Contains(m.ProductAttributeId))
+                .GroupBy(m => m.ProductAttributeId)
+                .Select(g => new { AttributeId = g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.AttributeId, x => x.Count, cancellationToken);
+
+            foreach (var item in items)
+                item.InUseCount = usage.TryGetValue(item.Id, out var count) ? count : 0;
+        }
+
         return new PaginatedList<ProductAttributeDto>(items, page.TotalCount, page.PageNumber, page.PageSize);
     }
 }

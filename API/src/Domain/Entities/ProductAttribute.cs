@@ -1,4 +1,5 @@
 using VSky.Domain.Common;
+using VSky.Domain.Enums;
 
 namespace VSky.Domain.Entities;
 
@@ -10,6 +11,9 @@ public class ProductAttribute : AuditableEntity, ISoftDeletable
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+
+    /// <summary>How the attribute's values are presented for variant selection (WO-15).</summary>
+    public ProductAttributeDisplayType DisplayType { get; set; } = ProductAttributeDisplayType.Dropdown;
     public int DisplayOrder { get; set; }
 
     public bool Deleted { get; set; }
@@ -25,5 +29,8 @@ public class ProductAttributeValue : AuditableEntity
     public Guid ProductAttributeId { get; set; }
     public ProductAttribute? ProductAttribute { get; set; }
     public string Value { get; set; } = string.Empty;
+
+    /// <summary>Optional hex colour (e.g. "#FF0000") shown when the attribute's display type is Swatch (WO-15).</summary>
+    public string? ColorHex { get; set; }
     public int DisplayOrder { get; set; }
 }

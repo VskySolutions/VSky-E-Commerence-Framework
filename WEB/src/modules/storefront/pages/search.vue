@@ -1,5 +1,5 @@
 <template>
-  <q-page class="q-pa-md storefront-container">
+  <q-page class="q-pa-md storefront-container storefront-root">
     <div class="q-mb-md">
       <div class="text-h5 text-weight-bold">
         <template v-if="query">Results for &ldquo;{{ query }}&rdquo;</template>
@@ -68,9 +68,9 @@
           <div
             v-for="p in items"
             :key="p.id"
-            class="col-6 col-sm-4 col-md-4 col-lg-3"
+            class="col-6 col-sm-4 col-md-3"
           >
-            <ProductCard :product="p" />
+            <StorefrontProductCard :product="p" />
           </div>
         </div>
 
@@ -101,7 +101,7 @@ import { useRoute } from 'vue-router'
 import { storefrontApi, normalizeFacets, searchSortOptions } from 'modules/storefront/api'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
-import ProductCard from 'modules/storefront/components/ProductCard.vue'
+import StorefrontProductCard from 'modules/storefront/components/StorefrontProductCard.vue'
 import FilterPanel from 'modules/storefront/components/FilterPanel.vue'
 
 const route = useRoute()
@@ -132,6 +132,8 @@ async function runSearch () {
   try {
     const res = await storefrontApi.search({
       query: query.value || undefined,
+      categoryId: route.query.categoryId || undefined,
+      manufacturerId: route.query.manufacturerId || undefined,
       specificationOptionIds: selectedOptionIds.value,
       minPrice: minPrice.value ?? undefined,
       maxPrice: maxPrice.value ?? undefined,
@@ -183,10 +185,10 @@ function clearFilters () {
   runSearch()
 }
 
-// React to a new query coming from the header search box.
+// React to a new query / category / manufacturer coming from the header or links.
 watch(
-  () => route.query.q,
-  (q) => {
+  () => [route.query.q, route.query.categoryId, route.query.manufacturerId],
+  ([q]) => {
     query.value = typeof q === 'string' ? q : ''
     selectedOptionIds.value = []
     minPrice.value = null

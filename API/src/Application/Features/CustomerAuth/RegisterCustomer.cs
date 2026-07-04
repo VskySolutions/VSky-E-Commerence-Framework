@@ -33,16 +33,13 @@ public class RegisterCustomerCommandValidator : AbstractValidator<RegisterCustom
 
 public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCommand, Guid>
 {
-    // Public storefront base URL used to build the verification link in the outbound email.
-    // TODO: source this from configuration (storefront/public-site settings) rather than hard-coding.
-    private const string PublicBaseUrl = "https://localhost:9000";
-
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _hasher;
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
     private readonly IEmailEnqueuer _emails;
     private readonly IRecaptchaVerifier _recaptcha;
+    private readonly IStorefrontUrlBuilder _urls;
 
     public RegisterCustomerCommandHandler(
         IApplicationDbContext db,
@@ -50,7 +47,8 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         IJwtTokenService tokens,
         IDateTimeProvider clock,
         IEmailEnqueuer emails,
-        IRecaptchaVerifier recaptcha)
+        IRecaptchaVerifier recaptcha,
+        IStorefrontUrlBuilder urls)
     {
         _db = db;
         _hasher = hasher;
@@ -58,6 +56,7 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         _clock = clock;
         _emails = emails;
         _recaptcha = recaptcha;
+        _urls = urls;
     }
 
     public async Task<Guid> Handle(RegisterCustomerCommand request, CancellationToken cancellationToken)
@@ -102,7 +101,7 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         });
         await _db.SaveChangesAsync(cancellationToken);
 
-        var verifyUrl = $"{PublicBaseUrl}/verify-email?token={rawToken}";
+        var verifyUrl = _urls.EmailVerificationUrl(rawToken);
         var body =
             $"Hi {fullName},\n\n" +
             "Thanks for creating an account. Please confirm your email address by opening the link below:\n\n" +

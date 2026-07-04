@@ -40,6 +40,20 @@ public class StorefrontProductSummaryDto
     };
 }
 
+/// <summary>
+/// A node in the public storefront category tree (enabled categories only), with a published-product
+/// count. Children are nested for the header mega-menu and the home category grid.
+/// </summary>
+public class StorefrontCategoryNodeDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public Guid? ParentId { get; set; }
+    public int ProductCount { get; set; }
+    public List<StorefrontCategoryNodeDto> Children { get; set; } = new();
+}
+
 /// <summary>An image or video-embed gallery entry (REQ-CAT-012); variant-scoped when <see cref="ProductVariantId"/> is set.</summary>
 public class StorefrontImageDto
 {

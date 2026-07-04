@@ -13,13 +13,14 @@
       System roles are managed by the platform and cannot be edited.
     </q-banner>
 
-    <AppTextField v-model="form.name" label="Name" required :v="v$.name" :disable="readOnly" />
+    <AppTextField v-model="form.name" label="Name" required :v="v$.name" :disable="readOnly" placeholder="e.g. Catalog Manager" />
     <AppTextField
       v-model="form.description"
       label="Description"
       type="textarea"
       autogrow
       :disable="readOnly"
+      placeholder="A short note describing what this role is for"
     />
 
     <div class="app-field">

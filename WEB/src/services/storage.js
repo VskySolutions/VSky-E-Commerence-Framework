@@ -17,7 +17,14 @@ export const STORAGE_KEYS = Object.freeze({
   ACTIVE_TENANT_ID: 'activeTenantId',
   TENANT_ASSIGNMENTS: 'tenantAssignments',
   LEFT_DRAWER_OPEN: 'leftDrawerOpen',
-  FORM_DRAWER_WIDTH: 'formDrawerWidth'
+  FORM_DRAWER_WIDTH: 'formDrawerWidth',
+
+  // Storefront customer session — a SEPARATE namespace from the admin session
+  // above, so a shopper's login never collides with an admin's (isolated auth).
+  CUSTOMER_TOKEN: 'customer.token',
+  CUSTOMER_REFRESH_TOKEN: 'customer.refreshToken',
+  CUSTOMER_EXPIRES_AT: 'customer.expiresAtUtc',
+  CUSTOMER_USER: 'customer.user'
 })
 
 export function getItem (key, fallback = null) {
@@ -52,4 +59,14 @@ export function getStoredUser () {
 
 export function getStoredToken () {
   return getItem(STORAGE_KEYS.TOKEN, null)
+}
+
+/** The persisted storefront customer session token (isolated from the admin token). */
+export function getCustomerToken () {
+  return getItem(STORAGE_KEYS.CUSTOMER_TOKEN, null)
+}
+
+/** The persisted storefront customer object ({ id, email, fullName, ... }). */
+export function getStoredCustomer () {
+  return getItem(STORAGE_KEYS.CUSTOMER_USER, null)
 }

@@ -7,16 +7,16 @@
     @submit="onSubmit"
     @cancel="$emit('cancel')"
   >
-    <AppTextField v-model="form.name" label="Name" required :v="v$.name" />
-    <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" />
-    <AppTextField v-model="form.description" label="Description" type="textarea" autogrow />
-    <AppTextField v-model="form.logoUrl" label="Logo URL" />
+    <AppTextField v-model="form.name" label="Name" required :v="v$.name" placeholder="e.g. Acme Corp" />
+    <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" placeholder="Auto-generated from the name if left blank" />
+    <AppRichText v-model="form.description" label="Description" placeholder="Describe this brand…" />
+    <AppFileUpload v-model="form.logoUrl" label="Logo" folder="manufacturers" accept="image/*" extensions-label="PNG, JPG, SVG" />
 
     <q-separator class="q-my-sm" />
     <div class="text-caption text-grey-7 q-mb-xs">SEO metadata</div>
-    <AppTextField v-model="form.metaTitle" label="Meta title" />
-    <AppTextField v-model="form.metaDescription" label="Meta description" type="textarea" autogrow />
-    <AppTextField v-model="form.metaKeywords" label="Meta keywords" />
+    <AppTextField v-model="form.metaTitle" label="Meta title" placeholder="Falls back to the name if left blank" />
+    <AppTextField v-model="form.metaDescription" label="Meta description" type="textarea" autogrow placeholder="Plain-text summary for search engines (≤160 chars)" />
+    <AppTextField v-model="form.metaKeywords" label="Meta keywords" placeholder="Comma-separated keywords" />
 
     <div class="row q-col-gutter-sm items-center q-mt-xs">
       <div class="col-6">

@@ -10,8 +10,9 @@
  * Kept separate from boot/axios.js so the auth-store / router coupling lives in
  * exactly one place and axios.js stays importable anywhere.
  */
-import { http } from 'src/boot/axios'
+import { http, http3 } from 'src/boot/axios'
 import { useAuthStore } from 'stores/auth'
+import { useCustomerAuthStore } from 'stores/customerAuth'
 
 function isAuthEndpoint (url = '') {
   return (
@@ -19,6 +20,11 @@ function isAuthEndpoint (url = '') {
     url.includes('/api/auth/refresh') ||
     url.includes('/api/auth/logout')
   )
+}
+
+// Auth/refresh endpoints that must NOT themselves trigger a customer refresh loop.
+function isCustomerAuthEndpoint (url = '') {
+  return url.includes('/api/customer/auth/') || url.includes('/api/auth/refresh')
 }
 
 export default ({ router }) => {
@@ -63,6 +69,48 @@ export default ({ router }) => {
         } catch (refreshError) {
           auth.clearSession()
           const redirect = router.currentRoute.value.fullPath
+          router.push({
+            path: '/auth/login',
+            query: redirect && redirect !== '/' ? { redirect } : undefined
+          })
+          return Promise.reject(refreshError)
+        }
+      }
+
+      return Promise.reject(error)
+    }
+  )
+
+  // ---- Storefront customer instance: 401 -> refresh -> retry, else sign out --
+  let customerRefreshPromise = null
+
+  http3.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+      const original = error.config || {}
+      const status = error.response ? error.response.status : null
+      const customer = useCustomerAuthStore()
+
+      const shouldRefresh =
+        status === 401 &&
+        !original._retry &&
+        !isCustomerAuthEndpoint(original.url || '') &&
+        !!customer.refreshToken
+
+      if (shouldRefresh) {
+        original._retry = true
+        try {
+          if (!customerRefreshPromise) {
+            customerRefreshPromise = customer.refresh().finally(() => {
+              customerRefreshPromise = null
+            })
+          }
+          await customerRefreshPromise
+          return http3(original)
+        } catch (refreshError) {
+          customer.clearSession()
+          const redirect = router.currentRoute.value.fullPath
+          // Unified login (WO-112).
           router.push({
             path: '/auth/login',
             query: redirect && redirect !== '/' ? { redirect } : undefined

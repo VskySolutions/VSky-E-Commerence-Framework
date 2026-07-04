@@ -127,27 +127,28 @@
           <div v-else class="text-grey-6 q-mb-md">No media yet.</div>
 
           <template v-if="canWrite">
-            <div class="text-caption text-grey-7 q-mb-xs">Add media</div>
-            <div class="row q-col-gutter-sm">
-              <div class="col-12 col-sm-6">
-                <q-input v-model="newImage.url" dense outlined label="URL" />
+            <AppFileUpload
+              v-model="imageUploads"
+              multiple
+              label="Upload images"
+              folder="products"
+              accept="image/*"
+              extensions-label="PNG, JPG, GIF, WEBP"
+            />
+            <q-separator class="q-my-md" />
+            <AppFieldLabel label="Add a video">
+              <template #hint>Paste an embed URL (YouTube, Vimeo…)</template>
+            </AppFieldLabel>
+            <div class="row q-col-gutter-sm items-start">
+              <div class="col">
+                <q-input v-model="newVideoUrl" dense outlined placeholder="e.g. https://www.youtube.com/embed/…">
+                  <template #prepend><q-icon name="o_movie" /></template>
+                </q-input>
               </div>
-              <div class="col-6 col-sm-3">
-                <q-select v-model="newImage.mediaType" dense outlined emit-value map-options :options="mediaTypeOptions" label="Type" />
-              </div>
-              <div class="col-6 col-sm-3">
-                <q-input v-model.number="newImage.displayOrder" dense outlined type="number" label="Order" />
-              </div>
-              <div class="col-12 col-sm-6">
-                <q-input v-model="newImage.thumbnailUrl" dense outlined label="Thumbnail URL" />
-              </div>
-              <div class="col-12 col-sm-6">
-                <q-input v-model="newImage.altText" dense outlined label="Alt text" />
+              <div class="col-auto">
+                <q-btn unelevated color="primary" no-caps label="Add video" :loading="addingImage" @click="addVideo" />
               </div>
             </div>
-          </template>
-          <template v-if="canWrite" #footer>
-            <q-btn unelevated color="primary" label="Add media" no-caps :loading="addingImage" @click="addImage" />
           </template>
         </AppSection>
 
@@ -215,14 +216,13 @@
  *   media and (for WithVariants) variant generation/editing — each its own AppSection card, saved via its
  *   own replace-semantics endpoint.
  */
-import { ref, reactive, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import {
   productApi,
   categoryApi,
   productAttributeApi,
-  mediaTypeOptions,
   productTypeLabel
 } from 'modules/catalog/api'
 import { usePermissions } from 'composables/usePermissions'
@@ -255,7 +255,9 @@ const savingTags = ref(false)
 const tiers = ref([])
 const savingTiers = ref(false)
 
-const newImage = reactive({ url: '', mediaType: 'Image', thumbnailUrl: '', altText: '', displayOrder: 0 })
+const imageUploads = ref([])
+const newVideoUrl = ref('')
+let processingUploads = false
 const addingImage = ref(false)
 
 const attributeIds = ref([])
@@ -420,23 +422,50 @@ async function saveTiers () {
   }
 }
 
-async function addImage () {
-  if (!newImage.url) {
-    notify.warning('Enter a media URL')
+// Uploaded images are added to the product as media immediately, then the uploader clears
+// (the added images appear in the gallery/list below).
+watch(imageUploads, async (uploaded) => {
+  if (processingUploads || !uploaded || !uploaded.length) return
+  processingUploads = true
+  const batch = uploaded.slice()
+  imageUploads.value = []
+  try {
+    for (const item of batch) {
+      await productApi.addImage(route.params.id, {
+        productVariantId: null,
+        mediaType: 'Image',
+        url: item.url,
+        thumbnailUrl: null,
+        altText: item.name || null,
+        displayOrder: 0
+      })
+    }
+    notify.success(batch.length > 1 ? `${batch.length} images added` : 'Image added')
+    await load()
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    processingUploads = false
+  }
+})
+
+async function addVideo () {
+  if (!newVideoUrl.value) {
+    notify.warning('Enter a video URL')
     return
   }
   addingImage.value = true
   try {
     await productApi.addImage(route.params.id, {
       productVariantId: null,
-      mediaType: newImage.mediaType,
-      url: newImage.url,
-      thumbnailUrl: newImage.thumbnailUrl || null,
-      altText: newImage.altText || null,
-      displayOrder: Number(newImage.displayOrder) || 0
+      mediaType: 'Video',
+      url: newVideoUrl.value.trim(),
+      thumbnailUrl: null,
+      altText: null,
+      displayOrder: 0
     })
-    notify.success('Media added')
-    Object.assign(newImage, { url: '', mediaType: 'Image', thumbnailUrl: '', altText: '', displayOrder: 0 })
+    notify.success('Video added')
+    newVideoUrl.value = ''
     await load()
   } catch (err) {
     notify.error(getApiErrorMessage(err))

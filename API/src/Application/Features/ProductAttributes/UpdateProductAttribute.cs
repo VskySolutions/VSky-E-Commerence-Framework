@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.ProductAttributes;
 
@@ -12,6 +13,7 @@ public record UpdateProductAttributeCommand(
     Guid Id,
     string Name,
     string? Description = null,
+    ProductAttributeDisplayType DisplayType = ProductAttributeDisplayType.Dropdown,
     int DisplayOrder = 0,
     List<ProductAttributeValueInput>? Values = null) : IRequest<ProductAttributeDto>;
 
@@ -22,9 +24,11 @@ public class UpdateProductAttributeCommandValidator : AbstractValidator<UpdatePr
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.Description).MaximumLength(1000);
+        RuleFor(x => x.DisplayType).IsInEnum();
         RuleForEach(x => x.Values).ChildRules(v =>
         {
             v.RuleFor(i => i.Value).NotEmpty().MaximumLength(400);
+            v.RuleFor(i => i.ColorHex).MaximumLength(9);
         });
     }
 }
@@ -44,6 +48,7 @@ public class UpdateProductAttributeCommandHandler : IRequestHandler<UpdateProduc
 
         entity.Name = request.Name;
         entity.Description = request.Description;
+        entity.DisplayType = request.DisplayType;
         entity.DisplayOrder = request.DisplayOrder;
 
         var inputs = request.Values ?? new();
@@ -64,17 +69,20 @@ public class UpdateProductAttributeCommandHandler : IRequestHandler<UpdateProduc
                 ? entity.Values.FirstOrDefault(v => v.Id == id)
                 : null;
 
+            var color = CreateProductAttributeCommandHandler.NormalizeColor(request.DisplayType, input.ColorHex);
             if (existing is null)
             {
                 entity.Values.Add(new ProductAttributeValue
                 {
                     Value = input.Value,
+                    ColorHex = color,
                     DisplayOrder = input.DisplayOrder,
                 });
             }
             else
             {
                 existing.Value = input.Value;
+                existing.ColorHex = color;
                 existing.DisplayOrder = input.DisplayOrder;
             }
         }

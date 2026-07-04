@@ -122,6 +122,7 @@ public class ProductAttributeConfiguration : IEntityTypeConfiguration<ProductAtt
         b.HasKey(x => x.Id);
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.Description).HasMaxLength(1000);
+        b.Property(x => x.DisplayType).HasConversion<int>();
         b.HasQueryFilter(x => !x.Deleted);
     }
 }
@@ -133,6 +134,7 @@ public class ProductAttributeValueConfiguration : IEntityTypeConfiguration<Produ
         b.ToTable("ProductAttributeValues");
         b.HasKey(x => x.Id);
         b.Property(x => x.Value).HasMaxLength(400).IsRequired();
+        b.Property(x => x.ColorHex).HasMaxLength(9);
 
         b.HasOne(x => x.ProductAttribute)
             .WithMany(a => a.Values)

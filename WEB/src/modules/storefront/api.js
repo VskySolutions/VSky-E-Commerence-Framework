@@ -10,12 +10,16 @@
  * JSON is camelCase and enums serialize as string names (ProductMediaType =
  * Image|Video, ProductType = Simple|Grouped|WithVariants|Downloadable|GiftCard).
  */
-import { api, anonApi, unwrap, qsSerializer } from 'services/api'
+import { anonApi, customerApi, unwrap, qsSerializer } from 'services/api'
 
 const CATALOG = '/api/storefront/catalog'
 const SEARCH = '/api/storefront/search'
 
 export const storefrontApi = {
+  // Public enabled-category tree (nested) with published-product counts — header menu + home grid.
+  categories () {
+    return anonApi.get(CATALOG + '/categories').then(unwrap)
+  },
   // Category landing page: meta + a page of published products + filterable specs.
   categoryPage (idOrSlug, params = {}) {
     return anonApi
@@ -104,23 +108,23 @@ export const cartApi = {
 }
 
 // ---- wishlist resource group (WO-29) ----------------------------------------
-// The wishlist belongs to an authenticated customer, so these use the AUTHENTICATED
-// `api` instance (a bearer token from customer login). Every mutation returns the
-// recalculated WishlistDto.
+// The wishlist belongs to an authenticated customer, so these use the isolated
+// storefront customer instance (`customerApi`) — a bearer token from customer
+// login (WO-21). Every mutation returns the recalculated WishlistDto.
 const WISHLIST = '/api/wishlist'
 
 export const wishlistApi = {
   get () {
-    return api.get(WISHLIST).then(unwrap)
+    return customerApi.get(WISHLIST).then(unwrap)
   },
   addItem ({ productId, productVariantId = null }) {
-    return api.post(WISHLIST + '/items', { productId, productVariantId }).then(unwrap)
+    return customerApi.post(WISHLIST + '/items', { productId, productVariantId }).then(unwrap)
   },
   removeItem (itemId) {
-    return api.delete(WISHLIST + '/items/' + encodeURIComponent(itemId)).then(unwrap)
+    return customerApi.delete(WISHLIST + '/items/' + encodeURIComponent(itemId)).then(unwrap)
   },
   moveToCart (itemId, quantity = 1) {
-    return api.post(WISHLIST + '/items/' + encodeURIComponent(itemId) + '/move-to-cart', { itemId, quantity }).then(unwrap)
+    return customerApi.post(WISHLIST + '/items/' + encodeURIComponent(itemId) + '/move-to-cart', { itemId, quantity }).then(unwrap)
   }
 }
 
@@ -145,6 +149,16 @@ export const currencyApi = {
   // Enabled display currencies (base first), each with code, symbol and rate.
   list () {
     return anonApi.get('/api/storefront/currencies').then(unwrap)
+  }
+}
+
+// ---- newsletter (WO-110) ----------------------------------------------------
+// NOTE: the backend newsletter-subscribe endpoint does not exist yet (flagged on
+// WO-110). This posts to the intended route; the NewsletterStrip degrades
+// gracefully to a "coming soon" message on 404/network failure.
+export const newsletterApi = {
+  subscribe (email) {
+    return anonApi.post('/api/newsletter/subscribe', { email }).then(unwrap)
   }
 }
 

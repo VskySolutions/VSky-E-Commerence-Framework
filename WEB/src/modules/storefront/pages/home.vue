@@ -1,66 +1,45 @@
 <template>
-  <q-page class="q-pa-md storefront-container">
-    <section class="storefront-hero rounded-borders q-pa-lg q-mb-lg bg-primary text-white">
-      <div class="text-h4 text-weight-bold">Welcome to VSky Shop</div>
-      <div class="text-subtitle1 q-mt-sm">Discover our latest products.</div>
-    </section>
+  <q-page class="storefront-root">
+    <!-- Section order is fixed here. A dynamic Home Page Sections API (WO-96/WO-100)
+         would drive ordering / enable-disable / per-section config — flagged on WO-110. -->
+    <HeroCarousel />
+    <FeatureBar />
+    <CategoryGrid :limit="8" />
+    <ProductTabs heading="Featured Products" />
+    <DoubleBanner />
 
-    <section class="q-mb-xl">
-      <div class="text-h6 q-mb-md">New arrivals</div>
-
-      <q-inner-loading :showing="loading" color="primary" />
-
-      <div v-if="!loading && !products.length" class="text-grey-6 q-py-lg text-center">
-        No products are available yet.
+    <!-- Recently viewed (client-side history) -->
+    <div v-if="showRecent" class="sf-section">
+      <div class="sf-container">
+        <RecentlyViewed />
       </div>
+    </div>
 
-      <div class="row q-col-gutter-md">
-        <div
-          v-for="p in products"
-          :key="p.id"
-          class="col-6 col-sm-4 col-md-3 col-lg-2"
-        >
-          <ProductCard :product="p" />
-        </div>
-      </div>
-    </section>
-
-    <RecentlyViewed />
+    <NewsletterStrip />
   </q-page>
 </template>
 
 <script setup>
 /*
- * Storefront landing page (WO-19). Shows the newest published products (via the
- * search endpoint sorted by "newest") plus the recently-viewed row. Resilient to
- * an empty / unavailable catalog.
+ * Porto-inspired storefront home page (WO-110). Renders the section stack: hero
+ * carousel, feature bar, featured categories, a tabbed product row, a double
+ * promotional banner, recently-viewed, and a newsletter strip.
+ *
+ * The dynamic Home Page Sections API (WO-96/WO-100) does not exist yet, so the
+ * section order is static here and hero/banner content is derived (categories +
+ * branded gradients) rather than banner-driven — all flagged on WO-110. Each
+ * section component degrades gracefully when its data source is empty.
  */
-import { ref, onMounted } from 'vue'
-import { storefrontApi } from 'modules/storefront/api'
-import ProductCard from 'modules/storefront/components/ProductCard.vue'
+import { computed } from 'vue'
+import { useRecentlyViewed } from 'modules/storefront/composables/useStorefrontStorage'
+import HeroCarousel from 'modules/storefront/components/home/HeroCarousel.vue'
+import FeatureBar from 'modules/storefront/components/home/FeatureBar.vue'
+import CategoryGrid from 'modules/storefront/components/home/CategoryGrid.vue'
+import ProductTabs from 'modules/storefront/components/home/ProductTabs.vue'
+import DoubleBanner from 'modules/storefront/components/home/DoubleBanner.vue'
+import NewsletterStrip from 'modules/storefront/components/home/NewsletterStrip.vue'
 import RecentlyViewed from 'modules/storefront/components/RecentlyViewed.vue'
 
-const products = ref([])
-const loading = ref(false)
-
-async function load () {
-  loading.value = true
-  try {
-    const result = await storefrontApi.search({ sort: 'newest', page: 1, pageSize: 12 })
-    products.value = Array.isArray(result?.items) ? result.items : []
-  } catch (e) {
-    products.value = []
-  } finally {
-    loading.value = false
-  }
-}
-
-onMounted(load)
+const { recentlyViewedIds } = useRecentlyViewed()
+const showRecent = computed(() => (recentlyViewedIds.value || []).length > 0)
 </script>
-
-<style scoped lang="scss">
-.storefront-container {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-</style>

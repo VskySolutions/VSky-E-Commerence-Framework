@@ -5,28 +5,38 @@
         <AppSelect v-model="form.productType" label="Type" required :options="productTypeOptions" :v="v$.productType" />
       </div>
       <div class="col-12 col-md-8">
-        <AppTextField v-model="form.name" label="Name" required :v="v$.name" />
+        <AppTextField v-model="form.name" label="Name" required :v="v$.name" placeholder="e.g. Men's Red Polo Shirt" />
       </div>
     </div>
 
     <div class="row q-col-gutter-sm">
       <div class="col-12 col-md-6">
-        <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" />
+        <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" placeholder="Auto-generated from the name if left blank" />
       </div>
       <div class="col-12 col-md-6">
-        <AppTextField v-model="form.sku" label="SKU" :v="v$.sku" />
+        <AppTextField v-model="form.sku" label="SKU" :v="v$.sku" placeholder="e.g. TSHIRT-RED-M" />
       </div>
     </div>
 
-    <AppTextField v-model="form.shortDescription" label="Short description" type="textarea" autogrow />
-    <AppTextField v-model="form.fullDescription" label="Full description" type="textarea" autogrow />
+    <AppTextField
+      v-model="form.shortDescription"
+      label="Short description"
+      type="textarea"
+      autogrow
+      placeholder="A brief one- or two-line summary shown on product cards and search results"
+    />
+    <AppRichText
+      v-model="form.fullDescription"
+      label="Full description"
+      placeholder="Describe the product in detail — features, materials, sizing…"
+    />
 
     <div class="row q-col-gutter-sm">
       <div class="col-6 col-md-3">
-        <AppTextField v-model="form.price" label="Price" type="number" step="0.01" />
+        <AppTextField v-model="form.price" label="Price" type="number" step="0.01" placeholder="0.00" />
       </div>
       <div class="col-6 col-md-3">
-        <AppTextField v-model="form.stockQuantity" label="Stock quantity" type="number" />
+        <AppTextField v-model="form.stockQuantity" label="Stock quantity" type="number" placeholder="0" />
       </div>
       <div class="col-12 col-md-6">
         <AppSelect v-model="form.taxCategoryId" label="Tax category" required :options="taxCategoryOptions" :v="v$.taxCategoryId" />

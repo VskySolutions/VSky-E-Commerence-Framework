@@ -24,17 +24,20 @@ public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStat
     private readonly IEmailEnqueuer _emails;
     private readonly ICurrentUserService _current;
     private readonly IDateTimeProvider _clock;
+    private readonly IPaymentGatewayRouter _payments;
 
     public AdvanceOrderStatusCommandHandler(
         IApplicationDbContext db,
         IEmailEnqueuer emails,
         ICurrentUserService current,
-        IDateTimeProvider clock)
+        IDateTimeProvider clock,
+        IPaymentGatewayRouter payments)
     {
         _db = db;
         _emails = emails;
         _current = current;
         _clock = clock;
+        _payments = payments;
     }
 
     public async Task<OrderDto> Handle(AdvanceOrderStatusCommand request, CancellationToken cancellationToken)
@@ -82,6 +85,12 @@ public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStat
         });
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Auto-capture an authorize-only payment when the order ships (AC-PAY-002.3). No-op for orders
+        // paid up front, COD/bank-transfer, or already captured — the router only captures an open
+        // Authorized hold. Runs after the status is persisted so a capture failure can't block shipping.
+        if (target == OrderStatus.Shipped)
+            await _payments.CaptureForOrderAsync(order.Id, cancellationToken);
 
         // Customer notifications on shipment and delivery (AC-ORD-001.5).
         if (!string.IsNullOrWhiteSpace(order.ContactEmail))

@@ -1,147 +1,231 @@
 <template>
-  <q-page class="q-pa-md storefront-container">
-    <q-inner-loading :showing="loading" color="primary" />
+  <q-page class="storefront-root">
+    <div class="sf-container q-py-md">
+      <q-inner-loading :showing="loading" color="primary" />
 
-    <q-banner v-if="!loading && !product" class="bg-grey-2 rounded-borders q-my-md">
-      This product was not found.
-      <template #action>
-        <q-btn flat no-caps color="primary" label="Back to shop" :to="{ name: 'shop-home' }" />
+      <q-banner v-if="!loading && !product" class="bg-grey-2 rounded-borders q-my-md">
+        This product was not found.
+        <template #action>
+          <q-btn flat no-caps color="primary" label="Back to shop" :to="{ name: 'shop-home' }" />
+        </template>
+      </q-banner>
+
+      <template v-if="product">
+        <!-- Breadcrumbs -->
+        <q-breadcrumbs class="text-grey-7 q-mb-md" active-color="primary" gutter="xs">
+          <q-breadcrumbs-el label="Home" :to="{ name: 'shop-home' }" />
+          <q-breadcrumbs-el :label="product.name" />
+        </q-breadcrumbs>
+
+        <div class="row q-col-gutter-xl">
+          <!-- Gallery -->
+          <div class="col-12 col-md-7">
+            <ProductGalleryView
+              :images="galleryImages"
+              :variant-id="variantId"
+              :product-name="product.name"
+            />
+          </div>
+
+          <!-- Info -->
+          <div class="col-12 col-md-5">
+            <h1 class="text-h4 text-weight-bold q-mb-xs" style="line-height: 1.2">{{ product.name }}</h1>
+
+            <!-- Rating bar (no rating data yet — invites the first review) -->
+            <div class="row items-center q-gutter-sm q-mb-md">
+              <StarRating v-if="rating != null" :value="rating" :count="reviewCount" />
+              <a v-else class="text-caption text-primary cursor-pointer" @click="tab = 'reviews'">Be the first to review</a>
+            </div>
+
+            <!-- Price block -->
+            <div class="row items-baseline q-gutter-sm">
+              <span class="text-h4 text-weight-bold" style="color: var(--sf-price)">{{ formatPrice(displayPrice) }}</span>
+              <span v-if="oldPrice" class="text-h6 sf-card__price-old">{{ formatPrice(oldPrice) }}</span>
+              <q-badge v-if="savings" color="red" :label="`Save ${formatPrice(savings)}`" class="q-py-xs q-px-sm" />
+            </div>
+            <div class="text-caption text-grey-6 q-mb-md">Price includes applicable taxes at checkout.</div>
+
+            <q-badge :color="availability.color" :label="availability.label" class="q-py-xs q-px-sm q-mb-md" />
+            <div v-if="restockNote" class="text-caption text-orange-8 q-mb-sm">{{ restockNote }}</div>
+
+            <div v-if="product.shortDescription" class="text-body1 text-grey-8 q-mb-md">{{ product.shortDescription }}</div>
+
+            <q-separator class="q-my-md" />
+
+            <VariantSelector
+              v-if="product.variants && product.variants.length"
+              v-model="variantId"
+              :variants="product.variants"
+              class="q-mb-md"
+            />
+
+            <!-- Quantity + actions -->
+            <div class="row items-center q-gutter-md q-mb-md">
+              <div class="sf-qty row items-center no-wrap">
+                <q-btn flat dense icon="remove" :disable="quantity <= 1" @click="quantity = Math.max(1, quantity - 1)" />
+                <input v-model.number="quantity" type="number" min="1" class="sf-qty__input">
+                <q-btn flat dense icon="add" @click="quantity = quantity + 1" />
+              </div>
+              <button
+                class="sf-btn sf-btn--primary col"
+                :disabled="addingToCart || availability.color === 'grey'"
+                @click="onAddToCart"
+              >
+                <q-icon v-if="!addingToCart" name="o_shopping_cart" size="18px" />
+                <q-spinner v-else size="16px" />
+                Add to Cart
+              </button>
+            </div>
+
+            <div class="row q-gutter-sm q-mb-lg">
+              <q-btn outline color="pink-6" icon="o_favorite_border" label="Wishlist" no-caps :loading="addingToWishlist" @click="onAddToWishlist" />
+              <q-btn outline color="dark" :icon="inCompare ? 'o_compare_arrows' : 'o_compare'" :label="inCompare ? 'In compare' : 'Compare'" no-caps @click="onToggleCompare" />
+            </div>
+
+            <!-- Meta -->
+            <q-list dense class="text-body2 sf-meta">
+              <div v-if="product.sku" class="row"><span class="sf-meta__k">SKU</span><span>{{ product.sku }}</span></div>
+              <div v-if="product.manufacturerId" class="row">
+                <span class="sf-meta__k">Brand</span>
+                <router-link :to="{ name: 'shop-search', query: { manufacturerId: product.manufacturerId } }" class="text-primary">View brand</router-link>
+              </div>
+              <div v-if="product.tagNames && product.tagNames.length" class="row">
+                <span class="sf-meta__k">Tags</span>
+                <span>
+                  <q-chip v-for="tag in product.tagNames" :key="tag" dense outline size="sm" color="grey-7" :label="tag" />
+                </span>
+              </div>
+            </q-list>
+
+            <!-- Share -->
+            <div class="row items-center q-gutter-sm q-mt-md">
+              <span class="text-caption text-grey-7">Share:</span>
+              <q-btn round dense flat size="sm" icon="fab fa-facebook-f" type="a" :href="shareUrl('facebook')" target="_blank" />
+              <q-btn round dense flat size="sm" icon="fab fa-x-twitter" type="a" :href="shareUrl('twitter')" target="_blank" />
+              <q-btn round dense flat size="sm" icon="fab fa-pinterest-p" type="a" :href="shareUrl('pinterest')" target="_blank" />
+              <q-btn round dense flat size="sm" icon="o_link" @click="copyLink" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Tabs ===== -->
+        <div class="q-mt-xl">
+          <q-tabs v-model="tab" dense no-caps align="left" active-color="primary" indicator-color="primary" class="text-grey-7 sf-tabs">
+            <q-tab name="description" label="Description" />
+            <q-tab name="reviews" :label="`Reviews${reviewCount != null ? ' (' + reviewCount + ')' : ''}`" />
+            <q-tab name="qa" label="Q&A" />
+          </q-tabs>
+          <q-separator />
+          <q-tab-panels v-model="tab" animated class="bg-transparent q-mt-md">
+            <!-- Description -->
+            <q-tab-panel name="description" class="q-px-none">
+              <!-- eslint-disable-next-line vue/no-v-html -->
+              <div v-if="product.fullDescription" class="storefront-rich-text" v-html="product.fullDescription" />
+              <div v-else class="text-grey-6">No description available.</div>
+            </q-tab-panel>
+
+            <!-- Reviews (no backend yet — graceful) -->
+            <q-tab-panel name="reviews" class="q-px-none">
+              <div class="row items-center q-mb-md">
+                <div class="col">
+                  <div class="text-h6">Customer Reviews</div>
+                  <div class="text-grey-6 text-body2">Be the first to share your thoughts.</div>
+                </div>
+                <q-btn color="primary" no-caps unelevated label="Write a Review" @click="reviewForm = !reviewForm" />
+              </div>
+              <q-slide-transition>
+                <q-card v-if="reviewForm" flat bordered class="q-mb-md">
+                  <q-card-section class="q-gutter-sm">
+                    <div class="row items-center q-gutter-sm">
+                      <span class="text-body2">Your rating:</span>
+                      <q-rating v-model="newReview.rating" size="24px" color="amber" />
+                    </div>
+                    <q-input v-model="newReview.title" dense outlined label="Title" />
+                    <q-input v-model="newReview.body" dense outlined type="textarea" label="Your review" />
+                  </q-card-section>
+                  <q-card-actions align="right">
+                    <q-btn flat no-caps label="Cancel" @click="reviewForm = false" />
+                    <q-btn color="primary" unelevated no-caps label="Submit review" @click="submitReview" />
+                  </q-card-actions>
+                </q-card>
+              </q-slide-transition>
+              <div class="text-grey-6 q-py-lg text-center bg-grey-1 rounded-borders">
+                <q-icon name="o_rate_review" size="36px" class="q-mb-sm" />
+                <div>No reviews yet.</div>
+              </div>
+            </q-tab-panel>
+
+            <!-- Q&A (no backend yet — graceful) -->
+            <q-tab-panel name="qa" class="q-px-none">
+              <div class="row items-center q-mb-md">
+                <div class="col">
+                  <div class="text-h6">Questions & Answers</div>
+                  <div class="text-grey-6 text-body2">Ask about this product.</div>
+                </div>
+                <q-btn color="primary" no-caps unelevated label="Ask a Question" @click="qaForm = !qaForm" />
+              </div>
+              <q-slide-transition>
+                <q-card v-if="qaForm" flat bordered class="q-mb-md">
+                  <q-card-section>
+                    <q-input v-model="newQuestion" dense outlined type="textarea" label="Your question" />
+                  </q-card-section>
+                  <q-card-actions align="right">
+                    <q-btn flat no-caps label="Cancel" @click="qaForm = false" />
+                    <q-btn color="primary" unelevated no-caps label="Submit question" @click="submitQuestion" />
+                  </q-card-actions>
+                </q-card>
+              </q-slide-transition>
+              <div class="text-grey-6 q-py-lg text-center bg-grey-1 rounded-borders">
+                <q-icon name="o_forum" size="36px" class="q-mb-sm" />
+                <div>No questions yet.</div>
+              </div>
+            </q-tab-panel>
+          </q-tab-panels>
+        </div>
+
+        <!-- Relationship carousels -->
+        <div v-for="section in sections" :key="section.title" class="sf-section">
+          <div class="sf-section__head"><h2 class="sf-section__title">{{ section.title }}</h2></div>
+          <ProductCarousel :products="section.products" />
+        </div>
+
+        <div class="q-mt-xl">
+          <RecentlyViewed :exclude-id="product.id" />
+        </div>
       </template>
-    </q-banner>
-
-    <template v-if="product">
-      <div class="row q-col-gutter-xl">
-        <!-- Gallery -->
-        <div class="col-12 col-md-6">
-          <ProductGalleryView
-            :images="galleryImages"
-            :variant-id="variantId"
-            :product-name="product.name"
-          />
-        </div>
-
-        <!-- Info -->
-        <div class="col-12 col-md-6">
-          <div class="text-h4 text-weight-bold">{{ product.name }}</div>
-
-          <div class="row items-center q-gutter-sm q-mt-sm">
-            <div class="text-h5 text-primary text-weight-bold">{{ formatPrice(displayPrice) }}</div>
-            <q-badge :color="availability.color" :label="availability.label" class="q-py-xs q-px-sm" />
-          </div>
-
-          <div v-if="product.sku" class="text-caption text-grey-7 q-mt-xs">SKU: {{ product.sku }}</div>
-
-          <div v-if="product.shortDescription" class="text-body1 q-mt-md">
-            {{ product.shortDescription }}
-          </div>
-
-          <q-separator class="q-my-md" />
-
-          <VariantSelector
-            v-if="product.variants && product.variants.length"
-            v-model="variantId"
-            :variants="product.variants"
-            class="q-mb-md"
-          />
-
-          <div class="row q-gutter-sm q-mt-md">
-            <q-btn
-              unelevated
-              color="primary"
-              icon="o_shopping_cart"
-              label="Add to cart"
-              no-caps
-              :loading="addingToCart"
-              :disable="availability.color === 'grey'"
-              @click="onAddToCart"
-            />
-            <q-btn
-              outline
-              color="primary"
-              :icon="inCompare ? 'o_compare_arrows' : 'o_compare'"
-              :label="inCompare ? 'In compare' : 'Compare'"
-              no-caps
-              @click="onToggleCompare"
-            />
-            <q-btn
-              outline
-              color="pink-6"
-              icon="o_favorite_border"
-              label="Wishlist"
-              no-caps
-              :loading="addingToWishlist"
-              @click="onAddToWishlist"
-            />
-          </div>
-
-          <div v-if="product.tagNames && product.tagNames.length" class="q-mt-lg">
-            <q-chip
-              v-for="tag in product.tagNames"
-              :key="tag"
-              dense
-              outline
-              color="grey-7"
-              :label="tag"
-            />
-          </div>
-        </div>
-      </div>
-
-      <!-- Full description -->
-      <q-card v-if="product.fullDescription" flat bordered class="q-mt-xl">
-        <q-card-section>
-          <div class="text-h6 q-mb-sm">Description</div>
-          <!-- eslint-disable-next-line vue/no-v-html -->
-          <div class="storefront-rich-text" v-html="product.fullDescription" />
-        </q-card-section>
-      </q-card>
-
-      <!-- Relationship sections -->
-      <section v-for="section in sections" :key="section.title" class="q-mt-xl">
-        <div class="text-h6 q-mb-md">{{ section.title }}</div>
-        <div class="row q-col-gutter-md">
-          <div
-            v-for="p in section.products"
-            :key="p.id"
-            class="col-6 col-sm-4 col-md-3 col-lg-2"
-          >
-            <ProductCard :product="p" />
-          </div>
-        </div>
-      </section>
-
-      <div class="q-mt-xl">
-        <RecentlyViewed :exclude-id="product.id" />
-      </div>
-    </template>
+    </div>
   </q-page>
 </template>
 
 <script setup>
 /*
- * Storefront product detail (WO-19, AC-CAT-007.2, PZG). Left: the reused
- * ProductGalleryView (product- and variant-level media, driven by the selected
- * variant). Right: name, live price (variant price overrides the product price),
- * availability, description and a VariantSelector. Below: related / cross-sell /
- * up-sell rows plus recently-viewed. On load the product is recorded into the
- * recently-viewed list.
+ * Porto storefront product detail (WO-111, builds on WO-19). Gallery (reused
+ * ProductGalleryView) + info column (title, price block with savings, variant
+ * selectors, quantity, add-to-cart / wishlist / compare, meta, share), a
+ * Description / Reviews / Q&A tab set, and Related / Cross-sell / Up-sell rails.
  *
- * NOTE: StorefrontImageDto carries no `id`, but ProductGalleryView keys slides by
- * `img.id`, so a stable synthetic id is injected here.
+ * Deferred (no backend yet, flagged on WO-111): Reviews (REQ-CAT-010) and Q&A
+ * (REQ-CNT-007) render graceful empty states + forms that acknowledge "coming
+ * soon"; star rating shows only when a rating field is present. The DTO carries
+ * no category (so no category breadcrumb) and only a manufacturerId (no name),
+ * and variant option labels are ids only (VariantSelector labels by SKU + price).
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
+import { useQuasar } from 'quasar'
 import { storefrontApi, wishlistApi, formatPrice } from 'modules/storefront/api'
 import { useRecentlyViewed, useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
 import ProductGalleryView from 'modules/catalog/components/ProductGalleryView.vue'
-import ProductCard from 'modules/storefront/components/ProductCard.vue'
 import VariantSelector from 'modules/storefront/components/VariantSelector.vue'
+import ProductCarousel from 'modules/storefront/components/ProductCarousel.vue'
 import RecentlyViewed from 'modules/storefront/components/RecentlyViewed.vue'
+import StarRating from 'modules/storefront/components/StarRating.vue'
 
 const route = useRoute()
+const $q = useQuasar()
 const notify = useNotify()
 const { record } = useRecentlyViewed()
 const { has, toggle, max } = useCompare()
@@ -150,10 +234,17 @@ const { addItem } = useCart()
 const product = ref(null)
 const loading = ref(false)
 const variantId = ref(null)
+const quantity = ref(1)
 const addingToCart = ref(false)
 const addingToWishlist = ref(false)
+const tab = ref('description')
 
-// ProductGalleryView requires a stable per-image id (the DTO omits one).
+// Review / Q&A local form state (no backend yet).
+const reviewForm = ref(false)
+const qaForm = ref(false)
+const newReview = ref({ rating: 5, title: '', body: '' })
+const newQuestion = ref('')
+
 const galleryImages = computed(() =>
   (product.value?.images || []).map((img, i) => ({ ...img, id: 'img-' + i }))
 )
@@ -167,45 +258,63 @@ const displayPrice = computed(() => {
   return product.value?.price
 })
 
+// Defensive (no sale/rating fields in the DTO yet).
+const oldPrice = computed(() => product.value?.oldPrice || product.value?.originalPrice || null)
+const savings = computed(() => (oldPrice.value && displayPrice.value ? oldPrice.value - displayPrice.value : null))
+const rating = computed(() => {
+  const r = product.value?.averageRating ?? product.value?.rating
+  return typeof r === 'number' ? r : null
+})
+const reviewCount = computed(() => product.value?.reviewCount ?? null)
+
 const stock = computed(() =>
   selectedVariant.value ? selectedVariant.value.stockQuantity : (product.value?.stockQuantity ?? 0)
 )
-
 const availability = computed(() => {
   if (stock.value > 0) return { label: 'In stock', color: 'positive' }
   if (product.value?.allowBackorder) return { label: 'Available on backorder', color: 'warning' }
   return { label: 'Out of stock', color: 'grey' }
 })
+const restockNote = computed(() => {
+  if (stock.value > 0 || !product.value?.allowBackorder || !product.value?.estimatedRestockDate) return null
+  return `Estimated restock: ${new Date(product.value.estimatedRestockDate).toLocaleDateString()}`
+})
 
 const inCompare = computed(() => (product.value ? has(product.value.id) : false))
 
-// Save the current product/variant to the authenticated customer's wishlist (WO-29). The wishlist is
-// registered-buyers-only, so an unauthenticated shopper is nudged to sign in rather than erroring.
-async function onAddToWishlist () {
-  if (!product.value) return
-  addingToWishlist.value = true
-  try {
-    await wishlistApi.addItem({ productId: product.value.id, productVariantId: variantId.value || null })
-    notify.success('Saved to your wishlist')
-  } catch (err) {
-    if (err?.response?.status === 401) notify.warning('Sign in to save items to your wishlist')
-    else notify.error(getApiErrorMessage(err))
-  } finally {
-    addingToWishlist.value = false
+const sections = computed(() =>
+  [
+    { title: 'Related Products', products: product.value?.relatedProducts || [] },
+    { title: 'Customers Also Bought', products: product.value?.crossSells || [] },
+    { title: 'You May Also Like', products: product.value?.upSells || [] }
+  ].filter((s) => s.products.length)
+)
+
+function shareUrl (network) {
+  const url = typeof window !== 'undefined' ? encodeURIComponent(window.location.href) : ''
+  const text = encodeURIComponent(product.value?.name || '')
+  switch (network) {
+    case 'facebook': return `https://www.facebook.com/sharer/sharer.php?u=${url}`
+    case 'twitter': return `https://twitter.com/intent/tweet?url=${url}&text=${text}`
+    case 'pinterest': return `https://pinterest.com/pin/create/button/?url=${url}&description=${text}`
+    default: return '#'
   }
 }
 
-const sections = computed(() =>
-  [
-    { title: 'Related products', products: product.value?.relatedProducts || [] },
-    { title: 'Customers also bought', products: product.value?.crossSells || [] },
-    { title: 'You may also like', products: product.value?.upSells || [] }
-  ].filter((s) => s.products.length)
-)
+async function copyLink () {
+  try {
+    await navigator.clipboard.writeText(window.location.href)
+    notify.success('Link copied')
+  } catch (e) {
+    notify.info(window.location.href)
+  }
+}
 
 async function load () {
   loading.value = true
   variantId.value = null
+  quantity.value = 1
+  tab.value = 'description'
   try {
     product.value = await storefrontApi.productDetail(route.params.idOrSlug)
     if (product.value?.id) record(product.value.id)
@@ -221,7 +330,7 @@ async function onAddToCart () {
   if (!product.value || addingToCart.value) return
   addingToCart.value = true
   try {
-    await addItem({ productId: product.value.id, productVariantId: variantId.value || null, quantity: 1 })
+    await addItem({ productId: product.value.id, productVariantId: variantId.value || null, quantity: Math.max(1, quantity.value || 1) })
     notify.success('Added to cart')
   } catch (err) {
     notify.error(getApiErrorMessage(err))
@@ -230,12 +339,38 @@ async function onAddToCart () {
   }
 }
 
+async function onAddToWishlist () {
+  if (!product.value) return
+  addingToWishlist.value = true
+  try {
+    await wishlistApi.addItem({ productId: product.value.id, productVariantId: variantId.value || null })
+    notify.success('Saved to your wishlist')
+  } catch (err) {
+    if (err?.response?.status === 401) notify.warning('Sign in to save items to your wishlist')
+    else notify.error(getApiErrorMessage(err))
+  } finally {
+    addingToWishlist.value = false
+  }
+}
+
 function onToggleCompare () {
   if (!product.value) return
   const result = toggle(product.value.id)
   if (result.full) notify.warning('You can compare up to ' + max + ' products.')
   else if (result.removed) notify.info('Removed from compare')
-  else if (result.ok) notify.success('Added to compare')
+  else notify.success('Added to compare')
+}
+
+// Reviews / Q&A have no backend yet — acknowledge and reset the form.
+function submitReview () {
+  reviewForm.value = false
+  newReview.value = { rating: 5, title: '', body: '' }
+  notify.info('Thanks! Product reviews are coming soon.')
+}
+function submitQuestion () {
+  qaForm.value = false
+  newQuestion.value = ''
+  notify.info('Thanks! Product Q&A is coming soon.')
 }
 
 watch(() => route.params.idOrSlug, load)
@@ -243,15 +378,30 @@ onMounted(load)
 </script>
 
 <style scoped lang="scss">
-.storefront-container {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
 .storefront-rich-text {
-  :deep(img) {
-    max-width: 100%;
-    height: auto;
-  }
+  :deep(img) { max-width: 100%; height: auto; }
 }
+.sf-qty {
+  border: 1px solid var(--sf-border);
+  border-radius: var(--sf-radius);
+}
+.sf-qty__input {
+  width: 48px;
+  border: none;
+  text-align: center;
+  font-size: 15px;
+  outline: none;
+  -moz-appearance: textfield;
+}
+.sf-qty__input::-webkit-outer-spin-button,
+.sf-qty__input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sf-meta__k {
+  display: inline-block;
+  width: 90px;
+  color: var(--sf-muted);
+  text-transform: uppercase;
+  font-size: 11px;
+  letter-spacing: 0.4px;
+}
+.sf-tabs { border-bottom: 1px solid var(--sf-border); }
 </style>

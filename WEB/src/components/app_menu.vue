@@ -52,13 +52,20 @@ const sections = [
     items: [
       { label: 'Products', icon: 'o_inventory_2', to: '/catalog/products', permissions: [Permissions.CatalogRead] },
       { label: 'Categories', icon: 'o_account_tree', to: '/catalog/categories', permissions: [Permissions.CatalogRead] },
-      { label: 'Manufacturers', icon: 'o_factory', to: '/catalog/manufacturers', permissions: [Permissions.CatalogRead] }
+      { label: 'Attributes', icon: 'o_tune', to: '/catalog/attributes', permissions: [Permissions.CatalogRead] },
+      { label: 'Manufacturers', icon: 'o_factory', to: '/catalog/manufacturers', permissions: [Permissions.CatalogRead] },
+      { label: 'Promotions', icon: 'o_local_offer', to: '/promotions', permissions: [Permissions.CatalogRead] }
     ]
   },
   {
     header: 'Store Management',
     items: [
+      { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
+      { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
       { label: 'Stores', icon: 'o_store', to: '/stores', permissions: [Permissions.StoresRead] },
+      { label: 'Shipping', icon: 'o_local_shipping', to: '/shipping', permissions: [Permissions.StoresRead] },
+      { label: 'Tax', icon: 'o_receipt', to: '/tax', permissions: [Permissions.SettingsRead] },
+      { label: 'Reports', icon: 'o_bar_chart', to: '/reports', permissions: [Permissions.StoresRead] },
       { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] }
     ]
   },
@@ -78,6 +85,7 @@ const sections = [
   {
     header: 'Access Management',
     items: [
+      { label: 'Customers', icon: 'o_people', to: '/customers', permissions: [Permissions.UsersRead] },
       { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
       { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
     ]

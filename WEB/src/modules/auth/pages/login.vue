@@ -83,9 +83,13 @@ async function onSubmit () {
   try {
     await auth.login({ email: email.value, password: password.value })
     notify.success('Signed in successfully')
-    const redirect =
-      typeof route.query.redirect === 'string' ? route.query.redirect : '/dashboard'
-    router.push(redirect)
+    // Unified login (WO-112): honour an explicit ?redirect, else send each role to its
+    // home — staff (any role) to the admin dashboard, customers (no role) to the storefront.
+    if (typeof route.query.redirect === 'string' && route.query.redirect) {
+      router.push(route.query.redirect)
+    } else {
+      router.push(auth.roles.length ? '/dashboard' : '/shop')
+    }
   } catch (err) {
     notify.error(getApiErrorMessage(err))
   } finally {

@@ -31,4 +31,21 @@ public class CredentialVault : ICredentialVault
 
         return cred is null ? null : Decrypt(cred.EncryptedValue);
     }
+
+    public async Task<IReadOnlyDictionary<string, string>> GetCredentialsAsync(string providerCode, CancellationToken cancellationToken = default)
+    {
+        // The IntegrationProvider query filter (soft-delete) applies through the navigation, so retired
+        // providers resolve to nothing. Disabled providers are excluded explicitly.
+        var fields = await _db.IntegrationCredentials
+            .AsNoTracking()
+            .Where(c => c.Provider!.Code == providerCode && c.Provider.IsEnabled)
+            .Select(c => new { c.Definition!.FieldCode, c.Value, c.IsSecret })
+            .ToListAsync(cancellationToken);
+
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in fields)
+            result[f.FieldCode] = f.IsSecret ? Decrypt(f.Value) : f.Value;
+
+        return result;
+    }
 }

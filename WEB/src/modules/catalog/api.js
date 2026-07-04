@@ -126,7 +126,7 @@ export const taxCategoryApi = {
   }
 }
 
-// ---- Product attributes (read-only helper for variant generation) -----------
+// ---- Product attributes (global library CRUD, WO-15) ------------------------
 export const productAttributeApi = {
   list (params = {}) {
     return api
@@ -135,8 +135,45 @@ export const productAttributeApi = {
   },
   get (id) {
     return api.get(`/api/admin/product-attributes/${id}`).then(unwrap)
+  },
+  create (payload) {
+    return api.post('/api/admin/product-attributes', payload).then(unwrap)
+  },
+  update (id, payload) {
+    return api.put(`/api/admin/product-attributes/${id}`, payload).then(unwrap)
+  },
+  remove (id) {
+    return api.delete(`/api/admin/product-attributes/${id}`).then(unwrap)
   }
 }
+
+// ---- Specification attributes (global library CRUD, WO-15) ------------------
+export const specificationAttributeApi = {
+  list (params = {}) {
+    return api
+      .get('/api/admin/specification-attributes', { params, paramsSerializer: qsSerializer })
+      .then(unwrap)
+  },
+  get (id) {
+    return api.get(`/api/admin/specification-attributes/${id}`).then(unwrap)
+  },
+  create (payload) {
+    return api.post('/api/admin/specification-attributes', payload).then(unwrap)
+  },
+  update (id, payload) {
+    return api.put(`/api/admin/specification-attributes/${id}`, payload).then(unwrap)
+  },
+  remove (id) {
+    return api.delete(`/api/admin/specification-attributes/${id}`).then(unwrap)
+  }
+}
+
+// Product-attribute display types (transported as enum names). Swatch values carry a colour.
+export const attributeDisplayTypeOptions = [
+  { label: 'Dropdown', value: 'Dropdown' },
+  { label: 'Button', value: 'Button' },
+  { label: 'Swatch', value: 'Swatch' }
+]
 
 // ---- Shared enum option catalogs --------------------------------------------
 export const productTypeOptions = [
@@ -168,6 +205,8 @@ export default {
   manufacturerApi,
   taxCategoryApi,
   productAttributeApi,
+  specificationAttributeApi,
+  attributeDisplayTypeOptions,
   productTypeOptions,
   giftCardTypeOptions,
   mediaTypeOptions,

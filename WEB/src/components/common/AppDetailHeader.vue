@@ -20,7 +20,6 @@
           <span v-if="title && !breadcrumbs.length" class="app-page-title">{{ title }}</span>
           <q-badge v-if="status" :color="statusColor" :label="status" class="q-px-sm" />
         </div>
-        <div v-if="subtitle" class="text-muted text-body2">{{ subtitle }}</div>
       </div>
 
       <slot name="actions" />

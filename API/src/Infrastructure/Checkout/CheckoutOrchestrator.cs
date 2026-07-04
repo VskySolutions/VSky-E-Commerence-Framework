@@ -31,6 +31,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly IDateTimeProvider _clock;
     private readonly IEmailEnqueuer _emails;
     private readonly IPublisher _publisher;
+    private readonly ICustomerRoleService _customerRoles;
 
     public CheckoutOrchestrator(
         IApplicationDbContext db,
@@ -43,7 +44,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         ICurrentUserService current,
         IDateTimeProvider clock,
         IEmailEnqueuer emails,
-        IPublisher publisher)
+        IPublisher publisher,
+        ICustomerRoleService customerRoles)
     {
         _db = db;
         _routing = routing;
@@ -56,6 +58,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _clock = clock;
         _emails = emails;
         _publisher = publisher;
+        _customerRoles = customerRoles;
     }
 
     public async Task<CheckoutQuote> QuoteAsync(CheckoutQuoteRequest req, CancellationToken ct)
@@ -273,7 +276,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         if (items.Count == 0)
             throw new ConflictException("The cart is empty. Add items before checking out.");
 
-        var lines = await BuildLinesAsync(items, ct);
+        var lines = await ApplyGroupPricingAsync(await BuildLinesAsync(items, ct), ct);
         var subtotal = lines.Sum(l => l.LineTotal);
 
         // Pickup-in-store: skip routing + carrier rates entirely; fulfil at the chosen store (REQ-SHP-004).
@@ -566,6 +569,40 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         }
 
         return lines;
+    }
+
+    /// <summary>
+    /// Applies the authenticated customer's role-based group pricing to each line (WO-22, AC-CUS-003.3),
+    /// running before the subtotal so discounts, tax and the total all derive from the member price. A
+    /// no-op for guests and customers with no pricing role — <see cref="ICustomerRoleService.ResolvePriceAsync"/>
+    /// returns the base price — so the common checkout path is unchanged.
+    /// </summary>
+    private async Task<List<LineWork>> ApplyGroupPricingAsync(List<LineWork> lines, CancellationToken ct)
+    {
+        if (_current.UserId is not Guid userId || lines.Count == 0)
+            return lines;
+
+        var customerId = await _db.Customers
+            .AsNoTracking()
+            .Where(c => c.UserId == userId)
+            .Select(c => (Guid?)c.Id)
+            .FirstOrDefaultAsync(ct);
+        if (customerId is not Guid cid)
+            return lines;
+
+        var roleIds = await _customerRoles.GetCustomerRoleIdsAsync(cid, ct);
+        if (roleIds.Count == 0)
+            return lines;
+
+        var adjusted = new List<LineWork>(lines.Count);
+        foreach (var line in lines)
+        {
+            var price = await _customerRoles.ResolvePriceAsync(
+                line.ProductId, line.ProductVariantId, line.UnitPrice, roleIds, ct);
+            adjusted.Add(price < line.UnitPrice ? line with { UnitPrice = price } : line);
+        }
+
+        return adjusted;
     }
 
     private static RoutingRequest BuildRoutingRequest(CheckoutAddress shipTo, IReadOnlyList<LineWork> lines) =>

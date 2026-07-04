@@ -30,5 +30,11 @@ export default [
     name: 'catalog-manufacturers',
     meta: { title: 'Manufacturers', permissions: ['Catalog.Read'] },
     component: () => import('modules/catalog/pages/manufacturers.vue')
+  },
+  {
+    path: 'catalog/attributes',
+    name: 'catalog-attributes',
+    meta: { title: 'Attributes', permissions: ['Catalog.Read'] },
+    component: () => import('modules/catalog/pages/attributes.vue')
   }
 ]

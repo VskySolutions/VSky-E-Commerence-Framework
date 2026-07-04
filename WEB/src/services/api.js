@@ -11,11 +11,13 @@
  *   profile) and widgetApi (the CRUD template other modules copy).
  */
 import qs from 'qs'
-import { http, http2 } from 'src/boot/axios'
+import { http, http2, http3 } from 'src/boot/axios'
 import { decodeJwtPayload, decodeJwtRole, decodeJwtPermissions } from 'src/services/jwt'
 
 export const api = http
 export const anonApi = http2
+// Authenticated STOREFRONT customer instance (isolated token slot; see boot/axios.js).
+export const customerApi = http3
 
 // Consistent query serialization (repeated keys for arrays, drop null/undefined).
 export function qsSerializer (params) {
@@ -187,6 +189,7 @@ export const widgetApi = {
 export default {
   api,
   anonApi,
+  customerApi,
   authApi,
   widgetApi,
   ApiErrorCodes,

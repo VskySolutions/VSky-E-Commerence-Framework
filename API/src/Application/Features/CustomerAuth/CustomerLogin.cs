@@ -27,6 +27,10 @@ public class CustomerLoginCommandValidator : AbstractValidator<CustomerLoginComm
 
 public class CustomerLoginCommandHandler : IRequestHandler<CustomerLoginCommand, AuthResponse>
 {
+    // A throwaway hash verified against when the account is unknown, so the password KDF always runs and
+    // response time never reveals whether the email is registered (AC-CUS-001.5). Computed once, lazily.
+    private static string? _dummyHash;
+
     private readonly IApplicationDbContext _db;
     private readonly IPasswordHasher _hasher;
     private readonly IJwtTokenService _tokens;
@@ -61,8 +65,11 @@ public class CustomerLoginCommandHandler : IRequestHandler<CustomerLoginCommand,
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
             .FirstOrDefaultAsync(u => u.Email == email && u.IsActive, cancellationToken);
 
-        // Generic message + password verification even on miss so we never reveal which check failed.
-        if (user is null || !_hasher.Verify(user.PasswordHash, request.Password))
+        // Always run the password KDF — against a throwaway hash when the account is unknown — then give a
+        // generic error, so neither response time nor message reveals which check failed (AC-CUS-001.5).
+        var hashToVerify = user?.PasswordHash ?? (_dummyHash ??= _hasher.Hash("timing-equalizer"));
+        var passwordValid = _hasher.Verify(hashToVerify, request.Password);
+        if (user is null || !passwordValid)
             throw new UnauthorizedException("Invalid email or password.");
 
         if (!user.EmailVerified)

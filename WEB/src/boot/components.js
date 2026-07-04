@@ -15,7 +15,10 @@ import AppSection from 'components/common/AppSection.vue'
 import AppDataTable from 'components/common/AppDataTable.vue'
 import AppDrawer from 'components/common/AppDrawer.vue'
 import AppFormDrawer from 'components/common/AppFormDrawer.vue'
+import AppFilterDrawer from 'components/common/AppFilterDrawer.vue'
 import AppViewDrawer from 'components/common/AppViewDrawer.vue'
+import AppRichText from 'components/common/AppRichText.vue'
+import AppFileUpload from 'components/common/AppFileUpload.vue'
 import ConfirmDialog from 'components/common/ConfirmDialog.vue'
 
 // NOTE: AppPhoneInput (libphonenumber-js) and AppAddressFields
@@ -33,7 +36,10 @@ const globalComponents = {
   AppDataTable,
   AppDrawer,
   AppFormDrawer,
+  AppFilterDrawer,
   AppViewDrawer,
+  AppRichText,
+  AppFileUpload,
   ConfirmDialog
 }
 

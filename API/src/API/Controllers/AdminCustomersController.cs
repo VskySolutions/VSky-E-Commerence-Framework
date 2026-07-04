@@ -1,16 +1,23 @@
 using Microsoft.AspNetCore.Mvc;
 using VSky.Application.Common.Authorization;
 using VSky.API.Authorization;
+using VSky.Application.Common.Models;
 using VSky.Application.Features.Customers;
 using VSky.Application.Features.CustomerRoles;
 
 namespace VSky.API.Controllers;
 
-/// <summary>Admin customer management: tax-exemption configuration (REQ-TAX-003) and role assignment (REQ-CUS-003).</summary>
+/// <summary>Admin customer management: list, tax-exemption configuration (REQ-TAX-003) and role assignment (REQ-CUS-003).</summary>
 [Route("api/admin/customers")]
 [RequireModule(Modules.Customers)]
 public class AdminCustomersController : ApiControllerBase
 {
+    /// <summary>List customers (paged), optionally filtered by name or email.</summary>
+    [HttpGet]
+    public async Task<ActionResult<PaginatedList<CustomerListItemDto>>> List(
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
+        => Ok(await Mediator.Send(new ListCustomersQuery(page, pageSize, search)));
+
     /// <summary>Get a customer's tax-exemption configuration.</summary>
     [HttpGet("{id:guid}/tax-exemption")]
     public async Task<ActionResult<CustomerTaxExemptionDto>> GetTaxExemption(Guid id)

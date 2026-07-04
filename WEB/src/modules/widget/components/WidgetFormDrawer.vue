@@ -7,14 +7,9 @@
     @submit="onSubmit"
     @cancel="$emit('cancel')"
   >
-    <AppTextField v-model="form.name" label="Name" required :v="v$.name" />
-    <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" />
-    <AppTextField
-      v-model="form.description"
-      label="Description"
-      type="textarea"
-      autogrow
-    />
+    <AppTextField v-model="form.name" label="Name" required :v="v$.name" placeholder="Widget name" />
+    <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" placeholder="Auto-generated from the name if left blank" />
+    <AppRichText v-model="form.description" label="Description" placeholder="Describe this widget…" />
     <AppSelect v-model="form.status" label="Status" :options="statusOptions" />
     <q-toggle v-model="form.isActive" label="Active" color="primary" />
   </AppFormDrawer>
