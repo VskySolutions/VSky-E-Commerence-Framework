@@ -17,6 +17,7 @@ public class GetStoreQueryHandler : IRequestHandler<GetStoreQuery, StoreDto>
     public async Task<StoreDto> Handle(GetStoreQuery request, CancellationToken cancellationToken)
     {
         var store = await _db.Stores
+            .Include(s => s.Address)
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Store), request.Id);

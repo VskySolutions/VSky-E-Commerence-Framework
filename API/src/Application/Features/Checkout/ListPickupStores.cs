@@ -30,6 +30,7 @@ public class ListPickupStoresQueryHandler : IRequestHandler<ListPickupStoresQuer
     public async Task<List<PickupStoreDto>> Handle(ListPickupStoresQuery request, CancellationToken cancellationToken)
     {
         return await _db.Stores
+            .Include(s => s.Address)
             .AsNoTracking()
             .Where(s => s.IsEnabled && s.PickupEnabled)
             .OrderBy(s => s.Name)

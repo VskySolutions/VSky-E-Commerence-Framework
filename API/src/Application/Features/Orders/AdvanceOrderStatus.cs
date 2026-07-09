@@ -48,6 +48,7 @@ public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStat
                 "Allowed lifecycle targets: Processing, Shipped, Delivered, Cancelled.");
 
         var order = await _db.Orders
+            .Include(o => o.ShippingAddress)
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken)
             ?? throw new NotFoundException(nameof(Order), request.OrderId);

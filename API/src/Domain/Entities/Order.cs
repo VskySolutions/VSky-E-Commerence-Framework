@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using VSky.Domain.Common;
 using VSky.Domain.Enums;
 
@@ -19,18 +20,25 @@ public class Order : AuditableEntity, ISoftDeletable
 
     public OrderStatus Status { get; set; } = OrderStatus.Pending;
 
-    // Delivery target (drives routing).
-    public string? ContactName { get; set; }
-    public string? ContactEmail { get; set; }
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
-    public string? CountryCode { get; set; }
-    public string? Region { get; set; }
-    public string? PostalCode { get; set; }
-    public string? AddressLine1 { get; set; }
-    public string? AddressLine2 { get; set; }
-    public string? City { get; set; }
-    public string? StateProvince { get; set; }
+    // Delivery target (drives routing) — the postal address is a shared Address row (WO: address centralization).
+    public Guid? ShippingAddressId { get; set; }
+    public Address? ShippingAddress { get; set; }
+
+    // Read-through helpers over the linked address (require ShippingAddress to be Include()d; never mapped
+    // to columns). Keep the rest of the order lifecycle (notifications, DTOs, routing) unchanged.
+    [NotMapped] public string? ContactName => ShippingAddress is null ? null : $"{ShippingAddress.FirstName} {ShippingAddress.LastName}".Trim();
+    [NotMapped] public string? ContactEmail => ShippingAddress?.Email;
+    [NotMapped] public string? ContactPhone => ShippingAddress?.PhoneNumber;
+    [NotMapped] public double? Latitude => ShippingAddress?.Latitude;
+    [NotMapped] public double? Longitude => ShippingAddress?.Longitude;
+    [NotMapped] public string? CountryCode => ShippingAddress?.CountryCode;
+    [NotMapped] public string? Region => ShippingAddress?.StateProvince;
+    [NotMapped] public string? PostalCode => ShippingAddress?.PostalCode;
+    [NotMapped] public string? AddressLine1 => ShippingAddress?.AddressLine1;
+    [NotMapped] public string? AddressLine2 => ShippingAddress?.AddressLine2;
+    [NotMapped] public string? Landmark => ShippingAddress?.Landmark;
+    [NotMapped] public string? City => ShippingAddress?.City;
+    [NotMapped] public string? StateProvince => ShippingAddress?.StateProvince;
 
     // Routing outcome.
     public Guid? AssignedStoreId { get; set; }

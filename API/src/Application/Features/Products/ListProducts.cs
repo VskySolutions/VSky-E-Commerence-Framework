@@ -26,7 +26,11 @@ public class ListProductsQueryHandler : IRequestHandler<ListProductsQuery, Pagin
 
     public async Task<PaginatedList<ProductListItemDto>> Handle(ListProductsQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<Product> query = _db.Products.AsNoTracking();
+        // Include per-store inventory so the list DTO can roll up on-hand stock (the StockQuantity column
+        // was dropped; stock now lives in InventoryLevels). SplitQuery avoids a cartesian blow-up.
+        IQueryable<Product> query = _db.Products.AsNoTracking()
+            .Include(p => p.InventoryLevels)
+            .AsSplitQuery();
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {

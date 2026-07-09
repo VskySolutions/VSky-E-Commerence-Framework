@@ -55,6 +55,7 @@ public class SubmitRmaCommandHandler : IRequestHandler<SubmitRmaCommand, RmaDto>
 
         // Buyer scoping: not-found masking — a foreign order simply isn't found.
         var order = await _db.Orders
+            .Include(o => o.ShippingAddress)
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId && o.CustomerId == customer.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Order), request.OrderId);

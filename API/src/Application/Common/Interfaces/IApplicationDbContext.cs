@@ -68,6 +68,7 @@ public interface IApplicationDbContext
 
     // Customer accounts (WO-20, WO-21)
     DbSet<Address> Addresses { get; }
+    DbSet<CustomerAddress> CustomerAddresses { get; }
     DbSet<UserToken> UserTokens { get; }
 
     // Customer roles + group pricing (WO-22)

@@ -496,5 +496,16 @@
 // ============================================================================
 .sf-skeleton-card { border: 1px solid var(--sf-border); border-radius: var(--sf-radius); overflow: hidden; }
 .sf-newsletter { background: var(--sf-surface-alt); color: var(--sf-text); border-top: 1px solid var(--sf-border); border-bottom: 1px solid var(--sf-border); }
+
+// Cart slide-over: a flush, full-height right panel. QDialog teleports to <body>, so these must
+// be global (not scoped) to remove the default inner padding and stretch the card top-to-bottom.
+.sf-cart-dialog .q-dialog__inner { padding: 0; }
+.sf-cart-dialog .q-dialog__inner > .q-card {
+  height: 100vh;
+  max-height: 100vh;
+  width: 400px;
+  max-width: 92vw;
+  border-radius: 0;
+}
 .sf-hover-scale { transition: transform var(--sf-transition); }
 .sf-hover-scale:hover { transform: scale(1.04); }

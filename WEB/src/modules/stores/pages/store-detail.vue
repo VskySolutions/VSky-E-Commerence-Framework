@@ -73,16 +73,7 @@
 
           <!-- ============ LOCATION ============ -->
           <q-tab-panel name="location" class="q-gutter-y-sm">
-            <AppTextField v-model="form.addressLine1" label="Address line 1" placeholder="Street address" :disable="!canWrite" />
-            <AppTextField v-model="form.addressLine2" label="Address line 2" placeholder="Suite, unit (optional)" :disable="!canWrite" />
-            <div class="row q-col-gutter-sm">
-              <div class="col-6"><AppTextField v-model="form.city" label="City" :disable="!canWrite" /></div>
-              <div class="col-6"><AppTextField v-model="form.stateProvince" label="State / Province" :disable="!canWrite" /></div>
-            </div>
-            <div class="row q-col-gutter-sm">
-              <div class="col-6"><AppTextField v-model="form.postalCode" label="Postal code" :disable="!canWrite" /></div>
-              <div class="col-6"><AppTextField v-model="form.countryCode" label="Country (ISO-2)" placeholder="US" maxlength="2" :disable="!canWrite" /></div>
-            </div>
+            <AppAddressForm v-model="storeAddress" :show-names="false" :show-company="false" :show-phone="false" :disable="!canWrite" />
             <div class="row q-col-gutter-sm">
               <div class="col-6"><AppTextField v-model="form.latitude" label="Latitude" type="number" step="0.000001" placeholder="Used for order routing" :disable="!canWrite" /></div>
               <div class="col-6"><AppTextField v-model="form.longitude" label="Longitude" type="number" step="0.000001" :disable="!canWrite" /></div>
@@ -152,6 +143,7 @@ import AppDetailHeader from 'components/common/AppDetailHeader.vue'
 import AppTextField from 'components/common/AppTextField.vue'
 import AppFieldLabel from 'components/common/AppFieldLabel.vue'
 import DeliveryZonesDialog from 'modules/stores/components/DeliveryZonesDialog.vue'
+import AppAddressForm from 'components/common/AppAddressForm.vue'
 
 const router = useRouter()
 const { has } = usePermissions()
@@ -188,6 +180,7 @@ function buildPayload (f) {
     name: (f.name || '').trim(),
     addressLine1: f.addressLine1 || null,
     addressLine2: f.addressLine2 || null,
+    landmark: f.landmark || null,
     city: f.city || null,
     stateProvince: f.stateProvince || null,
     postalCode: f.postalCode || null,
@@ -215,7 +208,7 @@ const {
   api: storeApi,
   buildPayload,
   empty: {
-    name: '', addressLine1: '', addressLine2: '', city: '', stateProvince: '', postalCode: '', countryCode: '',
+    name: '', addressLine1: '', addressLine2: '', landmark: '', city: '', stateProvince: '', postalCode: '', countryCode: '',
     latitude: null, longitude: null, contactEmail: '', contactPhone: '', timeZone: 'UTC', currencyDisplay: '',
     orderCapacityLimit: null, operatingHoursJson: '', isEnabled: true, maintenanceMode: false, guestOrderingEnabled: true
   },
@@ -225,6 +218,28 @@ const {
 })
 
 const statusInfo = computed(() => entity.value ? storeStatus({ isEnabled: form.isEnabled, maintenanceMode: form.maintenanceMode }) : { label: '', color: 'grey' })
+
+// Adapter: bind the standard AppAddressForm to the flat store form's address fields.
+const storeAddress = computed({
+  get: () => ({
+    countryCode: form.countryCode,
+    stateProvince: form.stateProvince,
+    city: form.city,
+    addressLine1: form.addressLine1,
+    addressLine2: form.addressLine2,
+    landmark: form.landmark,
+    postalCode: form.postalCode
+  }),
+  set: (v) => {
+    form.countryCode = v.countryCode || ''
+    form.stateProvince = v.stateProvince || ''
+    form.city = v.city || ''
+    form.addressLine1 = v.addressLine1 || ''
+    form.addressLine2 = v.addressLine2 || ''
+    form.landmark = v.landmark || ''
+    form.postalCode = v.postalCode || ''
+  }
+})
 </script>
 
 <style scoped lang="scss">

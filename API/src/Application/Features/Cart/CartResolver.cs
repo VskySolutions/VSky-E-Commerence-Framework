@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 using CartEntity = VSky.Domain.Entities.Cart;
 using CartItemEntity = VSky.Domain.Entities.CartItem;
 
@@ -99,12 +100,16 @@ internal static class CartResolver
             ? new Dictionary<Guid, Product>()
             : await db.Products.AsNoTracking()
                 .Where(p => productIds.Contains(p.Id))
+                .Include(p => p.Pictures).ThenInclude(pic => pic.Media)
+                .Include(p => p.InventoryLevels)
+                .AsSplitQuery()
                 .ToDictionaryAsync(p => p.Id, ct);
 
         var variants = variantIds.Count == 0
             ? new Dictionary<Guid, ProductVariant>()
             : await db.ProductVariants.AsNoTracking()
                 .Where(v => variantIds.Contains(v.Id))
+                .Include(v => v.InventoryLevels)
                 .ToDictionaryAsync(v => v.Id, ct);
 
         var itemDtos = new List<CartItemDto>(items.Count);
@@ -117,14 +122,45 @@ internal static class CartResolver
             if (item.ProductVariantId is Guid variantId)
                 variants.TryGetValue(variantId, out variant);
 
-            var (available, name, sku) = Evaluate(item, product, variant, warnings);
-            itemDtos.Add(CartItemDto.From(item, name, sku, available));
+            var (available, name, sku, stock, allowBackorder) = Evaluate(item, product, variant, warnings);
+            itemDtos.Add(CartItemDto.From(
+                item, name, sku, available, PrimaryImage(product, item.ProductVariantId), stock, allowBackorder));
         }
 
         return CartDto.From(cart, itemDtos, warnings);
     }
 
-    private static (bool available, string name, string? sku) Evaluate(
+    /// <summary>
+    /// The line's display image: a variant-specific image when the line is a variant and one exists,
+    /// otherwise the product's primary (product-level) image. Only image media is considered.
+    /// </summary>
+    private static string? PrimaryImage(Product? product, Guid? variantId)
+    {
+        if (product is null)
+            return null;
+
+        var images = product.Pictures
+            .Where(pic => pic.Media != null && pic.Media.MediaType == MediaType.Image);
+
+        if (variantId.HasValue)
+        {
+            var variantImage = images
+                .Where(pic => pic.ProductVariantId == variantId.Value)
+                .OrderBy(pic => pic.DisplayOrder)
+                .Select(pic => pic.Media!.Url)
+                .FirstOrDefault();
+            if (variantImage is not null)
+                return variantImage;
+        }
+
+        return images
+            .Where(pic => pic.ProductVariantId == null)
+            .OrderBy(pic => pic.DisplayOrder)
+            .Select(pic => pic.Media!.Url)
+            .FirstOrDefault();
+    }
+
+    private static (bool available, string name, string? sku, int stock, bool allowBackorder) Evaluate(
         CartItemEntity item, Product? product, ProductVariant? variant, List<string> warnings)
     {
         // Soft-deleted products/variants are excluded by the global query filter, so a null lookup means
@@ -132,31 +168,30 @@ internal static class CartResolver
         if (product is null)
         {
             warnings.Add("A product in your cart is no longer available and has been marked unavailable.");
-            return (false, "Unavailable product", null);
+            return (false, "Unavailable product", null, 0, false);
         }
 
         var name = product.Name;
         var sku = variant?.Sku ?? product.Sku;
+        var stock = variant?.StockQuantity ?? product.StockQuantity;
+        var allowBackorder = variant?.AllowBackorder ?? product.AllowBackorder;
 
         if (!product.IsPublished)
         {
             warnings.Add($"'{name}' is no longer available and has been marked unavailable.");
-            return (false, name, sku);
+            return (false, name, sku, stock, allowBackorder);
         }
 
         if (item.ProductVariantId.HasValue && (variant is null || !variant.IsEnabled))
         {
             warnings.Add($"A selected option for '{name}' is no longer available.");
-            return (false, name, sku);
+            return (false, name, sku, stock, allowBackorder);
         }
-
-        var stock = variant?.StockQuantity ?? product.StockQuantity;
-        var allowBackorder = variant?.AllowBackorder ?? product.AllowBackorder;
 
         if (stock <= 0 && !allowBackorder)
         {
             warnings.Add($"'{name}' is out of stock.");
-            return (false, name, sku);
+            return (false, name, sku, stock, allowBackorder);
         }
 
         // Best-effort quantity check: no explicit per-product max exists, so flag a request that
@@ -164,6 +199,6 @@ internal static class CartResolver
         if (!allowBackorder && item.Quantity > stock)
             warnings.Add($"Only {stock} unit(s) of '{name}' are in stock; your cart requests {item.Quantity}.");
 
-        return (true, name, sku);
+        return (true, name, sku, stock, allowBackorder);
     }
 }

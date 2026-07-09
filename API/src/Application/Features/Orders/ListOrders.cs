@@ -22,7 +22,7 @@ public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, Paginated
 
     public async Task<PaginatedList<OrderSummaryDto>> Handle(ListOrdersQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<Order> query = _db.Orders
+        IQueryable<Order> query = _db.Orders.Include(o => o.ShippingAddress)
             .AsNoTracking()
             .Include(o => o.Lines);
 

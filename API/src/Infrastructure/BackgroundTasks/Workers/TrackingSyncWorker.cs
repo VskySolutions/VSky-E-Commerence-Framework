@@ -96,7 +96,7 @@ public class TrackingSyncWorker : IScheduledTask
 
     private static async Task MarkOrderDeliveredAsync(AppDbContext db, IEmailEnqueuer emails, Guid orderId, DateTime now, CancellationToken ct)
     {
-        var order = await db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct);
+        var order = await db.Orders.Include(o => o.ShippingAddress).FirstOrDefaultAsync(o => o.Id == orderId, ct);
         if (order is null || order.Status == OrderStatus.Delivered)
             return;
 

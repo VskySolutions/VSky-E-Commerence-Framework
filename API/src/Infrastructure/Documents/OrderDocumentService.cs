@@ -41,6 +41,7 @@ public class OrderDocumentService : IOrderDocumentService
 
     private async Task<Order> LoadOrderAsync(Guid orderId, CancellationToken ct)
         => await _db.Orders
+            .Include(o => o.ShippingAddress)
             .AsNoTracking()
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == orderId, ct)

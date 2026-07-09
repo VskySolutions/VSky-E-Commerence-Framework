@@ -12,6 +12,8 @@ internal static class ProductQueries
     /// </summary>
     public static IQueryable<Product> WithFullGraph(this IQueryable<Product> query) =>
         query
+            .Include(p => p.InventoryLevels)
+            .Include(p => p.Variants).ThenInclude(v => v.InventoryLevels)
             .Include(p => p.Variants).ThenInclude(v => v.AttributeValues)
             .Include(p => p.Variants).ThenInclude(v => v.TierPrices)
             .Include(p => p.Pictures).ThenInclude(pic => pic.Media)

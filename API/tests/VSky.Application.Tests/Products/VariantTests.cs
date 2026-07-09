@@ -25,7 +25,8 @@ public class VariantTests : CatalogTestBase
 
         await using var db = NewContext();
         var persisted = await db.ProductVariants.SingleAsync(v => v.Id == variantId);
-        Assert.Equal(4, persisted.StockQuantity);
+        // Stock is per store now (InventoryLevels); UpdateVariant no longer persists a catalog stock number.
+        Assert.Equal(0, persisted.StockQuantity);
         Assert.True(persisted.AllowBackorder);
     }
 

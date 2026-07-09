@@ -82,7 +82,6 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         entity.MetaKeywords = request.MetaKeywords;
         entity.Sku = request.Sku;
         entity.Price = request.Price;
-        entity.StockQuantity = request.StockQuantity;
         entity.AllowBackorder = request.AllowBackorder;
         entity.EstimatedRestockDate = request.EstimatedRestockDate;
         entity.TaxCategoryId = request.TaxCategoryId;

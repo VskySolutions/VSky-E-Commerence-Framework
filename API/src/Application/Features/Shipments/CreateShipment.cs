@@ -52,6 +52,7 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
     public async Task<ShipmentDto> Handle(CreateShipmentCommand request, CancellationToken cancellationToken)
     {
         var order = await _db.Orders
+            .Include(o => o.ShippingAddress)
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken)
             ?? throw new NotFoundException(nameof(Order), request.OrderId);

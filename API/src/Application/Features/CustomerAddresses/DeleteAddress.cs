@@ -31,12 +31,15 @@ public class DeleteAddressCommandHandler : IRequestHandler<DeleteAddressCommand>
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
-        var entity = await _db.Addresses
-            .FirstOrDefaultAsync(a => a.Id == request.Id && a.CustomerId == customerId, cancellationToken)
-            ?? throw new NotFoundException(nameof(Address), request.Id);
+        var entry = await _db.CustomerAddresses
+            .Include(m => m.Address)
+            .FirstOrDefaultAsync(m => m.Id == request.Id && m.CustomerId == customerId, cancellationToken)
+            ?? throw new NotFoundException(nameof(CustomerAddress), request.Id);
 
-        // Soft-delete is applied by the DbContext SaveChanges interceptor (sets Deleted + DeletedOnUtc).
-        _db.Addresses.Remove(entity);
+        // Soft-delete the book entry and its (customer-owned) address row.
+        _db.CustomerAddresses.Remove(entry);
+        if (entry.Address is not null)
+            _db.Addresses.Remove(entry.Address);
         await _db.SaveChangesAsync(cancellationToken);
     }
 }

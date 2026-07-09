@@ -103,25 +103,28 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 .FirstOrDefaultAsync(ct);
         }
 
-        var contactName = $"{req.ShipTo.FirstName} {req.ShipTo.LastName}".Trim();
-
-        // 8a. Create the order + line snapshots + the initial status-history marker (Pending → Pending).
+        // 8a. Create the order + its shared delivery Address + line snapshots + the initial status marker.
         var order = new Order
         {
             OrderNumber = $"ORD-{now:yyyyMMddHHmmssfff}",
             Status = OrderStatus.Pending,
             CustomerId = customerId,
-            ContactName = string.IsNullOrWhiteSpace(contactName) ? null : contactName,
-            ContactEmail = req.ShipTo.Email,
-            Latitude = req.ShipTo.Latitude,
-            Longitude = req.ShipTo.Longitude,
-            CountryCode = req.ShipTo.CountryCode,
-            Region = req.ShipTo.Region,
-            PostalCode = req.ShipTo.PostalCode,
-            AddressLine1 = req.ShipTo.Line1,
-            AddressLine2 = req.ShipTo.Line2,
-            City = req.ShipTo.City,
-            StateProvince = req.ShipTo.Region,
+            ShippingAddress = new Address
+            {
+                FirstName = req.ShipTo.FirstName,
+                LastName = req.ShipTo.LastName,
+                Email = req.ShipTo.Email,
+                PhoneNumber = req.ShipTo.PhoneNumber,
+                Latitude = req.ShipTo.Latitude,
+                Longitude = req.ShipTo.Longitude,
+                CountryCode = req.ShipTo.CountryCode ?? string.Empty,
+                StateProvince = req.ShipTo.Region,
+                PostalCode = req.ShipTo.PostalCode ?? string.Empty,
+                AddressLine1 = req.ShipTo.Line1 ?? string.Empty,
+                AddressLine2 = req.ShipTo.Line2,
+                Landmark = req.ShipTo.Landmark,
+                City = req.ShipTo.City ?? string.Empty,
+            },
             AssignedStoreId = storeId,
             IsPickup = priced.IsPickup,
             PlacedOnUtc = now,
@@ -235,6 +238,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             ct);
 
         // AC-CHK-003.8: queue an order-confirmation email with an inline subject/body carrying the order number.
+        var contactName = $"{req.ShipTo.FirstName} {req.ShipTo.LastName}".Trim();
         await _emails.EnqueueAsync(
             "OrderConfirmation",
             req.ShipTo.Email,

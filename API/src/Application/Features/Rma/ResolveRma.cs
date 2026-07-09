@@ -55,6 +55,7 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
 
         var order = await _db.Orders
             .Include(o => o.Lines)
+            .Include(o => o.ShippingAddress)
             .FirstOrDefaultAsync(o => o.Id == rma.OrderId, cancellationToken)
             ?? throw new NotFoundException(nameof(Order), rma.OrderId);
 
@@ -146,17 +147,7 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
             CustomerId = order.CustomerId,
             Status = OrderStatus.Processing,
             PaymentStatus = PaymentStatus.Captured, // no-charge: the original order already paid
-            ContactName = order.ContactName,
-            ContactEmail = order.ContactEmail,
-            Latitude = order.Latitude,
-            Longitude = order.Longitude,
-            CountryCode = order.CountryCode,
-            Region = order.Region,
-            PostalCode = order.PostalCode,
-            AddressLine1 = order.AddressLine1,
-            AddressLine2 = order.AddressLine2,
-            City = order.City,
-            StateProvince = order.StateProvince,
+            ShippingAddressId = order.ShippingAddressId,
             AssignedStoreId = order.AssignedStoreId,
             IsPickup = order.IsPickup,
             CurrencyCode = order.CurrencyCode,

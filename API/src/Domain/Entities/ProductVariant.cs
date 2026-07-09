@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 using VSky.Domain.Common;
 
 namespace VSky.Domain.Entities;
@@ -14,7 +16,11 @@ public class ProductVariant : AuditableEntity, ISoftDeletable
 
     public string? Sku { get; set; }
     public decimal? Price { get; set; }
-    public int StockQuantity { get; set; }
+
+    /// <summary>Read-through rollup of this variant's per-store <see cref="InventoryLevels"/> (sum across
+    /// stores). On-hand stock is held per store in the inventory; requires the collection to be loaded.</summary>
+    [NotMapped]
+    public int StockQuantity => InventoryLevels?.Sum(l => l.StockQuantity) ?? 0;
 
     /// <summary>Per-variant backorder policy (AC-CAT-002.4).</summary>
     public bool AllowBackorder { get; set; }

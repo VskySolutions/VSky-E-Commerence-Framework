@@ -38,7 +38,7 @@ public class MarkOrderReadyForPickupCommandHandler : IRequestHandler<MarkOrderRe
         if (storeId == Guid.Empty)
             throw new ForbiddenAccessException("You are not assigned to a store.");
 
-        var order = await _db.Orders.Include(o => o.Lines)
+        var order = await _db.Orders.Include(o => o.Lines).Include(o => o.ShippingAddress)
             .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken)
             ?? throw new NotFoundException(nameof(Order), request.OrderId);
 

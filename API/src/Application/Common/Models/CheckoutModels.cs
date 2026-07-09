@@ -18,7 +18,9 @@ public record CheckoutAddress(
     string? PostalCode,
     string CountryCode,
     double? Latitude = null,
-    double? Longitude = null);
+    double? Longitude = null,
+    string? Landmark = null,
+    string? PhoneNumber = null);
 
 /// <summary>
 /// Input to a checkout price quote (REQ-CHK-003): the cart to price (by <see cref="CartId"/> or guest

@@ -14,27 +14,30 @@ public class AddressDto
     public string? Company { get; set; }
     public string AddressLine1 { get; set; } = string.Empty;
     public string? AddressLine2 { get; set; }
+    public string? Landmark { get; set; }
     public string City { get; set; } = string.Empty;
     public string? StateProvince { get; set; }
     public string PostalCode { get; set; } = string.Empty;
     public string CountryCode { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
 
-    public static AddressDto From(Address a) => new()
+    /// <summary>Projects a customer address-book entry (mapping + its shared Address); expects <c>Address</c> loaded.</summary>
+    public static AddressDto From(CustomerAddress m) => new()
     {
-        Id = a.Id,
-        AddressType = a.AddressType,
-        IsDefault = a.IsDefault,
-        FirstName = a.FirstName,
-        LastName = a.LastName,
-        Company = a.Company,
-        AddressLine1 = a.AddressLine1,
-        AddressLine2 = a.AddressLine2,
-        City = a.City,
-        StateProvince = a.StateProvince,
-        PostalCode = a.PostalCode,
-        CountryCode = a.CountryCode,
-        PhoneNumber = a.PhoneNumber,
+        Id = m.Id,
+        AddressType = m.AddressType,
+        IsDefault = m.IsDefault,
+        FirstName = m.Address?.FirstName ?? string.Empty,
+        LastName = m.Address?.LastName ?? string.Empty,
+        Company = m.Address?.Company,
+        AddressLine1 = m.Address?.AddressLine1 ?? string.Empty,
+        AddressLine2 = m.Address?.AddressLine2,
+        Landmark = m.Address?.Landmark,
+        City = m.Address?.City ?? string.Empty,
+        StateProvince = m.Address?.StateProvince,
+        PostalCode = m.Address?.PostalCode ?? string.Empty,
+        CountryCode = m.Address?.CountryCode ?? string.Empty,
+        PhoneNumber = m.Address?.PhoneNumber,
     };
 }
 

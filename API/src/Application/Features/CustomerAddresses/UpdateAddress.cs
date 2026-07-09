@@ -18,6 +18,7 @@ public record UpdateAddressCommand(
     string? Company,
     string AddressLine1,
     string? AddressLine2,
+    string? Landmark,
     string City,
     string? StateProvince,
     string PostalCode,
@@ -35,6 +36,7 @@ public class UpdateAddressCommandValidator : AbstractValidator<UpdateAddressComm
         RuleFor(x => x.Company).MaximumLength(200);
         RuleFor(x => x.AddressLine1).NotEmpty().MaximumLength(255);
         RuleFor(x => x.AddressLine2).MaximumLength(255);
+        RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.City).NotEmpty().MaximumLength(120);
         RuleFor(x => x.StateProvince).MaximumLength(120);
         RuleFor(x => x.PostalCode).NotEmpty().MaximumLength(20);
@@ -65,36 +67,40 @@ public class UpdateAddressCommandHandler : IRequestHandler<UpdateAddressCommand,
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
-        var entity = await _db.Addresses
-            .FirstOrDefaultAsync(a => a.Id == request.Id && a.CustomerId == customerId, cancellationToken)
-            ?? throw new NotFoundException(nameof(Address), request.Id);
+        var mapping = await _db.CustomerAddresses
+            .Include(m => m.Address)
+            .FirstOrDefaultAsync(m => m.Id == request.Id && m.CustomerId == customerId, cancellationToken)
+            ?? throw new NotFoundException(nameof(CustomerAddress), request.Id);
 
         // A type must always have a default; if this is the only address of its (possibly new) type,
         // keep it the default automatically (AC-CUS-002.3).
-        var hasOtherOfType = await _db.Addresses.AnyAsync(
-            a => a.CustomerId == customerId && a.AddressType == request.AddressType && a.Id != entity.Id,
+        var hasOtherOfType = await _db.CustomerAddresses.AnyAsync(
+            m => m.CustomerId == customerId && m.AddressType == request.AddressType && m.Id != mapping.Id,
             cancellationToken);
         var makeDefault = request.IsDefault || !hasOtherOfType;
 
         if (makeDefault)
-            await ClearExistingDefaultsAsync(customerId, request.AddressType, entity.Id, cancellationToken);
+            await ClearExistingDefaultsAsync(customerId, request.AddressType, mapping.Id, cancellationToken);
 
-        entity.AddressType = request.AddressType;
-        entity.IsDefault = makeDefault;
-        entity.FirstName = request.FirstName.Trim();
-        entity.LastName = request.LastName.Trim();
-        entity.Company = request.Company;
-        entity.AddressLine1 = request.AddressLine1.Trim();
-        entity.AddressLine2 = request.AddressLine2;
-        entity.City = request.City.Trim();
-        entity.StateProvince = request.StateProvince;
-        entity.PostalCode = request.PostalCode.Trim();
-        entity.CountryCode = request.CountryCode.Trim().ToUpperInvariant();
-        entity.PhoneNumber = request.PhoneNumber;
+        mapping.AddressType = request.AddressType;
+        mapping.IsDefault = makeDefault;
+
+        var address = mapping.Address!;
+        address.FirstName = request.FirstName.Trim();
+        address.LastName = request.LastName.Trim();
+        address.Company = request.Company;
+        address.AddressLine1 = request.AddressLine1.Trim();
+        address.AddressLine2 = request.AddressLine2;
+        address.Landmark = request.Landmark;
+        address.City = request.City.Trim();
+        address.StateProvince = request.StateProvince;
+        address.PostalCode = request.PostalCode.Trim();
+        address.CountryCode = request.CountryCode.Trim().ToUpperInvariant();
+        address.PhoneNumber = request.PhoneNumber;
 
         await _db.SaveChangesAsync(cancellationToken);
 
-        return AddressDto.From(entity);
+        return AddressDto.From(mapping);
     }
 
     // Clears (and persists) any other default of the same type before this one becomes the default, so
@@ -102,15 +108,15 @@ public class UpdateAddressCommandHandler : IRequestHandler<UpdateAddressCommand,
     private async Task ClearExistingDefaultsAsync(
         Guid customerId, AddressType type, Guid excludeId, CancellationToken cancellationToken)
     {
-        var currentDefaults = await _db.Addresses
-            .Where(a => a.CustomerId == customerId && a.AddressType == type && a.Id != excludeId && a.IsDefault)
+        var currentDefaults = await _db.CustomerAddresses
+            .Where(m => m.CustomerId == customerId && m.AddressType == type && m.Id != excludeId && m.IsDefault)
             .ToListAsync(cancellationToken);
 
         if (currentDefaults.Count == 0)
             return;
 
-        foreach (var a in currentDefaults)
-            a.IsDefault = false;
+        foreach (var m in currentDefaults)
+            m.IsDefault = false;
 
         await _db.SaveChangesAsync(cancellationToken);
     }

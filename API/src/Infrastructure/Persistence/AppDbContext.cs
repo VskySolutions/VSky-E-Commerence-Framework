@@ -85,6 +85,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
 
     // Customer accounts (WO-20, WO-21)
     public DbSet<Address> Addresses => Set<Address>();
+    public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
     // Customer roles + group pricing (WO-22)

@@ -41,7 +41,6 @@ public class UpdateVariantCommandHandler : IRequestHandler<UpdateVariantCommand,
 
         variant.Sku = request.Sku;
         variant.Price = request.Price;
-        variant.StockQuantity = request.StockQuantity;
         variant.AllowBackorder = request.AllowBackorder;
         variant.IsEnabled = request.IsEnabled;
         variant.DisplayOrder = request.DisplayOrder;

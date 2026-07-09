@@ -28,7 +28,8 @@ public class UpdateProductTests : CatalogTestBase
         await using var db = NewContext();
         var persisted = await db.Products.SingleAsync(p => p.Id == productId);
         Assert.Equal("New", persisted.Name);
-        Assert.Equal(7, persisted.StockQuantity);
+        // Stock is per store now (InventoryLevels); update no longer persists a catalog stock number.
+        Assert.Equal(0, persisted.StockQuantity);
     }
 
     [Fact]

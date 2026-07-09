@@ -27,6 +27,12 @@ export default [
     component: () => import('modules/catalog/pages/product-detail.vue')
   },
   {
+    path: 'catalog/inventory',
+    name: 'catalog-inventory',
+    meta: { title: 'Inventory', permissions: ['Catalog.Read'] },
+    component: () => import('modules/catalog/pages/inventory.vue')
+  },
+  {
     path: 'catalog/categories',
     name: 'catalog-categories',
     meta: { title: 'Categories', permissions: ['Catalog.Read'] },

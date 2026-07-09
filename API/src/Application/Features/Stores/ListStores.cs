@@ -23,7 +23,7 @@ public class ListStoresQueryHandler : IRequestHandler<ListStoresQuery, Paginated
 
     public async Task<PaginatedList<StoreDto>> Handle(ListStoresQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<Store> query = _db.Stores.AsNoTracking();
+        IQueryable<Store> query = _db.Stores.AsNoTracking().Include(s => s.Address);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {

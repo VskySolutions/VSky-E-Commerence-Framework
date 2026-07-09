@@ -43,6 +43,7 @@ public class OrderRoutingEngine : IOrderRoutingEngine
         var stores = await _db.Stores
             .AsNoTracking()
             .Include(s => s.DeliveryZones)
+            .Include(s => s.Address)
             .Where(s => s.IsEnabled && !s.MaintenanceMode)
             .ToListAsync(cancellationToken);
 

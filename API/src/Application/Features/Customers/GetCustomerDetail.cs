@@ -80,10 +80,11 @@ public class GetCustomerDetailQueryHandler : IRequestHandler<GetCustomerDetailQu
             .OrderBy(r => r.Name)
             .ToListAsync(cancellationToken);
 
-        var addresses = await _db.Addresses.AsNoTracking()
-            .Where(a => a.CustomerId == request.Id)
-            .OrderByDescending(a => a.IsDefault)
-            .ThenBy(a => a.AddressType)
+        var addresses = await _db.CustomerAddresses.AsNoTracking()
+            .Include(m => m.Address)
+            .Where(m => m.CustomerId == request.Id)
+            .OrderByDescending(m => m.IsDefault)
+            .ThenBy(m => m.AddressType)
             .ToListAsync(cancellationToken);
 
         var orders = await _db.Orders.AsNoTracking()

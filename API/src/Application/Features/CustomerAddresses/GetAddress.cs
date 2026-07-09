@@ -32,11 +32,12 @@ public class GetAddressQueryHandler : IRequestHandler<GetAddressQuery, AddressDt
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
         // Scoped to the current customer: a foreign or missing id is indistinguishable (both 404).
-        var address = await _db.Addresses
+        var entry = await _db.CustomerAddresses
             .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.Id == request.Id && a.CustomerId == customerId, cancellationToken)
-            ?? throw new NotFoundException(nameof(Address), request.Id);
+            .Include(m => m.Address)
+            .FirstOrDefaultAsync(m => m.Id == request.Id && m.CustomerId == customerId, cancellationToken)
+            ?? throw new NotFoundException(nameof(CustomerAddress), request.Id);
 
-        return AddressDto.From(address);
+        return AddressDto.From(entry);
     }
 }

@@ -48,10 +48,21 @@ public class CartItemDto
     public decimal UnitPrice { get; set; }
     public decimal LineTotal { get; set; }
 
+    /// <summary>Primary image URL for the line (variant-specific image preferred, else the product's); null when the product has no image.</summary>
+    public string? ImageUrl { get; set; }
+
+    /// <summary>Available stock for the line (variant or product) — the cart uses it to cap quantity increases.</summary>
+    public int StockQuantity { get; set; }
+
+    /// <summary>Whether the line permits ordering beyond available stock (no hard cap on quantity).</summary>
+    public bool AllowBackorder { get; set; }
+
     /// <summary>False when the line's product/variant is missing, unpublished or out of stock (AC-CHK-001.5).</summary>
     public bool Available { get; set; }
 
-    public static CartItemDto From(CartItemEntity item, string productName, string? sku, bool available) => new()
+    public static CartItemDto From(
+        CartItemEntity item, string productName, string? sku, bool available,
+        string? imageUrl = null, int stockQuantity = 0, bool allowBackorder = false) => new()
     {
         Id = item.Id,
         ProductId = item.ProductId,
@@ -61,6 +72,9 @@ public class CartItemDto
         Quantity = item.Quantity,
         UnitPrice = item.UnitPrice,
         LineTotal = item.UnitPrice * item.Quantity,
+        ImageUrl = imageUrl,
+        StockQuantity = stockQuantity,
+        AllowBackorder = allowBackorder,
         Available = available,
     };
 }

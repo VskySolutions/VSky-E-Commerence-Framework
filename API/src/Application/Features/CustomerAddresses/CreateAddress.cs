@@ -17,6 +17,7 @@ public record CreateAddressCommand(
     string? Company,
     string AddressLine1,
     string? AddressLine2,
+    string? Landmark,
     string City,
     string? StateProvince,
     string PostalCode,
@@ -33,6 +34,7 @@ public class CreateAddressCommandValidator : AbstractValidator<CreateAddressComm
         RuleFor(x => x.Company).MaximumLength(200);
         RuleFor(x => x.AddressLine1).NotEmpty().MaximumLength(255);
         RuleFor(x => x.AddressLine2).MaximumLength(255);
+        RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.City).NotEmpty().MaximumLength(120);
         RuleFor(x => x.StateProvince).MaximumLength(120);
         RuleFor(x => x.PostalCode).NotEmpty().MaximumLength(20);
@@ -64,49 +66,54 @@ public class CreateAddressCommandHandler : IRequestHandler<CreateAddressCommand,
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
         // The first address of a type is defaulted automatically (AC-CUS-002.3).
-        var hasExistingOfType = await _db.Addresses
-            .AnyAsync(a => a.CustomerId == customerId && a.AddressType == request.AddressType, cancellationToken);
+        var hasExistingOfType = await _db.CustomerAddresses
+            .AnyAsync(m => m.CustomerId == customerId && m.AddressType == request.AddressType, cancellationToken);
         var makeDefault = request.IsDefault || !hasExistingOfType;
 
         if (makeDefault)
             await ClearExistingDefaultsAsync(customerId, request.AddressType, cancellationToken);
 
-        var entity = new Address
+        // The address data goes into the shared Address table; the book role/default lives on the mapping.
+        var mapping = new CustomerAddress
         {
             CustomerId = customerId,
             AddressType = request.AddressType,
             IsDefault = makeDefault,
-            FirstName = request.FirstName.Trim(),
-            LastName = request.LastName.Trim(),
-            Company = request.Company,
-            AddressLine1 = request.AddressLine1.Trim(),
-            AddressLine2 = request.AddressLine2,
-            City = request.City.Trim(),
-            StateProvince = request.StateProvince,
-            PostalCode = request.PostalCode.Trim(),
-            CountryCode = request.CountryCode.Trim().ToUpperInvariant(),
-            PhoneNumber = request.PhoneNumber,
+            Address = new Address
+            {
+                FirstName = request.FirstName.Trim(),
+                LastName = request.LastName.Trim(),
+                Company = request.Company,
+                AddressLine1 = request.AddressLine1.Trim(),
+                AddressLine2 = request.AddressLine2,
+                Landmark = request.Landmark,
+                City = request.City.Trim(),
+                StateProvince = request.StateProvince,
+                PostalCode = request.PostalCode.Trim(),
+                CountryCode = request.CountryCode.Trim().ToUpperInvariant(),
+                PhoneNumber = request.PhoneNumber,
+            },
         };
 
-        _db.Addresses.Add(entity);
+        _db.CustomerAddresses.Add(mapping);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return AddressDto.From(entity);
+        return AddressDto.From(mapping);
     }
 
     // Clears (and persists) any existing default of the same type before a new default is set, so the
     // filtered unique index (one default per customer+type) is never transiently violated.
     private async Task ClearExistingDefaultsAsync(Guid customerId, AddressType type, CancellationToken cancellationToken)
     {
-        var currentDefaults = await _db.Addresses
-            .Where(a => a.CustomerId == customerId && a.AddressType == type && a.IsDefault)
+        var currentDefaults = await _db.CustomerAddresses
+            .Where(m => m.CustomerId == customerId && m.AddressType == type && m.IsDefault)
             .ToListAsync(cancellationToken);
 
         if (currentDefaults.Count == 0)
             return;
 
-        foreach (var a in currentDefaults)
-            a.IsDefault = false;
+        foreach (var m in currentDefaults)
+            m.IsDefault = false;
 
         await _db.SaveChangesAsync(cancellationToken);
     }

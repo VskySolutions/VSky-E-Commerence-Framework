@@ -55,7 +55,7 @@
                 round
                 size="sm"
                 icon="o_close"
-                color="grey-7"
+                color="negative"
                 @click="remove(p.id)"
               >
                 <q-tooltip>Remove</q-tooltip>

@@ -57,52 +57,42 @@
             <q-card-section>
               <div class="text-subtitle1 text-weight-bold q-mb-md">Contact &amp; delivery address</div>
 
-              <q-input
-                v-model="address.email"
-                dense
-                outlined
-                type="email"
-                label="Email"
-                class="q-mb-sm"
-                :rules="[req, emailRule]"
-              />
-              <div class="row q-col-gutter-sm">
+              <div class="row q-col-gutter-x-md q-mb-sm">
                 <div class="col-12 col-sm-6">
-                  <q-input v-model="address.firstName" dense outlined label="First name" :rules="[req]" />
+                  <AppTextField
+                    label="Email"
+                    type="email"
+                    required
+                    :model-value="email"
+                    :v="emailV"
+                    placeholder="you@example.com"
+                    @update:model-value="email = $event"
+                  />
                 </div>
                 <div class="col-12 col-sm-6">
-                  <q-input v-model="address.lastName" dense outlined label="Last name" :rules="[req]" />
-                </div>
-              </div>
-
-              <q-select
-                v-model="address.countryCode"
-                dense
-                outlined
-                emit-value
-                map-options
-                use-input
-                options-dense
-                input-debounce="0"
-                label="Country"
-                class="q-mt-sm"
-                :options="countryOptions"
-                :rules="[req]"
-                @filter="filterCountries"
-              />
-
-              <div class="row q-col-gutter-sm q-mt-none">
-                <div class="col-12 col-sm-6">
-                  <q-input v-model="address.region" dense outlined label="State / Region" />
-                </div>
-                <div class="col-12 col-sm-6">
-                  <q-input v-model="address.postalCode" dense outlined label="Postal code" />
+                  <AppPhoneInput
+                    label="Phone"
+                    required
+                    :model-value="addr.phoneNumber"
+                    :default-country="addr.countryCode || 'US'"
+                    @update:model-value="addr.phoneNumber = $event"
+                  />
                 </div>
               </div>
+              <AppAddressForm v-model="addr" required :show-company="false" :show-phone="false" />
 
-              <q-input v-model="address.city" dense outlined label="City" class="q-mt-sm" :rules="[req]" />
-              <q-input v-model="address.line1" dense outlined label="Address line 1" class="q-mt-sm" :rules="[req]" />
-              <q-input v-model="address.line2" dense outlined label="Address line 2 (optional)" class="q-mt-sm" />
+              <div class="q-mt-md">
+                <q-btn
+                  unelevated
+                  color="primary"
+                  no-caps
+                  :label="quote ? 'Recalculate shipping' : 'Save & calculate shipping'"
+                  icon="o_local_shipping"
+                  :loading="quoting"
+                  :disable="!canQuote || quoting"
+                  @click="runQuote"
+                />
+              </div>
             </q-card-section>
           </q-card>
         </q-form>
@@ -110,7 +100,7 @@
         <!-- Address hint before a quote is available -->
         <q-banner v-if="!quote && !quoting && !quoteError" dense class="bg-blue-1 text-blue-9 rounded-borders q-mb-lg">
           <template #avatar><q-icon name="o_info" color="blue-9" /></template>
-          Enter your delivery address to see shipping options and live totals.
+          Complete your delivery address, then <strong>Save &amp; calculate shipping</strong> to see options and live totals.
         </q-banner>
 
         <q-banner v-if="quoteError" dense class="bg-red-1 text-red-9 rounded-borders q-mb-lg">
@@ -182,7 +172,7 @@
             </q-list>
 
             <div v-else-if="!quoting" class="text-body2 text-grey-7">
-              No shipping methods are available for this address.
+              No shipping is required for this order — you can place it directly.
             </div>
           </q-card-section>
         </q-card>
@@ -332,9 +322,12 @@
  * the quote reports guest ordering is not allowed, the buyer is prompted to sign
  * in instead (AC-CHK-003.2 / AC-STR-001.5).
  */
-import { ref, reactive, computed, watch, onMounted } from 'vue'
-import { debounce } from 'lodash-es'
-import { Country } from 'country-state-city'
+import { ref, computed, watch, onMounted } from 'vue'
+import AppAddressForm from 'components/common/AppAddressForm.vue'
+import AppTextField from 'components/common/AppTextField.vue'
+import AppPhoneInput from 'components/common/AppPhoneInput.vue'
+import { isPossiblePhoneNumber } from 'libphonenumber-js'
+import { emptyAddress } from 'composables/useAddress'
 import { checkoutApi } from 'modules/storefront/api'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
@@ -347,43 +340,43 @@ const { format, load: loadCurrencies } = useCurrency()
 const { getToken: getRecaptchaToken } = useRecaptcha()
 const notify = useNotify()
 
-// ---- Address form -----------------------------------------------------------
+// ---- Address form (standard AppAddressForm; email kept separate as the order contact) ----------
 const formRef = ref(null)
-const address = reactive({
-  email: '',
-  firstName: '',
-  lastName: '',
-  countryCode: '',
-  region: '',
-  postalCode: '',
-  city: '',
-  line1: '',
-  line2: ''
+const email = ref('')
+const addr = ref(emptyAddress())
+
+const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
+
+// Vuelidate-style field object driving AppTextField's inline error (stacked label, shown on blur).
+const emailTouched = ref(false)
+const emailV = computed(() => {
+  const errors = []
+  if (emailTouched.value) {
+    const val = email.value.trim()
+    if (!val) errors.push({ $message: 'Email is required' })
+    else if (!emailValid.value) errors.push({ $message: 'Enter a valid email' })
+  }
+  return { $error: errors.length > 0, $errors: errors, $touch: () => { emailTouched.value = true } }
 })
 
-const req = (v) => (!!v && String(v).trim().length > 0) || 'Required'
-const emailRule = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(v || '').trim()) || 'Enter a valid email'
-const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(address.email.trim()))
+// The phone emits E.164 when valid, otherwise raw digits; isValidPhoneNumber gates on a real number.
+const phoneValid = computed(() => {
+  const p = (addr.value.phoneNumber || '').trim()
+  return !!p && isPossiblePhoneNumber(p)
+})
 
-const requiredComplete = computed(
-  () =>
-    !!address.firstName.trim() &&
-    !!address.lastName.trim() &&
+const requiredComplete = computed(() => {
+  const a = addr.value
+  return (
+    !!(a.firstName || '').trim() &&
+    !!(a.lastName || '').trim() &&
     emailValid.value &&
-    !!address.line1.trim() &&
-    !!address.city.trim() &&
-    !!address.countryCode
-)
-
-// Country select (client-filtered over the full ISO list from country-state-city).
-const allCountries = Country.getAllCountries().map((c) => ({ label: c.name, value: c.isoCode }))
-const countryOptions = ref(allCountries)
-function filterCountries (needle, doneFn) {
-  doneFn(() => {
-    const q = (needle || '').toLowerCase()
-    countryOptions.value = q ? allCountries.filter((o) => o.label.toLowerCase().includes(q)) : allCountries
-  })
-}
+    phoneValid.value &&
+    !!(a.addressLine1 || '').trim() &&
+    !!(a.city || '').trim() &&
+    !!a.countryCode
+  )
+})
 
 // ---- Quote ------------------------------------------------------------------
 const quote = ref(null)
@@ -392,6 +385,9 @@ const quoteError = ref('')
 const selectedShippingMethodId = ref(null)
 
 const shippingOptions = computed(() => quote.value?.shippingOptions || [])
+// A store may have no shipping methods configured for this address; in that case checkout skips the
+// shipping-method requirement and lets the order be placed directly.
+const shippingRequired = computed(() => shippingOptions.value.length > 0)
 const isRoutable = computed(() => !!quote.value?.isRoutable)
 const guestOrderingAllowed = computed(() => (quote.value ? quote.value.guestOrderingAllowed !== false : true))
 const canCollectDetails = computed(() => !!quote.value && isRoutable.value && guestOrderingAllowed.value)
@@ -401,16 +397,19 @@ const selectedShipping = computed(
 const canQuote = computed(() => requiredComplete.value && items.value.length > 0)
 
 function buildShipTo () {
+  const a = addr.value
   return {
-    firstName: address.firstName.trim(),
-    lastName: address.lastName.trim(),
-    email: address.email.trim(),
-    line1: address.line1.trim(),
-    line2: address.line2.trim() || null,
-    city: address.city.trim(),
-    region: address.region.trim() || null,
-    postalCode: address.postalCode.trim() || null,
-    countryCode: address.countryCode
+    firstName: (a.firstName || '').trim(),
+    lastName: (a.lastName || '').trim(),
+    email: email.value.trim(),
+    line1: (a.addressLine1 || '').trim(),
+    line2: (a.addressLine2 || '').trim() || null,
+    city: (a.city || '').trim(),
+    region: (a.stateProvince || '').trim() || null,
+    postalCode: (a.postalCode || '').trim() || null,
+    countryCode: a.countryCode,
+    landmark: (a.landmark || '').trim() || null,
+    phoneNumber: (a.phoneNumber || '').trim() || null
   }
 }
 
@@ -441,28 +440,25 @@ async function runQuote () {
   }
 }
 
-const runQuoteDebounced = debounce(runQuote, 450)
-
-// Re-quote whenever the pricing-relevant address fields change (and the form is complete).
+// The buyer explicitly calculates shipping via the button. Any change to a pricing-relevant field
+// afterwards invalidates the quote so they must recalculate before Place order re-enables.
 const quoteSignature = computed(() => {
-  if (!canQuote.value) return ''
+  const a = addr.value
   return JSON.stringify([
-    address.line1.trim(),
-    address.line2.trim(),
-    address.city.trim(),
-    address.region.trim(),
-    address.postalCode.trim(),
-    address.countryCode
+    (a.addressLine1 || '').trim(),
+    (a.addressLine2 || '').trim(),
+    (a.city || '').trim(),
+    (a.stateProvince || '').trim(),
+    (a.postalCode || '').trim(),
+    a.countryCode || '',
+    email.value.trim()
   ])
 })
 
-watch(quoteSignature, (sig) => {
-  if (!sig) {
-    quote.value = null
-    quoteError.value = ''
-    return
-  }
-  runQuoteDebounced()
+watch(quoteSignature, () => {
+  quote.value = null
+  quoteError.value = ''
+  selectedShippingMethodId.value = null
 })
 
 // Selecting a different shipping method re-quotes immediately for real-time totals.
@@ -491,7 +487,7 @@ const canPlace = computed(
     isRoutable.value &&
     guestOrderingAllowed.value &&
     items.value.length > 0 &&
-    !!selectedShippingMethodId.value &&
+    (!shippingRequired.value || !!selectedShippingMethodId.value) &&
     !!paymentMethod.value &&
     !placing.value
 )

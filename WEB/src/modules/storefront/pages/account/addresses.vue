@@ -45,7 +45,7 @@
         </q-card-section>
         <q-separator />
         <q-form @submit.prevent="save">
-          <q-card-section class="q-gutter-sm scroll" style="max-height: 60vh">
+          <q-card-section class="q-gutter-sm scroll" style="max-height: 65vh">
             <div class="row q-col-gutter-sm">
               <q-select
                 v-model="dialog.form.addressType"
@@ -59,31 +59,7 @@
               />
               <q-toggle v-model="dialog.form.isDefault" label="Default for this type" class="col-6" />
             </div>
-            <div class="row q-col-gutter-sm">
-              <q-input v-model="dialog.form.firstName" label="First name" outlined dense class="col-6" :rules="[req]" />
-              <q-input v-model="dialog.form.lastName" label="Last name" outlined dense class="col-6" :rules="[req]" />
-            </div>
-            <q-input v-model="dialog.form.company" label="Company (optional)" outlined dense />
-            <q-input v-model="dialog.form.addressLine1" label="Address line 1" outlined dense :rules="[req]" />
-            <q-input v-model="dialog.form.addressLine2" label="Address line 2 (optional)" outlined dense />
-            <div class="row q-col-gutter-sm">
-              <q-input v-model="dialog.form.city" label="City" outlined dense class="col-6" :rules="[req]" />
-              <q-input v-model="dialog.form.stateProvince" label="State / Province" outlined dense class="col-6" />
-            </div>
-            <div class="row q-col-gutter-sm">
-              <q-input v-model="dialog.form.postalCode" label="Postal code" outlined dense class="col-6" :rules="[req]" />
-              <q-input
-                v-model="dialog.form.countryCode"
-                label="Country (ISO-2)"
-                outlined
-                dense
-                class="col-6"
-                maxlength="2"
-                hint="e.g. US, GB, IN"
-                :rules="[(v) => (v && v.length === 2) || 'Two-letter code']"
-              />
-            </div>
-            <q-input v-model="dialog.form.phoneNumber" label="Phone (optional)" outlined dense />
+            <AppAddressForm v-model="dialog.form" required />
           </q-card-section>
           <q-separator />
           <q-card-actions align="right">
@@ -101,6 +77,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useQuasar } from 'quasar'
 import { accountApi } from 'modules/storefront/account-api'
 import { getApiErrorMessage } from 'services/api'
+import AppAddressForm from 'components/common/AppAddressForm.vue'
 
 const $q = useQuasar()
 
@@ -117,8 +94,6 @@ const typeOptions = [
   { label: 'Billing', value: 'Billing' }
 ]
 
-const req = (v) => !!v || 'Required'
-
 const dialog = reactive({ open: false, id: null, saving: false, form: emptyForm('Shipping') })
 
 function emptyForm (type) {
@@ -130,6 +105,7 @@ function emptyForm (type) {
     company: '',
     addressLine1: '',
     addressLine2: '',
+    landmark: '',
     city: '',
     stateProvince: '',
     postalCode: '',
@@ -139,7 +115,7 @@ function emptyForm (type) {
 }
 
 function formatLine (a) {
-  return [a.addressLine1, a.addressLine2, a.city, a.stateProvince, a.postalCode, a.countryCode]
+  return [a.addressLine1, a.addressLine2, a.landmark, a.city, a.stateProvince, a.postalCode, a.countryCode]
     .filter(Boolean)
     .join(', ')
 }
@@ -178,6 +154,7 @@ function addressToPayload (a) {
     company: a.company || '',
     addressLine1: a.addressLine1 || '',
     addressLine2: a.addressLine2 || '',
+    landmark: a.landmark || '',
     city: a.city || '',
     stateProvince: a.stateProvince || '',
     postalCode: a.postalCode || '',
@@ -195,6 +172,7 @@ function payload (form) {
     company: (form.company || '').trim() || null,
     addressLine1: (form.addressLine1 || '').trim(),
     addressLine2: (form.addressLine2 || '').trim() || null,
+    landmark: (form.landmark || '').trim() || null,
     city: (form.city || '').trim(),
     stateProvince: (form.stateProvince || '').trim() || null,
     postalCode: (form.postalCode || '').trim(),

@@ -28,7 +28,8 @@ public record UpdateStoreCommand(
     bool MaintenanceMode = false,
     string? DeliveryZoneJson = null,
     int? OrderCapacityLimit = null,
-    bool GuestOrderingEnabled = true) : IRequest<StoreDto>;
+    bool GuestOrderingEnabled = true,
+    string? Landmark = null) : IRequest<StoreDto>;
 
 public class UpdateStoreCommandValidator : AbstractValidator<UpdateStoreCommand>
 {
@@ -36,6 +37,7 @@ public class UpdateStoreCommandValidator : AbstractValidator<UpdateStoreCommand>
     {
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.TimeZone).NotEmpty().MaximumLength(64);
         RuleFor(x => x.CountryCode).MaximumLength(2);
         RuleFor(x => x.CurrencyDisplay).MaximumLength(3);
@@ -53,18 +55,12 @@ public class UpdateStoreCommandHandler : IRequestHandler<UpdateStoreCommand, Sto
     public async Task<StoreDto> Handle(UpdateStoreCommand request, CancellationToken cancellationToken)
     {
         var entity = await _db.Stores
+            .Include(s => s.Address)
             .FirstOrDefaultAsync(s => s.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Store), request.Id);
 
         entity.Name = request.Name;
-        entity.AddressLine1 = request.AddressLine1;
-        entity.AddressLine2 = request.AddressLine2;
-        entity.City = request.City;
-        entity.StateProvince = request.StateProvince;
-        entity.PostalCode = request.PostalCode;
-        entity.CountryCode = request.CountryCode;
-        entity.Latitude = request.Latitude;
-        entity.Longitude = request.Longitude;
+        StoreAddress.ApplyUpdate(entity, request);
         entity.ContactEmail = request.ContactEmail;
         entity.ContactPhone = request.ContactPhone;
         entity.OperatingHoursJson = request.OperatingHoursJson;

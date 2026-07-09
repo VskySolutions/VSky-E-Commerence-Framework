@@ -89,6 +89,22 @@ export const productApi = {
   }
 }
 
+// ---- Inventory (per-store stock levels, AdminInventoryController) ------------
+export const inventoryApi = {
+  // Paged inventory levels, optionally filtered by product and/or store.
+  list (params = {}) {
+    return api.get('/api/admin/inventory', { params, paramsSerializer: qsSerializer }).then(unwrap)
+  },
+  // Every stock level held for a product across all stores (product + each variant).
+  getForProduct (productId) {
+    return api.get(`/api/admin/inventory/${productId}/levels`).then(unwrap)
+  },
+  // Create/update the level for a (product, variant?, store); LowStockThreshold optional.
+  upsertLevel (payload) {
+    return api.put('/api/admin/inventory/levels', payload).then(unwrap)
+  }
+}
+
 // ---- Media (WO-122 two-step upload: prepare -> commit) ----------------------
 export const mediaApi = {
   // Step 1: upload bytes in-memory; returns a draft with a suggested SEO file name (no DB write).
@@ -246,6 +262,7 @@ export function productTypeLabel (value) {
 
 export default {
   productApi,
+  inventoryApi,
   categoryApi,
   manufacturerApi,
   taxCategoryApi,

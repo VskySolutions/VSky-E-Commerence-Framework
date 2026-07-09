@@ -49,6 +49,7 @@
         <q-td :props="cell"><q-icon :name="cell.row.guestOrderingEnabled ? 'o_check_circle' : 'o_block'" :color="cell.row.guestOrderingEnabled ? 'positive' : 'grey'" /></q-td>
       </template>
       <template #actions="{ row }">
+        <q-btn flat round dense icon="o_warehouse" @click="openInventory(row)"><q-tooltip>Inventory</q-tooltip></q-btn>
         <q-btn flat round dense icon="o_map" @click="openZones(row)"><q-tooltip>Delivery zones</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
@@ -143,6 +144,7 @@ function reload () { fetch({ pagination: { ...pagination.value, page: 1 } }) }
 
 function onAdd () { router.push({ name: 'store-new' }) }
 function onManage (row) { router.push({ name: 'store-detail', params: { id: row.id } }) }
+function openInventory (row) { router.push({ name: 'catalog-inventory', query: { storeId: row.id } }) }
 
 async function onDelete (row) {
   if (!(await deleteConfirmation(`the store "${row.name}"`))) return

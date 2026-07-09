@@ -12,15 +12,6 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.HasKey(x => x.Id);
         b.Property(x => x.OrderNumber).HasMaxLength(40).IsRequired();
         b.Property(x => x.Status).HasConversion<int>();
-        b.Property(x => x.ContactName).HasMaxLength(200);
-        b.Property(x => x.ContactEmail).HasMaxLength(256);
-        b.Property(x => x.CountryCode).HasMaxLength(2);
-        b.Property(x => x.Region).HasMaxLength(120);
-        b.Property(x => x.PostalCode).HasMaxLength(20);
-        b.Property(x => x.AddressLine1).HasMaxLength(255);
-        b.Property(x => x.AddressLine2).HasMaxLength(255);
-        b.Property(x => x.City).HasMaxLength(120);
-        b.Property(x => x.StateProvince).HasMaxLength(120);
         b.Property(x => x.TotalAmount).HasPrecision(18, 2);
         b.Property(x => x.Subtotal).HasPrecision(18, 2);
         b.Property(x => x.DiscountTotal).HasPrecision(18, 2);
@@ -41,6 +32,12 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.HasOne(x => x.AssignedStore)
             .WithMany()
             .HasForeignKey(x => x.AssignedStoreId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        // Shared delivery address (never cascade-deleted with the order).
+        b.HasOne(x => x.ShippingAddress)
+            .WithMany()
+            .HasForeignKey(x => x.ShippingAddressId)
             .OnDelete(DeleteBehavior.NoAction);
 
         b.HasIndex(x => x.OrderNumber).IsUnique();

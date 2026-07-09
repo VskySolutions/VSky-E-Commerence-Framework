@@ -28,7 +28,9 @@ public class CreateProductTests : CatalogTestBase
         await using var db = NewContext();
         var persisted = await db.Products.SingleAsync(p => p.Id == dto.Id);
         Assert.Equal("Widget", persisted.Name);
-        Assert.Equal(5, persisted.StockQuantity);
+        // Stock is now held per store in InventoryLevels; the create command no longer persists a catalog
+        // stock number, so the rollup (no inventory rows) is 0.
+        Assert.Equal(0, persisted.StockQuantity);
     }
 
     [Fact]

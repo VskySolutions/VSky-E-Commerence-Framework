@@ -37,6 +37,7 @@ public class GetMyOrderQueryHandler : IRequestHandler<GetMyOrderQuery, OrderDto>
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
         var order = await _db.Orders
+            .Include(o => o.ShippingAddress)
             .AsNoTracking()
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == request.Id && o.CustomerId == customerId, cancellationToken)

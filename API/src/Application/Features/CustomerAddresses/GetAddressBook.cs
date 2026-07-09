@@ -34,18 +34,19 @@ public class GetAddressBookQueryHandler : IRequestHandler<GetAddressBookQuery, A
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
-        var addresses = await _db.Addresses
+        var entries = await _db.CustomerAddresses
             .AsNoTracking()
-            .Where(a => a.CustomerId == customerId)
-            .OrderByDescending(a => a.IsDefault)
-            .ThenBy(a => a.LastName)
-            .ThenBy(a => a.FirstName)
+            .Include(m => m.Address)
+            .Where(m => m.CustomerId == customerId)
+            .OrderByDescending(m => m.IsDefault)
+            .ThenBy(m => m.Address!.LastName)
+            .ThenBy(m => m.Address!.FirstName)
             .ToListAsync(cancellationToken);
 
         return new AddressBookDto
         {
-            Shipping = addresses.Where(a => a.AddressType == AddressType.Shipping).Select(AddressDto.From).ToList(),
-            Billing = addresses.Where(a => a.AddressType == AddressType.Billing).Select(AddressDto.From).ToList(),
+            Shipping = entries.Where(m => m.AddressType == AddressType.Shipping).Select(AddressDto.From).ToList(),
+            Billing = entries.Where(m => m.AddressType == AddressType.Billing).Select(AddressDto.From).ToList(),
         };
     }
 }

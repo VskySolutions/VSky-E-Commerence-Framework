@@ -60,11 +60,12 @@ const sections = [
   {
     header: 'Store Management',
     items: [
-      { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
-      { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
       { label: 'Stores', icon: 'o_store', to: '/stores', permissions: [Permissions.StoresRead] },
+      { label: 'Inventory', icon: 'o_warehouse', to: '/catalog/inventory', permissions: [Permissions.CatalogRead] },
       { label: 'Shipping', icon: 'o_local_shipping', to: '/shipping', permissions: [Permissions.StoresRead] },
       { label: 'Tax', icon: 'o_receipt', to: '/tax', permissions: [Permissions.SettingsRead] },
+      { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
+      { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
       // { label: 'Reports', icon: 'o_bar_chart', to: '/reports', permissions: [Permissions.StoresRead] },
       // { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] }
     ]

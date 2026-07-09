@@ -46,7 +46,8 @@ public class ExportProductsQueryHandler : IRequestHandler<ExportProductsQuery, F
                 p.Sku,
                 p.ProductType,
                 p.Price,
-                p.StockQuantity,
+                // Stock is per store; export the rolled-up on-hand total across all stores/variants.
+                StockQuantity = p.InventoryLevels.Sum(l => (int?)l.StockQuantity) ?? 0,
                 p.IsPublished,
                 p.Slug,
                 p.TaxCategoryId,

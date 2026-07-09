@@ -55,17 +55,17 @@ public class StoreConfiguration : IEntityTypeConfiguration<Store>
         b.ToTable("Stores");
         b.HasKey(x => x.Id);
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
-        b.Property(x => x.AddressLine1).HasMaxLength(255);
-        b.Property(x => x.AddressLine2).HasMaxLength(255);
-        b.Property(x => x.City).HasMaxLength(120);
-        b.Property(x => x.StateProvince).HasMaxLength(120);
-        b.Property(x => x.PostalCode).HasMaxLength(20);
-        b.Property(x => x.CountryCode).HasMaxLength(2);
         b.Property(x => x.ContactEmail).HasMaxLength(255);
         b.Property(x => x.ContactPhone).HasMaxLength(50);
         b.Property(x => x.TimeZone).HasMaxLength(64).IsRequired();
         b.Property(x => x.CurrencyDisplay).HasMaxLength(3);
         b.Property(x => x.GuestOrderingEnabled).HasDefaultValue(true);
+
+        // Shared postal address (never cascade-deleted with the store).
+        b.HasOne(x => x.Address)
+            .WithMany()
+            .HasForeignKey(x => x.AddressId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         b.HasMany(x => x.DeliveryZones)
             .WithOne(z => z.Store!)

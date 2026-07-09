@@ -25,13 +25,15 @@ public record CreateStoreCommand(
     bool MaintenanceMode = false,
     string? DeliveryZoneJson = null,
     int? OrderCapacityLimit = null,
-    bool GuestOrderingEnabled = true) : IRequest<StoreDto>;
+    bool GuestOrderingEnabled = true,
+    string? Landmark = null) : IRequest<StoreDto>;
 
 public class CreateStoreCommandValidator : AbstractValidator<CreateStoreCommand>
 {
     public CreateStoreCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.TimeZone).NotEmpty().MaximumLength(64);
         RuleFor(x => x.CountryCode).MaximumLength(2);
         RuleFor(x => x.CurrencyDisplay).MaximumLength(3);
@@ -51,14 +53,7 @@ public class CreateStoreCommandHandler : IRequestHandler<CreateStoreCommand, Sto
         var entity = new Store
         {
             Name = request.Name,
-            AddressLine1 = request.AddressLine1,
-            AddressLine2 = request.AddressLine2,
-            City = request.City,
-            StateProvince = request.StateProvince,
-            PostalCode = request.PostalCode,
-            CountryCode = request.CountryCode,
-            Latitude = request.Latitude,
-            Longitude = request.Longitude,
+            Address = StoreAddress.FromCreate(request),
             ContactEmail = request.ContactEmail,
             ContactPhone = request.ContactPhone,
             OperatingHoursJson = request.OperatingHoursJson,

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations.Schema;
 using VSky.Domain.Common;
 
 namespace VSky.Domain.Entities;
@@ -9,14 +10,23 @@ namespace VSky.Domain.Entities;
 public class Store : AuditableEntity, ISoftDeletable
 {
     public string Name { get; set; } = string.Empty;
-    public string? AddressLine1 { get; set; }
-    public string? AddressLine2 { get; set; }
-    public string? City { get; set; }
-    public string? StateProvince { get; set; }
-    public string? PostalCode { get; set; }
-    public string? CountryCode { get; set; }
-    public double? Latitude { get; set; }
-    public double? Longitude { get; set; }
+
+    // Postal location — a shared Address row (WO: address centralization).
+    public Guid? AddressId { get; set; }
+    public Address? Address { get; set; }
+
+    // Read-through helpers over the linked address (require Address to be Include()d; never mapped to columns).
+    [NotMapped] public string? AddressLine1 => Address?.AddressLine1;
+    [NotMapped] public string? AddressLine2 => Address?.AddressLine2;
+    [NotMapped] public string? Landmark => Address?.Landmark;
+    [NotMapped] public string? City => Address?.City;
+    [NotMapped] public string? StateProvince => Address?.StateProvince;
+    [NotMapped] public string? PostalCode => Address?.PostalCode;
+    [NotMapped] public string? CountryCode => Address?.CountryCode;
+    [NotMapped] public double? Latitude => Address?.Latitude;
+    [NotMapped] public double? Longitude => Address?.Longitude;
+
+    // Business contact (kept on the store, distinct from the postal address).
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
     public string? OperatingHoursJson { get; set; }

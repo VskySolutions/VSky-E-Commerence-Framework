@@ -100,9 +100,10 @@ public class ImportProductsCommandHandler : IRequestHandler<ImportProductsComman
                 else result.Errors.Add(new ImportRowError(rowNumber, "Price", $"'{Get(iPrice)}' is not a valid price."));
             }
 
-            var stock = 0;
+            // Stock is now held per store in InventoryLevels, so an imported StockQuantity has no store
+            // to apply to and is ignored (set stock on the Inventory page). Still validate the format.
             if (iStock >= 0 && !string.IsNullOrWhiteSpace(Get(iStock))
-                && !int.TryParse(Get(iStock), NumberStyles.Any, CultureInfo.InvariantCulture, out stock))
+                && !int.TryParse(Get(iStock), NumberStyles.Any, CultureInfo.InvariantCulture, out _))
                 result.Errors.Add(new ImportRowError(rowNumber, "StockQuantity", $"'{Get(iStock)}' is not a valid quantity."));
 
             var published = iPublished >= 0 && ParseBool(Get(iPublished));
@@ -119,7 +120,6 @@ public class ImportProductsCommandHandler : IRequestHandler<ImportProductsComman
                 product.Slug = string.IsNullOrWhiteSpace(slug) ? product.Slug : slug;
                 product.ShortDescription = string.IsNullOrWhiteSpace(shortDesc) ? product.ShortDescription : shortDesc;
                 product.Price = price;
-                product.StockQuantity = stock;
                 product.IsPublished = published;
             }));
         }

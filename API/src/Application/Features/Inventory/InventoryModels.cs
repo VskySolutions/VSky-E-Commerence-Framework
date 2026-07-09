@@ -12,6 +12,7 @@ public class InventoryLevelDto
     public int StockQuantity { get; set; }
     public int LowStockThreshold { get; set; }
     public int ReservedQuantity { get; set; }
+    public bool LowStockAlerted { get; set; }
 
     public static InventoryLevelDto From(InventoryLevel l) => new()
     {
@@ -22,5 +23,6 @@ public class InventoryLevelDto
         StockQuantity = l.StockQuantity,
         LowStockThreshold = l.LowStockThreshold,
         ReservedQuantity = l.ReservedQuantity,
+        LowStockAlerted = l.LowStockAlerted,
     };
 }

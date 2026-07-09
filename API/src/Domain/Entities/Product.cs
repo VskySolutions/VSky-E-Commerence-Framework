@@ -1,3 +1,5 @@
+using System.ComponentModel.DataAnnotations.Schema;
+using System.Linq;
 using VSky.Domain.Common;
 using VSky.Domain.Enums;
 
@@ -27,7 +29,14 @@ public class Product : AuditableEntity, ISoftDeletable
     // Simple-product fields (also the default/base for other types).
     public string? Sku { get; set; }
     public decimal? Price { get; set; }
-    public int StockQuantity { get; set; }
+
+    /// <summary>
+    /// On-hand stock is held per store in <see cref="InventoryLevels"/> (the single source of truth read
+    /// by the routing engine). This is a read-through rollup = the sum across every store (and, for a
+    /// variant product, across every variant). Requires <see cref="InventoryLevels"/> to be loaded.
+    /// </summary>
+    [NotMapped]
+    public int StockQuantity => InventoryLevels?.Sum(l => l.StockQuantity) ?? 0;
 
     /// <summary>Whether this product may be ordered when its inventory reaches zero (AC-CAT-011.3).</summary>
     public bool AllowBackorder { get; set; }

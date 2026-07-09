@@ -152,7 +152,7 @@
                 <AppTextField v-model="form.price" label="Price" type="number" step="0.01" placeholder="0.00" hint="Base price in the store currency" :disable="!canWrite" />
               </div>
               <div class="col-6 col-md-4">
-                <AppTextField v-model="form.stockQuantity" label="Stock quantity" type="number" placeholder="0" :disable="!canWrite" />
+                <AppTextField :model-value="stockRollup" label="Stock quantity" type="number" readonly hint="Total on-hand across all stores — set it per store below" />
               </div>
             </div>
 
@@ -164,6 +164,49 @@
                 </AppFieldLabel>
                 <q-input v-model="form.estimatedRestockDate" dense outlined type="date" :disable="!canWrite" clearable />
               </div>
+            </div>
+
+            <!-- Per-store stock (the authoritative fulfillment inventory read by checkout/routing) -->
+            <q-separator class="q-my-sm" />
+            <AppFieldLabel label="Stock by store">
+              <template #hint>Per-store on-hand — this is what checkout uses to route and reserve orders</template>
+            </AppFieldLabel>
+
+            <div v-if="!stores.length" class="text-grey-6 text-caption q-mt-xs">
+              No stores exist yet — create a store first, then stock can be held against it.
+            </div>
+
+            <template v-else-if="!isVariantType">
+              <q-markup-table flat bordered dense class="q-mt-xs inv-table">
+                <thead>
+                  <tr>
+                    <th class="text-left">Store</th>
+                    <th class="text-right" style="width: 130px">Stock qty</th>
+                    <th class="text-right" style="width: 150px">Low-stock alert</th>
+                    <th style="width: 40px"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="s in stores" :key="s.id">
+                    <td class="text-left">{{ s.name }}</td>
+                    <td>
+                      <q-input :model-value="invEntry(null, s.id).qty" dense borderless type="number" min="0" input-class="text-right" :disable="!canWrite" @update:model-value="(v) => onInvInput(null, s.id, 'qty', v)" />
+                    </td>
+                    <td>
+                      <q-input :model-value="invEntry(null, s.id).threshold" dense borderless type="number" min="0" input-class="text-right" placeholder="0" :disable="!canWrite" @update:model-value="(v) => onInvInput(null, s.id, 'threshold', v)" />
+                    </td>
+                    <td class="text-center">
+                      <q-spinner v-if="invEntry(null, s.id).saving" size="16px" color="primary" />
+                      <q-icon v-else-if="invEntry(null, s.id).saved" name="o_check_circle" color="positive" size="18px"><q-tooltip>Saved</q-tooltip></q-icon>
+                    </td>
+                  </tr>
+                </tbody>
+              </q-markup-table>
+            </template>
+
+            <div v-else class="text-grey-6 text-caption q-mt-xs">
+              This product has variants — set stock per variant and store on the
+              <a class="text-primary cursor-pointer" @click="tab = 'variants'">Variants</a> tab.
             </div>
 
             <!-- Downloadable settings -->
@@ -333,32 +376,105 @@
               </div>
             </div>
 
-            <q-markup-table v-if="variants.length" flat bordered dense class="q-mt-sm">
-              <thead>
-                <tr>
-                  <th class="text-left">Combination</th>
-                  <th class="text-left">SKU</th>
-                  <th class="text-right">Price</th>
-                  <th class="text-right">Stock</th>
-                  <th class="text-center">Enabled</th>
-                  <th class="text-center" style="width: 84px"></th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="variant in variants" :key="variant.id">
-                  <td class="text-left">{{ variantLabel(variant) }}</td>
-                  <td><q-input v-model="variant.sku" dense borderless :disable="!canWrite" @update:model-value="queueVariant(variant)" /></td>
-                  <td><q-input v-model.number="variant.price" dense borderless type="number" step="0.01" input-class="text-right" :disable="!canWrite" @update:model-value="queueVariant(variant)" /></td>
-                  <td><q-input v-model.number="variant.stockQuantity" dense borderless type="number" input-class="text-right" :disable="!canWrite" @update:model-value="queueVariant(variant)" /></td>
-                  <td class="text-center"><q-toggle v-model="variant.isEnabled" color="primary" :disable="!canWrite" @update:model-value="queueVariant(variant)" /></td>
-                  <td class="text-center">
-                    <q-spinner v-if="variant._saving" size="16px" color="primary" />
-                    <q-icon v-else-if="variant._saved" name="o_check_circle" color="positive" size="18px"><q-tooltip>Saved</q-tooltip></q-icon>
-                    <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="removeVariant(variant)" />
-                  </td>
-                </tr>
-              </tbody>
-            </q-markup-table>
+            <div v-if="variants.length" class="row items-center q-col-gutter-sm q-mt-xs">
+              <div class="col-auto text-caption text-grey-7">Editing stock for store:</div>
+              <div class="col-12 col-sm-4">
+                <AppSelect v-model="invStoreId" :options="storeOptions" :disable="!canWrite || !stores.length" placeholder="Select a store" />
+              </div>
+              <div v-if="!stores.length" class="col-auto text-caption text-negative">Create a store to hold stock.</div>
+            </div>
+
+            <q-table
+              v-if="variants.length"
+              flat bordered dense
+              class="q-mt-sm app-table-card"
+              row-key="id"
+              :rows="variants"
+              :columns="variantColumns"
+              :filter="variantSearch"
+              v-model:pagination="variantPagination"
+              :rows-per-page-options="[10, 25, 50, 0]"
+              binary-state-sort
+            >
+              <template #top>
+                <div class="app-section__title col ellipsis">Variants</div>
+                <q-input
+                  v-model="variantSearch"
+                  dense outlined debounce="300"
+                  placeholder="Search combination or SKU"
+                  style="min-width: 240px"
+                >
+                  <template #prepend><q-icon name="o_search" /></template>
+                  <template v-if="variantSearch" #append>
+                    <q-icon name="o_close" class="cursor-pointer" @click="variantSearch = ''" />
+                  </template>
+                </q-input>
+              </template>
+
+              <template #body-cell-combination="p">
+                <q-td :props="p" class="text-left">{{ variantLabel(p.row) }}</q-td>
+              </template>
+              <template #body-cell-sku="p">
+                <q-td :props="p"><q-input v-model="p.row.sku" dense borderless :disable="!canWrite" @update:model-value="queueVariant(p.row)" /></q-td>
+              </template>
+              <template #body-cell-price="p">
+                <q-td :props="p"><q-input v-model.number="p.row.price" dense borderless type="number" step="0.01" input-class="text-right" :disable="!canWrite" @update:model-value="queueVariant(p.row)" /></q-td>
+              </template>
+              <template #body-cell-stock="p">
+                <q-td :props="p">
+                  <q-input
+                    :model-value="invStoreId ? invEntry(p.row.id, invStoreId).qty : null"
+                    dense borderless type="number" min="0" input-class="text-right"
+                    :disable="!canWrite || !invStoreId"
+                    @update:model-value="(v) => onInvInput(p.row.id, invStoreId, 'qty', v)"
+                  >
+                    <template #append>
+                      <q-spinner v-if="invStoreId && invEntry(p.row.id, invStoreId).saving" size="14px" color="primary" />
+                      <q-icon v-else-if="invStoreId && invEntry(p.row.id, invStoreId).saved" name="o_check_circle" color="positive" size="14px" />
+                    </template>
+                  </q-input>
+                </q-td>
+              </template>
+              <template #body-cell-threshold="p">
+                <q-td :props="p">
+                  <q-input
+                    :model-value="invStoreId ? invEntry(p.row.id, invStoreId).threshold : null"
+                    dense borderless type="number" min="0" input-class="text-right" placeholder="0"
+                    :disable="!canWrite || !invStoreId"
+                    @update:model-value="(v) => onInvInput(p.row.id, invStoreId, 'threshold', v)"
+                  />
+                </q-td>
+              </template>
+              <template #body-cell-reserved="p">
+                <q-td :props="p" class="text-right text-grey-8">{{ invStoreId ? invEntry(p.row.id, invStoreId).reserved : 0 }}</q-td>
+              </template>
+              <template #body-cell-alerted="p">
+                <q-td :props="p" class="text-center">
+                  <q-icon v-if="invStoreId && invEntry(p.row.id, invStoreId).alerted" name="o_warning" color="warning" size="18px"><q-tooltip>Low-stock alert active</q-tooltip></q-icon>
+                  <span v-else class="text-grey-5">—</span>
+                </q-td>
+              </template>
+              <template #body-cell-isEnabled="p">
+                <q-td :props="p" class="text-center"><q-toggle v-model="p.row.isEnabled" color="primary" :disable="!canWrite" @update:model-value="queueVariant(p.row)" /></q-td>
+              </template>
+              <template #body-cell-act="p">
+                <q-td :props="p" class="text-center">
+                  <q-spinner v-if="p.row._saving" size="16px" color="primary" />
+                  <q-icon v-else-if="p.row._saved" name="o_check_circle" color="positive" size="18px"><q-tooltip>Saved</q-tooltip></q-icon>
+                  <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="removeVariant(p.row)" />
+                </q-td>
+              </template>
+
+              <template #bottom-row>
+                <q-tr class="variant-total-row">
+                  <q-td colspan="3" class="text-right text-weight-medium">Totals @ store</q-td>
+                  <q-td class="text-right text-weight-bold">{{ invStoreId ? variantStockTotal : '—' }}</q-td>
+                  <q-td />
+                  <q-td class="text-right text-weight-bold">{{ invStoreId ? variantReservedTotal : '—' }}</q-td>
+                  <q-td colspan="3" />
+                </q-tr>
+              </template>
+            </q-table>
             <div v-else class="text-grey-6 q-mt-sm">No variants yet. Assign attributes (with values) then Generate.</div>
           </q-tab-panel>
         </q-tab-panels>
@@ -394,9 +510,10 @@ import { useRoute, useRouter } from 'vue-router'
 import { debounce } from 'quasar'
 import { getApiErrorMessage } from 'services/api'
 import {
-  productApi, mediaApi, categoryApi, productAttributeApi, manufacturerApi, taxCategoryApi,
+  productApi, inventoryApi, mediaApi, categoryApi, productAttributeApi, manufacturerApi, taxCategoryApi,
   productTypeOptions, giftCardTypeOptions
 } from 'modules/catalog/api'
+import { storeApi } from 'modules/stores/api'
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
@@ -466,6 +583,109 @@ const selectedMediaId = ref(null)
 const newVideoUrl = ref('')
 const addingVideo = ref(false)
 const generating = ref(false)
+
+// ---- Per-store inventory (the authoritative fulfillment stock; catalog StockQuantity is a display
+// rollup only). Levels are edited per (variant?, store) and saved via the inventory upsert endpoint.
+const stores = ref([])              // [{ id, name }]
+const invLevels = ref([])           // InventoryLevelDto[] for this product (all variants + stores)
+const invModel = reactive({})       // `${variantId||''}|${storeId}` -> { qty, threshold, saving, saved }
+const invStoreId = ref(null)        // store selected on the Variants tab
+const invSavers = {}
+const EMPTY_ENTRY = Object.freeze({ qty: 0, threshold: 0, reserved: 0, alerted: false, saving: false, saved: false })
+
+const storeOptions = computed(() => stores.value.map((s) => ({ label: s.name, value: s.id })))
+const stockRollup = computed(() => invLevels.value.reduce((sum, l) => sum + (Number(l.stockQuantity) || 0), 0))
+
+const invKey = (variantId, storeId) => `${variantId || ''}|${storeId}`
+function invEntry (variantId, storeId) {
+  return invModel[invKey(variantId, storeId)] || EMPTY_ENTRY
+}
+
+// Seed the editable model from the loaded levels for every (variant? × store) cell shown in the UI.
+function rebuildInvModel () {
+  for (const k of Object.keys(invModel)) delete invModel[k]
+  const variantKeys = isVariantType.value ? variants.value.map((v) => v.id) : [null]
+  for (const vId of variantKeys) {
+    for (const s of stores.value) {
+      const lvl = invLevels.value.find((l) => (l.productVariantId || null) === (vId || null) && l.storeId === s.id)
+      invModel[invKey(vId, s.id)] = {
+        qty: lvl ? lvl.stockQuantity : 0,
+        threshold: lvl ? lvl.lowStockThreshold : 0,
+        reserved: lvl ? lvl.reservedQuantity : 0,
+        alerted: lvl ? lvl.lowStockAlerted : false,
+        saving: false,
+        saved: false
+      }
+    }
+  }
+}
+
+function upsertLocalLevel (dto) {
+  const i = invLevels.value.findIndex(
+    (l) => (l.productVariantId || null) === (dto.productVariantId || null) && l.storeId === dto.storeId
+  )
+  if (i >= 0) invLevels.value.splice(i, 1, dto)
+  else invLevels.value.push(dto)
+}
+
+function onInvInput (variantId, storeId, field, val) {
+  if (!storeId) return
+  const key = invKey(variantId, storeId)
+  if (!invModel[key]) invModel[key] = { qty: 0, threshold: 0, reserved: 0, alerted: false, saving: false, saved: false }
+  invModel[key][field] = val
+  queueInv(variantId, storeId)
+}
+
+function queueInv (variantId, storeId) {
+  const key = invKey(variantId, storeId)
+  if (!invSavers[key]) {
+    invSavers[key] = debounce(async () => {
+      const entry = invModel[key]
+      if (!entry) return
+      entry.saving = true
+      entry.saved = false
+      try {
+        const dto = await inventoryApi.upsertLevel({
+          productId: pid.value,
+          productVariantId: variantId || null,
+          storeId,
+          stockQuantity: Math.max(0, Number(entry.qty) || 0),
+          lowStockThreshold: entry.threshold === '' || entry.threshold == null ? null : Math.max(0, Number(entry.threshold) || 0)
+        })
+        upsertLocalLevel(dto)
+        // Reserved/alerted are server-owned; refresh them from the response.
+        entry.reserved = dto.reservedQuantity
+        entry.alerted = dto.lowStockAlerted
+        savedOnce.value = true
+        entry.saved = true
+        setTimeout(() => { if (invModel[key]) invModel[key].saved = false }, 2000)
+      } catch (err) {
+        saveError.value = true
+        notify.error(getApiErrorMessage(err))
+      } finally {
+        entry.saving = false
+      }
+    }, 700)
+  }
+  invSavers[key]()
+}
+
+async function loadInventoryData () {
+  try {
+    const [storeResult, levels] = await Promise.all([
+      storeApi.list({ page: 1, pageSize: 200 }).catch(() => []),
+      inventoryApi.getForProduct(pid.value).catch(() => [])
+    ])
+    const items = Array.isArray(storeResult) ? storeResult : storeResult?.items || []
+    stores.value = items.map((s) => ({ id: s.id, name: s.name }))
+    invLevels.value = Array.isArray(levels) ? levels : []
+  } catch (err) {
+    stores.value = []
+    invLevels.value = []
+  }
+  if (!invStoreId.value && stores.value.length) invStoreId.value = stores.value[0].id
+  rebuildInvModel()
+}
 
 // Pictures now hold both images and video embeds (unified Media-backed gallery). Split by media type.
 const imagePictures = computed(() => pictures.value.filter((p) => p.mediaType === 'Image'))
@@ -788,11 +1008,39 @@ function variantLabel (variant) {
   return parts.length ? parts.join(', ') : '(no attributes)'
 }
 
+// Variants datatable: client-side quick search + column sorting. Field accessors expose the computed
+// combination label and the per-store stock so both are searchable and sortable.
+const variantSearch = ref('')
+const variantPagination = ref({ sortBy: 'combination', descending: false, page: 1, rowsPerPage: 10 })
+const variantColumns = [
+  { name: 'combination', label: 'Combination', align: 'left', field: (r) => variantLabel(r), sortable: true },
+  { name: 'sku', label: 'SKU', align: 'left', field: (r) => r.sku || '', sortable: true },
+  { name: 'price', label: 'Price', align: 'right', field: (r) => (r.price == null ? -1 : Number(r.price)), sortable: true },
+  { name: 'stock', label: 'Stock @ store', align: 'right', field: (r) => (invStoreId.value ? Number(invEntry(r.id, invStoreId.value).qty) || 0 : 0), sortable: true },
+  { name: 'threshold', label: 'Low-stock alert', align: 'right', field: (r) => (invStoreId.value ? Number(invEntry(r.id, invStoreId.value).threshold) || 0 : 0), sortable: true },
+  { name: 'reserved', label: 'Reserved', align: 'right', field: (r) => (invStoreId.value ? Number(invEntry(r.id, invStoreId.value).reserved) || 0 : 0), sortable: true },
+  { name: 'alerted', label: 'Low-stock', align: 'center', field: (r) => (invStoreId.value && invEntry(r.id, invStoreId.value).alerted ? 1 : 0), sortable: true },
+  { name: 'isEnabled', label: 'Enabled', align: 'center', field: (r) => (r.isEnabled ? 1 : 0), sortable: true },
+  { name: 'act', label: '', align: 'center', field: 'id', sortable: false }
+]
+// Totals across all variants at the selected store (staged values, update live).
+const variantStockTotal = computed(() =>
+  invStoreId.value
+    ? variants.value.reduce((sum, v) => sum + (Number(invEntry(v.id, invStoreId.value).qty) || 0), 0)
+    : 0
+)
+const variantReservedTotal = computed(() =>
+  invStoreId.value
+    ? variants.value.reduce((sum, v) => sum + (Number(invEntry(v.id, invStoreId.value).reserved) || 0), 0)
+    : 0
+)
+
 async function generate () {
   generating.value = true
   try {
     product.value = await productApi.generateVariants(pid.value)
     hydrate(product.value)
+    await loadInventoryData()
     notify.success('Variants generated')
   } catch (err) {
     notify.error(getApiErrorMessage(err))
@@ -886,6 +1134,7 @@ async function load () {
     product.value = await productApi.get(pid.value)
     hydrate(product.value)
     loadPictures()
+    loadInventoryData()
   } catch (err) {
     product.value = null
     notify.error(getApiErrorMessage(err))
@@ -929,6 +1178,11 @@ watch(() => route.fullPath, () => { init(); if (!isCreate.value) loadTaxCategori
 <style scoped lang="scss">
 .app-product-tabs {
   :deep(.q-tab) { min-height: 44px; }
+}
+
+.variant-total-row td {
+  background: rgba(0, 0, 0, 0.03);
+  border-top: 1px solid rgba(0, 0, 0, 0.12);
 }
 
 // Google-style search-result preview on the SEO tab.

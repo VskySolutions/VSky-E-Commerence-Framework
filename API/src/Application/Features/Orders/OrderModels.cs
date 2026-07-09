@@ -12,6 +12,7 @@ public class OrderDto
     public Guid? CustomerId { get; set; }
     public string? ContactName { get; set; }
     public string? ContactEmail { get; set; }
+    public string? ContactPhone { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? CountryCode { get; set; }
@@ -19,6 +20,7 @@ public class OrderDto
     public string? PostalCode { get; set; }
     public string? AddressLine1 { get; set; }
     public string? AddressLine2 { get; set; }
+    public string? Landmark { get; set; }
     public string? City { get; set; }
     public string? StateProvince { get; set; }
     public Guid? AssignedStoreId { get; set; }
@@ -38,6 +40,7 @@ public class OrderDto
         CustomerId = o.CustomerId,
         ContactName = o.ContactName,
         ContactEmail = o.ContactEmail,
+        ContactPhone = o.ContactPhone,
         Latitude = o.Latitude,
         Longitude = o.Longitude,
         CountryCode = o.CountryCode,
@@ -45,6 +48,7 @@ public class OrderDto
         PostalCode = o.PostalCode,
         AddressLine1 = o.AddressLine1,
         AddressLine2 = o.AddressLine2,
+        Landmark = o.Landmark,
         City = o.City,
         StateProvince = o.StateProvince,
         AssignedStoreId = o.AssignedStoreId,

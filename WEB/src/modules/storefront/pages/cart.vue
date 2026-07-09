@@ -39,7 +39,8 @@
                     :to="productLink(item)"
                     class="cart-thumb flex flex-center bg-grey-2 rounded-borders"
                   >
-                    <q-icon name="o_inventory_2" size="28px" color="grey-6" />
+                    <img v-if="item.imageUrl" :src="$media(item.imageUrl)" :alt="item.productName" class="cart-thumb__img">
+                    <q-icon v-else name="o_inventory_2" size="28px" color="grey-6" />
                   </router-link>
                 </q-item-section>
 
@@ -75,12 +76,13 @@
                       flat
                       icon="o_add"
                       size="sm"
-                      :disable="rowBusy[item.id]"
+                      :disable="rowBusy[item.id] || !canIncrease(item)"
                       aria-label="Increase quantity"
                       @click="changeQty(item, item.quantity + 1)"
                     />
                     <q-spinner v-if="rowBusy[item.id]" size="18px" color="primary" class="q-ml-sm" />
                   </div>
+                  <q-item-label v-if="atMaxStock(item)" caption class="text-orange-8 q-mt-xs">Max available stock</q-item-label>
                 </q-item-section>
 
                 <!-- Line total + remove -->
@@ -219,8 +221,19 @@ function productLink (item) {
   return { name: 'shop-product', params: { idOrSlug: item.productId } }
 }
 
+// Respect available stock (unless the line allows backorder or stock is unknown).
+function canIncrease (item) {
+  if (item.allowBackorder) return true
+  if (item.stockQuantity == null) return true
+  return item.quantity < item.stockQuantity
+}
+function atMaxStock (item) {
+  return !item.allowBackorder && item.stockQuantity != null && item.quantity >= item.stockQuantity
+}
+
 async function changeQty (item, quantity) {
   if (quantity < 1 || rowBusy[item.id]) return
+  if (!item.allowBackorder && item.stockQuantity != null && quantity > item.stockQuantity) return
   rowBusy[item.id] = true
   try {
     await updateItem(item.id, quantity)
@@ -287,6 +300,12 @@ onMounted(() => {
 .cart-thumb {
   width: 64px;
   height: 64px;
+  overflow: hidden;
+}
+.cart-thumb__img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
 }
 
 .cart-name {

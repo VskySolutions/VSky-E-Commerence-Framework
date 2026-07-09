@@ -128,7 +128,6 @@ END";
             Name = "Product",
             ProductType = ProductType.Simple,
             TaxCategoryId = taxId,
-            StockQuantity = 0,
         };
         configure?.Invoke(product);
         db.Products.Add(product);

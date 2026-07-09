@@ -30,15 +30,16 @@ public class ListAddressesQueryHandler : IRequestHandler<ListAddressesQuery, Lis
             .FirstOrDefaultAsync(cancellationToken)
             ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
-        var addresses = await _db.Addresses
+        var entries = await _db.CustomerAddresses
             .AsNoTracking()
-            .Where(a => a.CustomerId == customerId)
-            .OrderBy(a => a.AddressType)
-            .ThenByDescending(a => a.IsDefault)
-            .ThenBy(a => a.LastName)
-            .ThenBy(a => a.FirstName)
+            .Include(m => m.Address)
+            .Where(m => m.CustomerId == customerId)
+            .OrderBy(m => m.AddressType)
+            .ThenByDescending(m => m.IsDefault)
+            .ThenBy(m => m.Address!.LastName)
+            .ThenBy(m => m.Address!.FirstName)
             .ToListAsync(cancellationToken);
 
-        return addresses.Select(AddressDto.From).ToList();
+        return entries.Select(AddressDto.From).ToList();
     }
 }
