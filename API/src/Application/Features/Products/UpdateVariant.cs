@@ -36,7 +36,6 @@ public class UpdateVariantCommandHandler : IRequestHandler<UpdateVariantCommand,
     {
         var variant = await _db.ProductVariants
             .Include(v => v.AttributeValues)
-            .Include(v => v.Images)
             .FirstOrDefaultAsync(v => v.Id == request.VariantId, cancellationToken)
             ?? throw new NotFoundException(nameof(ProductVariant), request.VariantId);
 

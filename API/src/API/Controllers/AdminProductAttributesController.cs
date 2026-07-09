@@ -3,6 +3,7 @@ using VSky.Application.Common.Authorization;
 using VSky.API.Authorization;
 using VSky.Application.Common.Models;
 using VSky.Application.Features.ProductAttributes;
+using VSky.Domain.Enums;
 
 namespace VSky.API.Controllers;
 
@@ -11,11 +12,12 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Catalog)]
 public class AdminProductAttributesController : ApiControllerBase
 {
-    /// <summary>List product attributes (paged), optionally filtered by name.</summary>
+    /// <summary>List product attributes (paged), optionally filtered by name and/or display type.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<ProductAttributeDto>>> List(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
-        => Ok(await Mediator.Send(new ListProductAttributesQuery(page, pageSize, search)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] ProductAttributeDisplayType? displayType = null)
+        => Ok(await Mediator.Send(new ListProductAttributesQuery(page, pageSize, search, displayType)));
 
     /// <summary>Get a single product attribute (including its values) by id.</summary>
     [HttpGet("{id:guid}")]

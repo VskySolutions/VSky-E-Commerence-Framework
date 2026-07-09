@@ -16,7 +16,7 @@ internal static class StorefrontQueries
 
     /// <summary>Eager-loads the product-level media required to resolve a summary's primary image.</summary>
     public static IQueryable<Product> WithSummaryImages(this IQueryable<Product> query) =>
-        query.Include(p => p.Images.Where(i => i.ProductVariantId == null));
+        query.Include(p => p.Pictures.Where(i => i.ProductVariantId == null)).ThenInclude(pic => pic.Media);
 
     /// <summary>
     /// Applies the storefront listing sort. Supported keys: <c>price</c>/<c>price_desc</c>,

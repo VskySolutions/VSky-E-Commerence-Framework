@@ -33,7 +33,7 @@ public class ProductDto
     public decimal? GiftCardAmount { get; set; }
 
     public List<ProductVariantDto> Variants { get; set; } = new();
-    public List<ProductImageDto> Images { get; set; } = new();
+    public List<ProductPictureDto> Pictures { get; set; } = new();
     public List<TierPriceDto> TierPrices { get; set; } = new();
     public List<Guid> CategoryIds { get; set; } = new();
     public List<ProductTagDto> Tags { get; set; } = new();
@@ -75,9 +75,9 @@ public class ProductDto
             .OrderBy(v => v.DisplayOrder)
             .Select(ProductVariantDto.From)
             .ToList(),
-        Images = p.Images
+        Pictures = p.Pictures
             .OrderBy(i => i.DisplayOrder)
-            .Select(ProductImageDto.From)
+            .Select(ProductPictureDto.From)
             .ToList(),
         TierPrices = p.TierPrices
             .Select(TierPriceDto.From)
@@ -161,9 +161,8 @@ public class ProductVariantDto
     public bool IsEnabled { get; set; }
     public int DisplayOrder { get; set; }
     public List<Guid> AttributeValueIds { get; set; } = new();
-    public List<ProductImageDto> Images { get; set; } = new();
 
-    /// <summary>Projects a variant; expects <c>AttributeValues</c> and <c>Images</c> to be loaded.</summary>
+    /// <summary>Projects a variant; expects <c>AttributeValues</c> to be loaded.</summary>
     public static ProductVariantDto From(ProductVariant v) => new()
     {
         Id = v.Id,
@@ -176,33 +175,6 @@ public class ProductVariantDto
         AttributeValueIds = v.AttributeValues
             .Select(a => a.ProductAttributeValueId)
             .ToList(),
-        Images = v.Images
-            .OrderBy(i => i.DisplayOrder)
-            .Select(ProductImageDto.From)
-            .ToList(),
-    };
-}
-
-/// <summary>An image or video-embed gallery entry for a product or a specific variant (REQ-CAT-012).</summary>
-public class ProductImageDto
-{
-    public Guid Id { get; set; }
-    public Guid? ProductVariantId { get; set; }
-    public ProductMediaType MediaType { get; set; }
-    public string Url { get; set; } = string.Empty;
-    public string? ThumbnailUrl { get; set; }
-    public string? AltText { get; set; }
-    public int DisplayOrder { get; set; }
-
-    public static ProductImageDto From(ProductImage i) => new()
-    {
-        Id = i.Id,
-        ProductVariantId = i.ProductVariantId,
-        MediaType = i.MediaType,
-        Url = i.Url,
-        ThumbnailUrl = i.ThumbnailUrl,
-        AltText = i.AltText,
-        DisplayOrder = i.DisplayOrder,
     };
 }
 

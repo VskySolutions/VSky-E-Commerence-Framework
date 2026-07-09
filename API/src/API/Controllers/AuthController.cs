@@ -30,4 +30,31 @@ public class AuthController : ApiControllerBase
         await Mediator.Send(command ?? new LogoutCommand(null));
         return NoContent();
     }
+
+    /// <summary>Change the signed-in user's own password (verifies the current one).</summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordCommand command)
+    {
+        await Mediator.Send(command);
+        return NoContent();
+    }
+
+    /// <summary>Request a password-reset email. Always succeeds, even for unknown accounts.</summary>
+    [HttpPost("request-password-reset")]
+    [AllowAnonymous]
+    public async Task<IActionResult> RequestPasswordReset([FromBody] AdminRequestPasswordResetCommand command)
+    {
+        await Mediator.Send(command);
+        return NoContent();
+    }
+
+    /// <summary>Set a new password using a valid password-reset token.</summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword([FromBody] AdminResetPasswordCommand command)
+    {
+        await Mediator.Send(command);
+        return NoContent();
+    }
 }

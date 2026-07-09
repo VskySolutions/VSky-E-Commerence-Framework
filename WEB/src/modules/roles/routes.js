@@ -8,5 +8,17 @@ export default [
     name: 'roles',
     meta: { title: 'Roles', permissions: ['Roles.Read'] },
     component: () => import('modules/roles/pages/index.vue')
+  },
+  {
+    path: 'roles/new',
+    name: 'role-new',
+    meta: { title: 'New role', permissions: ['Roles.Write'] },
+    component: () => import('modules/roles/pages/role-detail.vue')
+  },
+  {
+    path: 'roles/:id',
+    name: 'role-detail',
+    meta: { title: 'Role', permissions: ['Roles.Read'] },
+    component: () => import('modules/roles/pages/role-detail.vue')
   }
 ]

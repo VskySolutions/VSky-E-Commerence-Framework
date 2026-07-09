@@ -83,11 +83,11 @@ public class SearchProductsQueryHandler : IRequestHandler<SearchProductsQuery, S
             }
         }
 
-        // Order, then eager-load only what the row projection needs: product-level images (for the
+        // Order, then eager-load only what the row projection needs: product-level pictures (for the
         // primary image) and enabled variants (for the min-price fallback). Filtered includes keep the
         // payload small; split query avoids a cartesian blow-up across the two collections under paging.
         var sorted = ApplySort(resultsQuery, request.Sort, request.Query)
-            .Include(p => p.Images.Where(i => i.ProductVariantId == null))
+            .Include(p => p.Pictures.Where(i => i.ProductVariantId == null)).ThenInclude(pic => pic.Media)
             .Include(p => p.Variants.Where(v => v.IsEnabled))
             .AsSplitQuery();
 

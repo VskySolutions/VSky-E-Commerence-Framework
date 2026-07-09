@@ -9,9 +9,9 @@ namespace VSky.Application.Features.Orders;
 
 /// <summary>
 /// Admin list of all orders, newest first, optionally filtered by status name (e.g. "Unrouted" to
-/// surface orders that no store could fulfil).
+/// surface orders that no store could fulfil) and/or an order-number / contact search term.
 /// </summary>
-public record ListOrdersQuery(string? Status, int Page = 1, int PageSize = 20)
+public record ListOrdersQuery(string? Status, int Page = 1, int PageSize = 20, string? Search = null)
     : IRequest<PaginatedList<OrderSummaryDto>>;
 
 public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, PaginatedList<OrderSummaryDto>>
@@ -30,6 +30,14 @@ public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, Paginated
             && Enum.TryParse<OrderStatus>(request.Status, ignoreCase: true, out var status))
         {
             query = query.Where(o => o.Status == status);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim();
+            query = query.Where(o => o.OrderNumber.Contains(term)
+                || (o.ContactName != null && o.ContactName.Contains(term))
+                || (o.ContactEmail != null && o.ContactEmail.Contains(term)));
         }
 
         var ordered = query.OrderByDescending(o => o.PlacedOnUtc);

@@ -10,12 +10,12 @@
 
     <q-form @submit.prevent="onSubmit">
       <q-card-section class="q-gutter-md">
-        <q-input v-model="currentPassword" type="password" label="Current password"
-          outlined dense :rules="[(v) => !!v || 'Required']" />
-        <q-input v-model="newPassword" type="password" label="New password"
-          outlined dense :rules="[(v) => (v && v.length >= 8) || 'Min 8 characters']" />
-        <q-input v-model="confirmPassword" type="password" label="Confirm new password"
-          outlined dense :rules="[(v) => v === newPassword || 'Passwords do not match']" />
+        <AppPasswordField v-model="currentPassword" label="Current password"
+          autocomplete="current-password" :rules="[(v) => !!v || 'Required']" />
+        <AppPasswordField v-model="newPassword" label="New password" strength
+          :rules="passwordRules()" />
+        <AppPasswordField v-model="confirmPassword" label="Confirm new password"
+          :rules="[matchRule(() => newPassword)]" />
       </q-card-section>
 
       <q-card-actions class="q-px-md q-pb-md">
@@ -35,8 +35,9 @@
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from 'stores/auth'
-import { api, getApiErrorMessage } from 'services/api'
+import { authApi, getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
+import { passwordRules, matchRule } from 'validators'
 
 const currentPassword = ref('')
 const newPassword = ref('')
@@ -50,7 +51,7 @@ const notify = useNotify()
 async function onSubmit () {
   loading.value = true
   try {
-    await api.post('/api/auth/change-password', {
+    await authApi.changePassword({
       currentPassword: currentPassword.value,
       newPassword: newPassword.value
     })

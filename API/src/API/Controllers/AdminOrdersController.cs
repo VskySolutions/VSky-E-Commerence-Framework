@@ -14,8 +14,9 @@ public class AdminOrdersController : ApiControllerBase
     /// <summary>List all orders (paged), newest first, optionally filtered by status.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<OrderSummaryDto>>> List(
-        [FromQuery] string? status = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
-        => Ok(await Mediator.Send(new ListOrdersQuery(status, page, pageSize)));
+        [FromQuery] string? status = null, [FromQuery] int page = 1, [FromQuery] int pageSize = 20,
+        [FromQuery] string? search = null)
+        => Ok(await Mediator.Send(new ListOrdersQuery(status, page, pageSize, search)));
 
     /// <summary>Get a single order including its line items.</summary>
     [HttpGet("{id:guid}")]

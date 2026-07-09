@@ -33,6 +33,10 @@
       show-actions
       @request="onRequest"
     >
+      <template #body-cell-name="cell">
+        <q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.name }}</a></q-td>
+      </template>
+
       <template #body-cell-isActive="cell">
         <q-td :props="cell">
           <q-badge :color="cell.row.isActive ? 'positive' : 'grey'" :label="cell.row.isActive ? 'Active' : 'Inactive'" />
@@ -40,10 +44,7 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_visibility" @click="onView(row)">
-          <q-tooltip>View</q-tooltip>
-        </q-btn>
-        <q-btn flat round dense icon="o_edit" @click="onEdit(row)">
+        <q-btn flat round dense icon="o_edit" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
         <q-btn flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
@@ -51,29 +52,20 @@
         </q-btn>
       </template>
     </AppDataTable>
-
-    <WidgetFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
   </q-page>
 </template>
 
 <script setup>
 /*
  * Widget list page (WO-94 Step 12): AppListHeader + AppDataTable (server
- * pagination) + WidgetFormDrawer. Degrades gracefully when the /api/widgets
- * endpoint is not yet implemented.
+ * pagination). Create/edit open the full-page widget detail. Degrades gracefully
+ * when the /api/widgets endpoint is not yet implemented.
  */
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { widgetApi, getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import WidgetFormDrawer from 'modules/widget/components/WidgetFormDrawer.vue'
 
 const router = useRouter()
 const notify = useNotify()
@@ -89,10 +81,6 @@ const rows = ref([])
 const loading = ref(false)
 const search = ref('')
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0, sortBy: 'name', descending: false })
-
-const drawerOpen = ref(false)
-const editing = ref(null)
-const saving = ref(false)
 
 async function fetch (props) {
   const p = props?.pagination || pagination.value
@@ -128,38 +116,8 @@ function reload () {
   fetch({ pagination: { ...pagination.value, page: 1 } })
 }
 
-function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
-
-function onEdit (row) {
-  editing.value = { ...row }
-  drawerOpen.value = true
-}
-
-function onView (row) {
-  router.push({ name: 'widget-detail', params: { id: row.id } })
-}
-
-async function onSubmit (payload) {
-  saving.value = true
-  try {
-    if (editing.value && editing.value.id) {
-      await widgetApi.update(editing.value.id, payload)
-      notify.success('Widget updated')
-    } else {
-      await widgetApi.create(payload)
-      notify.success('Widget created')
-    }
-    drawerOpen.value = false
-    reload()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
+function onAdd () { router.push({ name: 'widget-new' }) }
+function onManage (row) { router.push({ name: 'widget-detail', params: { id: row.id } }) }
 
 async function onDelete (row) {
   if (!(await deleteConfirmation(`the widget "${row.name}"`))) return

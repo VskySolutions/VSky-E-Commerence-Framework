@@ -12,11 +12,12 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Customers)]
 public class AdminCustomersController : ApiControllerBase
 {
-    /// <summary>List customers (paged), optionally filtered by name or email.</summary>
+    /// <summary>List customers (paged), optionally filtered by name/email, email-verified, active and/or tax-exempt state.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<CustomerListItemDto>>> List(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
-        => Ok(await Mediator.Send(new ListCustomersQuery(page, pageSize, search)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] bool? emailVerified = null, [FromQuery] bool? isActive = null, [FromQuery] bool? isTaxExempt = null)
+        => Ok(await Mediator.Send(new ListCustomersQuery(page, pageSize, search, emailVerified, isActive, isTaxExempt)));
 
     /// <summary>Get a single customer's full detail: profile, tax-exemption, roles, addresses and order history.</summary>
     [HttpGet("{id:guid}")]

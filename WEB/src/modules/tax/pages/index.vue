@@ -1,6 +1,6 @@
 <template>
   <q-page class="app-page">
-    <AppListHeader title="Tax" :breadcrumbs="[{ label: 'Home', icon: 'o_home', to: '/dashboard' }, { label: 'Tax' }]" :show-add="false" />
+    <AppListHeader title="Tax" :breadcrumbs="[{ label: 'Home', icon: 'o_home', to: '/dashboard' }, { label: 'Tax' }]" :show-add="false" show-back @back="router.push('/dashboard')" />
 
     <div class="row q-col-gutter-md">
       <div class="col-12 col-md-5">
@@ -55,6 +55,7 @@
 <script setup>
 /* Tax admin (WO-120): provider configuration + US economic-nexus status. */
 import { ref, reactive, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { taxApi, taxProviderOptions } from 'modules/tax/api'
@@ -63,6 +64,7 @@ import AppSection from 'components/common/AppSection.vue'
 import AppSelect from 'components/common/AppSelect.vue'
 import AppTextField from 'components/common/AppTextField.vue'
 
+const router = useRouter()
 const notify = useNotify()
 const loading = ref(false)
 const saving = ref(false)

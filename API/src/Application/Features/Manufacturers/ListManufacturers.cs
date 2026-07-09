@@ -18,7 +18,7 @@ public class ListManufacturersQueryHandler : IRequestHandler<ListManufacturersQu
 
     public async Task<PaginatedList<ManufacturerDto>> Handle(ListManufacturersQuery request, CancellationToken cancellationToken)
     {
-        IQueryable<Manufacturer> query = _db.Manufacturers.AsNoTracking();
+        IQueryable<Manufacturer> query = _db.Manufacturers.AsNoTracking().Include(m => m.LogoMedia);
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {

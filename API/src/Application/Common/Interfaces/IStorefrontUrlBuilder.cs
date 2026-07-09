@@ -8,4 +8,7 @@ public interface IStorefrontUrlBuilder
 {
     string EmailVerificationUrl(string token);
     string PasswordResetUrl(string token);
+
+    /// <summary>Admin/staff-facing password-reset link, targeting the admin SPA's <c>/auth/reset-password</c> route.</summary>
+    string AdminPasswordResetUrl(string token);
 }

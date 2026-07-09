@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Validation;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
 
@@ -25,7 +26,7 @@ public class RegisterCustomerCommandValidator : AbstractValidator<RegisterCustom
     public RegisterCustomerCommandValidator()
     {
         RuleFor(x => x.Email).NotEmpty().EmailAddress().MaximumLength(256);
-        RuleFor(x => x.Password).MinimumLength(8);
+        RuleFor(x => x.Password).Password();
         RuleFor(x => x.FirstName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.LastName).MaximumLength(200);
     }

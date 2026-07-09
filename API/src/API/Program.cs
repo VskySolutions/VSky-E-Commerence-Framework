@@ -28,7 +28,7 @@ builder.Services.AddApiServices(builder.Configuration);
 // CORS for the browser SPA (WEB/). Allowed origins come from configuration
 // (Cors:AllowedOrigins); falls back to the local Quasar dev server ports.
 const string SpaCorsPolicy = "SpaCors";
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:9000"];
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? ["http://localhost:9000", "https://ecommerce.vskyapplications.com"];
 builder.Services.AddCors(options =>
     options.AddPolicy(SpaCorsPolicy, policy =>
         policy.WithOrigins(allowedOrigins)
@@ -64,11 +64,8 @@ app.UseStaticFiles(new StaticFileOptions
 });
 app.UseMiddleware<SetupGuardMiddleware>();
 
-if (app.Environment.IsDevelopment())
-{
-    app.MapOpenApi();               // /openapi/v1.json
-    app.MapScalarApiReference();    // interactive docs UI
-}
+app.MapOpenApi();               // /openapi/v1.json
+app.MapScalarApiReference();    // interactive docs UI
 
 // CORS must run before auth so the browser's preflight (and cross-origin login) succeeds.
 app.UseCors(SpaCorsPolicy);

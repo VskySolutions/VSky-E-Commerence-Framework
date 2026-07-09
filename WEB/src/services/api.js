@@ -137,6 +137,24 @@ export const authApi = {
     return unwrap(res)
   },
 
+  // Change the signed-in user's own password (verifies the current one).
+  async changePassword ({ currentPassword, newPassword }) {
+    const res = await api.post('/api/auth/change-password', { currentPassword, newPassword })
+    return unwrap(res)
+  },
+
+  // Start the reset flow from the sign-in page (always succeeds, even for unknown emails).
+  async requestPasswordReset (email) {
+    const res = await anonApi.post('/api/auth/request-password-reset', { email })
+    return unwrap(res)
+  },
+
+  // Set a new password using a valid reset token from the emailed link.
+  async resetPassword (token, newPassword) {
+    const res = await anonApi.post('/api/auth/reset-password', { token, newPassword })
+    return unwrap(res)
+  },
+
   // No dedicated "logout everywhere" endpoint yet — same call as logout.
   async logoutAll (refreshToken) {
     return authApi.logout(refreshToken)

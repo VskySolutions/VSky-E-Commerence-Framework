@@ -12,6 +12,7 @@ public record UpdateManufacturerCommand(
     Guid Id,
     string Name,
     string? Description = null,
+    Guid? LogoMediaId = null,
     string? LogoUrl = null,
     string? Slug = null,
     string? MetaTitle = null,
@@ -44,7 +45,9 @@ public class UpdateManufacturerCommandHandler : IRequestHandler<UpdateManufactur
 
         entity.Name = request.Name;
         entity.Description = request.Description;
-        entity.LogoUrl = request.LogoUrl;
+        entity.LogoMediaId = request.LogoMediaId;
+        // Going forward the logo lives in Media; clear the legacy URL once a Media asset is chosen.
+        entity.LogoUrl = request.LogoMediaId.HasValue ? null : request.LogoUrl;
         entity.Slug = request.Slug;
         entity.MetaTitle = request.MetaTitle;
         entity.MetaDescription = request.MetaDescription;

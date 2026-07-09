@@ -11,11 +11,12 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Shipping)]
 public class AdminShippingZonesController : ApiControllerBase
 {
-    /// <summary>List shipping zones (paged), optionally filtered by name.</summary>
+    /// <summary>List shipping zones (paged), optionally filtered by name, country and/or enabled state.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<ShippingZoneDto>>> List(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
-        => Ok(await Mediator.Send(new ListShippingZonesQuery(page, pageSize, search)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] string? countryCode = null, [FromQuery] bool? isEnabled = null)
+        => Ok(await Mediator.Send(new ListShippingZonesQuery(page, pageSize, search, countryCode, isEnabled)));
 
     /// <summary>Get a single shipping zone by id.</summary>
     [HttpGet("{id:guid}")]

@@ -9,6 +9,7 @@ namespace VSky.Application.Features.Manufacturers;
 public record CreateManufacturerCommand(
     string Name,
     string? Description = null,
+    Guid? LogoMediaId = null,
     string? LogoUrl = null,
     string? Slug = null,
     string? MetaTitle = null,
@@ -38,7 +39,9 @@ public class CreateManufacturerCommandHandler : IRequestHandler<CreateManufactur
         {
             Name = request.Name,
             Description = request.Description,
-            LogoUrl = request.LogoUrl,
+            LogoMediaId = request.LogoMediaId,
+            // Going forward the logo lives in Media; only keep a raw URL when no Media asset is set.
+            LogoUrl = request.LogoMediaId.HasValue ? null : request.LogoUrl,
             Slug = request.Slug,
             MetaTitle = request.MetaTitle,
             MetaDescription = request.MetaDescription,

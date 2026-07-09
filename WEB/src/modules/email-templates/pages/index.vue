@@ -6,40 +6,33 @@
       :breadcrumbs="[{ label: 'Home', icon: 'o_home', to: '/dashboard' }, { label: 'Email Templates' }]"
     >
       <template #actions>
-        <div class="row items-center q-gutter-sm">
-          <AppSelect
-            v-model="category"
-            :options="categoryOptions"
-            style="min-width: 160px"
-            @update:model-value="reload"
-          />
-          <AppSelect
-            v-model="enabled"
-            :options="statusOptions"
-            style="min-width: 150px"
-            @update:model-value="reload"
-          />
-          <q-input
-            v-model="search"
-            dense
-            outlined
-            debounce="400"
-            placeholder="Search name or key"
-            style="min-width: 200px"
-            @update:model-value="reload"
-          >
-            <template #prepend><q-icon name="o_search" /></template>
-          </q-input>
-          <q-btn flat round dense icon="o_refresh" :loading="loading" @click="reload">
-            <q-tooltip>Reload</q-tooltip>
-          </q-btn>
-        </div>
+        <q-input
+          v-model="search"
+          dense
+          outlined
+          debounce="400"
+          placeholder="Search name or key"
+          style="min-width: 240px"
+          @update:model-value="reload"
+        >
+          <template #prepend><q-icon name="o_search" /></template>
+          <template v-if="search" #append><q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" /></template>
+        </q-input>
+        <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" class="q-ml-sm" @click="filtersOpen = true">
+          <q-badge v-if="activeFilterCount" color="red" floating>{{ activeFilterCount }}</q-badge>
+        </q-btn>
       </template>
     </AppListHeader>
+
+    <AppFilterDrawer v-model="filtersOpen" title="Filter templates" @clear="clearFilters">
+      <AppSelect v-model="category" label="Category" :options="categoryOptions" @update:model-value="reload" />
+      <AppSelect v-model="enabled" label="Status" :options="statusOptions" @update:model-value="reload" />
+    </AppFilterDrawer>
 
     <AppDataTable
       page-key="email-templates"
       row-key="templateKey"
+      title="All templates"
       :rows="rows"
       :columns="columns"
       :loading="loading"
@@ -47,6 +40,7 @@
       no-data-label="No templates match your filters."
       show-actions
       @row-click="onRowClick"
+      @refresh="reload"
     >
       <template #body-cell-name="cell">
         <q-td :props="cell">
@@ -117,7 +111,7 @@
  * notification templates. Filters (category, enabled state, name/key search) are
  * applied server-side; rows are paginated client-side. Each row opens the editor.
  */
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { emailTemplatesApi } from 'modules/email-templates/api'
 import { getApiErrorMessage } from 'services/api'
@@ -152,6 +146,15 @@ const loading = ref(false)
 const category = ref(null)
 const enabled = ref(null)
 const search = ref('')
+const filtersOpen = ref(false)
+
+const activeFilterCount = computed(() => (category.value !== null ? 1 : 0) + (enabled.value !== null ? 1 : 0))
+
+function clearFilters () {
+  category.value = null
+  enabled.value = null
+  reload()
+}
 
 async function load () {
   loading.value = true

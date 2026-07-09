@@ -37,24 +37,7 @@
               autocomplete="email"
             />
             <q-input v-model="phoneNumber" label="Phone (optional)" outlined dense />
-            <q-input
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              label="Password"
-              outlined
-              dense
-              hint="At least 8 characters"
-              :rules="[(v) => (v && v.length >= 8) || 'Password must be at least 8 characters']"
-              autocomplete="new-password"
-            >
-              <template #append>
-                <q-icon
-                  :name="showPassword ? 'o_visibility_off' : 'o_visibility'"
-                  class="cursor-pointer"
-                  @click="showPassword = !showPassword"
-                />
-              </template>
-            </q-input>
+            <AppPasswordField v-model="password" label="Password" strength :rules="passwordRules()" />
           </q-card-section>
 
           <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
@@ -84,6 +67,7 @@ import { ref } from 'vue'
 import { useQuasar } from 'quasar'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { getApiErrorMessage } from 'services/api'
+import { passwordRules } from 'validators'
 
 const $q = useQuasar()
 const auth = useCustomerAuthStore()
@@ -93,7 +77,6 @@ const lastName = ref('')
 const email = ref('')
 const phoneNumber = ref('')
 const password = ref('')
-const showPassword = ref(false)
 const loading = ref(false)
 const done = ref(false)
 

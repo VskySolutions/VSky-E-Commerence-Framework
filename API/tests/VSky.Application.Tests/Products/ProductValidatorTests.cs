@@ -85,22 +85,22 @@ public class ProductValidatorTests
         Assert.Contains(result.Errors, e => e.PropertyName == nameof(UpdateVariantCommand.Sku));
     }
 
-    // ---- AddProductImage --------------------------------------------------------------------------
+    // ---- AssignProductPicture ---------------------------------------------------------------------
 
     [Fact]
-    public void AddProductImage_empty_product_or_url_fails()
+    public void AssignProductPicture_empty_product_or_media_fails()
     {
-        var result = new AddProductImageCommandValidator().Validate(
-            new AddProductImageCommand(Guid.Empty, null, ProductMediaType.Image, ""));
-        Assert.Contains(result.Errors, e => e.PropertyName == nameof(AddProductImageCommand.ProductId));
-        Assert.Contains(result.Errors, e => e.PropertyName == nameof(AddProductImageCommand.Url));
+        var result = new AssignProductPictureCommandValidator().Validate(
+            new AssignProductPictureCommand(Guid.Empty, Guid.Empty));
+        Assert.Contains(result.Errors, e => e.PropertyName == nameof(AssignProductPictureCommand.ProductId));
+        Assert.Contains(result.Errors, e => e.PropertyName == nameof(AssignProductPictureCommand.MediaId));
     }
 
     [Fact]
-    public void AddProductImage_valid_command_passes()
+    public void AssignProductPicture_valid_command_passes()
     {
-        var result = new AddProductImageCommandValidator().Validate(
-            new AddProductImageCommand(Guid.NewGuid(), null, ProductMediaType.Image, "https://cdn/a.png"));
+        var result = new AssignProductPictureCommandValidator().Validate(
+            new AssignProductPictureCommand(Guid.NewGuid(), Guid.NewGuid()));
         Assert.True(result.IsValid);
     }
 
@@ -130,13 +130,22 @@ public class ProductValidatorTests
         Assert.True(result.IsValid);
     }
 
-    // ---- ReplaceProductImages ---------------------------------------------------------------------
+    // ---- AddProductVideo --------------------------------------------------------------------------
 
     [Fact]
-    public void ReplaceProductImages_empty_child_url_fails()
+    public void AddProductVideo_empty_product_or_url_fails()
     {
-        var result = new ReplaceProductImagesCommandValidator().Validate(
-            new ReplaceProductImagesCommand(Guid.NewGuid(), new() { new ProductImageInput(null, ProductMediaType.Image, "") }));
-        Assert.False(result.IsValid);
+        var result = new AddProductVideoCommandValidator().Validate(
+            new AddProductVideoCommand(Guid.Empty, ""));
+        Assert.Contains(result.Errors, e => e.PropertyName == nameof(AddProductVideoCommand.ProductId));
+        Assert.Contains(result.Errors, e => e.PropertyName == nameof(AddProductVideoCommand.Url));
+    }
+
+    [Fact]
+    public void AddProductVideo_valid_command_passes()
+    {
+        var result = new AddProductVideoCommandValidator().Validate(
+            new AddProductVideoCommand(Guid.NewGuid(), "https://youtu.be/x"));
+        Assert.True(result.IsValid);
     }
 }

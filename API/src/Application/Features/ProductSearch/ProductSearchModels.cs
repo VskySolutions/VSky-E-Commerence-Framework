@@ -18,7 +18,7 @@ public class SearchResultItemDto
     /// <summary>URL of the primary product-level image, or null when none is available.</summary>
     public string? ImageUrl { get; set; }
 
-    /// <summary>Projects a product (with its <c>Images</c> and <c>Variants</c> loaded) into a search row.</summary>
+    /// <summary>Projects a product (with its <c>Pictures</c> and <c>Variants</c> loaded) into a search row.</summary>
     public static SearchResultItemDto From(Product p) => new()
     {
         Id = p.Id,
@@ -29,10 +29,10 @@ public class SearchResultItemDto
             .Where(v => v.IsEnabled && v.Price.HasValue)
             .Min(v => v.Price),
         ManufacturerId = p.ManufacturerId,
-        ImageUrl = p.Images
-            .Where(i => i.ProductVariantId == null && i.MediaType == ProductMediaType.Image)
+        ImageUrl = p.Pictures
+            .Where(i => i.ProductVariantId == null && i.Media != null && i.Media.MediaType == MediaType.Image)
             .OrderBy(i => i.DisplayOrder)
-            .Select(i => i.Url)
+            .Select(i => i.Media!.Url)
             .FirstOrDefault(),
     };
 }

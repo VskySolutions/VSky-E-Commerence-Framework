@@ -11,33 +11,8 @@
         </q-banner>
         <q-form @submit.prevent="onSubmit">
           <q-card-section class="q-gutter-md">
-            <q-input
-              v-model="password"
-              :type="showPassword ? 'text' : 'password'"
-              label="New password"
-              outlined
-              dense
-              hint="At least 8 characters"
-              :rules="[(v) => (v && v.length >= 8) || 'Password must be at least 8 characters']"
-              autocomplete="new-password"
-            >
-              <template #append>
-                <q-icon
-                  :name="showPassword ? 'o_visibility_off' : 'o_visibility'"
-                  class="cursor-pointer"
-                  @click="showPassword = !showPassword"
-                />
-              </template>
-            </q-input>
-            <q-input
-              v-model="confirm"
-              :type="showPassword ? 'text' : 'password'"
-              label="Confirm new password"
-              outlined
-              dense
-              :rules="[(v) => v === password || 'Passwords do not match']"
-              autocomplete="new-password"
-            />
+            <AppPasswordField v-model="password" label="New password" strength :rules="passwordRules()" />
+            <AppPasswordField v-model="confirm" label="Confirm new password" :rules="[matchRule(() => password)]" />
           </q-card-section>
           <q-card-actions class="q-px-md q-pb-md">
             <q-btn type="submit" color="primary" no-caps unelevated label="Update password" :loading="loading" :disable="!hasToken" class="full-width" />
@@ -61,6 +36,7 @@ import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { getApiErrorMessage } from 'services/api'
+import { passwordRules, matchRule } from 'validators'
 
 const route = useRoute()
 const $q = useQuasar()
@@ -71,7 +47,6 @@ const hasToken = computed(() => !!token.value)
 
 const password = ref('')
 const confirm = ref('')
-const showPassword = ref(false)
 const loading = ref(false)
 const done = ref(false)
 

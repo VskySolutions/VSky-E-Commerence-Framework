@@ -53,10 +53,14 @@
       <q-separator />
       <q-form @submit.prevent="onChangePassword">
         <q-card-section class="q-gutter-md">
-          <q-input v-model="pw.currentPassword" type="password" label="Current password" outlined dense :rules="[(v) => !!v || 'Required']" autocomplete="current-password" />
+          <AppPasswordField v-model="pw.currentPassword" label="Current password" autocomplete="current-password" :rules="[(v) => !!v || 'Required']" />
           <div class="row q-col-gutter-md">
-            <q-input v-model="pw.newPassword" type="password" label="New password" outlined dense class="col-12 col-sm-6" hint="At least 8 characters" :rules="[(v) => (v && v.length >= 8) || 'Min 8 characters']" autocomplete="new-password" />
-            <q-input v-model="pw.confirm" type="password" label="Confirm new password" outlined dense class="col-12 col-sm-6" :rules="[(v) => v === pw.newPassword || 'Passwords do not match']" autocomplete="new-password" />
+            <div class="col-12 col-sm-6">
+              <AppPasswordField v-model="pw.newPassword" label="New password" strength :rules="passwordRules()" />
+            </div>
+            <div class="col-12 col-sm-6">
+              <AppPasswordField v-model="pw.confirm" label="Confirm new password" :rules="[matchRule(() => pw.newPassword)]" />
+            </div>
           </div>
         </q-card-section>
         <q-card-actions align="right" class="q-px-md q-pb-md">
@@ -73,6 +77,7 @@ import { useQuasar } from 'quasar'
 import { accountApi } from 'modules/storefront/account-api'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { getApiErrorMessage } from 'services/api'
+import { passwordRules, matchRule } from 'validators'
 
 const $q = useQuasar()
 const auth = useCustomerAuthStore()

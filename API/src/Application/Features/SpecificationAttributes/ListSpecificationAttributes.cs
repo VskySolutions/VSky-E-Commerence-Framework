@@ -6,8 +6,8 @@ using VSky.Domain.Entities;
 
 namespace VSky.Application.Features.SpecificationAttributes;
 
-/// <summary>Returns a page of specification attributes ordered by display order then name, optionally filtered by a name search term.</summary>
-public record ListSpecificationAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null)
+/// <summary>Returns a page of specification attributes ordered by display order then name, optionally filtered by a name search term and/or filterable state.</summary>
+public record ListSpecificationAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null, bool? IsFilterable = null)
     : IRequest<PaginatedList<SpecificationAttributeDto>>;
 
 public class ListSpecificationAttributesQueryHandler : IRequestHandler<ListSpecificationAttributesQuery, PaginatedList<SpecificationAttributeDto>>
@@ -25,6 +25,9 @@ public class ListSpecificationAttributesQueryHandler : IRequestHandler<ListSpeci
             var term = request.Search.Trim();
             query = query.Where(a => a.Name.Contains(term));
         }
+
+        if (request.IsFilterable.HasValue)
+            query = query.Where(a => a.IsFilterable == request.IsFilterable.Value);
 
         var ordered = query.OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name);
 

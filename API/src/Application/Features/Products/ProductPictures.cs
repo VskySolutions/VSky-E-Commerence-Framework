@@ -3,35 +3,48 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Utilities;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.Products;
 
-/// <summary>A product picture: a Media asset assigned to a product, with its resolved public URL (WO-123).</summary>
+/// <summary>
+/// A product picture: a Media asset (image or video embed) assigned to a product or one of its
+/// variants, with the asset's public URL read directly from the Media row (WO-123; unified media).
+/// </summary>
 public class ProductPictureDto
 {
     public Guid Id { get; set; }
     public Guid MediaId { get; set; }
+    public Guid? ProductVariantId { get; set; }
+    public MediaType MediaType { get; set; }
     public string Url { get; set; } = string.Empty;
     public string? AltText { get; set; }
     public int DisplayOrder { get; set; }
+
+    public static ProductPictureDto From(ProductPicture p) => new()
+    {
+        Id = p.Id,
+        MediaId = p.MediaId,
+        ProductVariantId = p.ProductVariantId,
+        MediaType = p.Media?.MediaType ?? MediaType.Image,
+        Url = p.Media?.Url ?? string.Empty,
+        AltText = p.Media?.AltText,
+        DisplayOrder = p.DisplayOrder,
+    };
 }
 
 // ---- List --------------------------------------------------------------------
 
-/// <summary>Lists a product's Media-backed pictures (ordered), each with its resolved public URL (WO-123).</summary>
+/// <summary>Lists a product's Media-backed pictures (images + videos, ordered), each with its public URL.</summary>
 public record ListProductPicturesQuery(Guid ProductId) : IRequest<List<ProductPictureDto>>;
 
 public class ListProductPicturesQueryHandler : IRequestHandler<ListProductPicturesQuery, List<ProductPictureDto>>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IFileStorage _storage;
 
-    public ListProductPicturesQueryHandler(IApplicationDbContext db, IFileStorage storage)
-    {
-        _db = db;
-        _storage = storage;
-    }
+    public ListProductPicturesQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<List<ProductPictureDto>> Handle(ListProductPicturesQuery request, CancellationToken cancellationToken)
     {
@@ -41,27 +54,15 @@ public class ListProductPicturesQueryHandler : IRequestHandler<ListProductPictur
             .OrderBy(p => p.DisplayOrder)
             .ToListAsync(cancellationToken);
 
-        var result = new List<ProductPictureDto>(rows.Count);
-        foreach (var p in rows)
-        {
-            var url = p.Media is null ? string.Empty : await _storage.GetFileUrlAsync(p.Media.AssetKey, cancellationToken);
-            result.Add(new ProductPictureDto
-            {
-                Id = p.Id,
-                MediaId = p.MediaId,
-                Url = url,
-                AltText = p.Media?.AltText,
-                DisplayOrder = p.DisplayOrder,
-            });
-        }
-        return result;
+        return rows.Select(ProductPictureDto.From).ToList();
     }
 }
 
-// ---- Assign ------------------------------------------------------------------
+// ---- Assign (image) ----------------------------------------------------------
 
-/// <summary>Assigns a committed Media asset to a product as a picture (AC-CAT-012.1); returns the created row (WO-123).</summary>
-public record AssignProductPictureCommand(Guid ProductId, Guid MediaId, int DisplayOrder = 0) : IRequest<ProductPictureDto>;
+/// <summary>Assigns a committed Media asset to a product (optionally scoped to a variant) as a picture.</summary>
+public record AssignProductPictureCommand(Guid ProductId, Guid MediaId, Guid? ProductVariantId = null, int DisplayOrder = 0)
+    : IRequest<ProductPictureDto>;
 
 public class AssignProductPictureCommandValidator : AbstractValidator<AssignProductPictureCommand>
 {
@@ -75,23 +76,21 @@ public class AssignProductPictureCommandValidator : AbstractValidator<AssignProd
 public class AssignProductPictureCommandHandler : IRequestHandler<AssignProductPictureCommand, ProductPictureDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IFileStorage _storage;
 
-    public AssignProductPictureCommandHandler(IApplicationDbContext db, IFileStorage storage)
-    {
-        _db = db;
-        _storage = storage;
-    }
+    public AssignProductPictureCommandHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<ProductPictureDto> Handle(AssignProductPictureCommand request, CancellationToken cancellationToken)
     {
         if (!await _db.Products.AnyAsync(p => p.Id == request.ProductId, cancellationToken))
             throw new NotFoundException(nameof(Product), request.ProductId);
 
-        var media = await _db.Media.AsNoTracking().FirstOrDefaultAsync(m => m.Id == request.MediaId, cancellationToken)
+        if (request.ProductVariantId is Guid variantId
+            && !await _db.ProductVariants.AnyAsync(v => v.Id == variantId && v.ProductId == request.ProductId, cancellationToken))
+            throw new NotFoundException(nameof(ProductVariant), variantId);
+
+        var media = await _db.Media.FirstOrDefaultAsync(m => m.Id == request.MediaId, cancellationToken)
             ?? throw new NotFoundException(nameof(Domain.Entities.Media), request.MediaId);
 
-        // Append after the current last picture when no explicit order is supplied.
         var order = request.DisplayOrder;
         if (order == 0)
         {
@@ -100,24 +99,93 @@ public class AssignProductPictureCommandHandler : IRequestHandler<AssignProductP
             order = max + 1;
         }
 
-        var picture = new ProductPicture { ProductId = request.ProductId, MediaId = request.MediaId, DisplayOrder = order };
+        var picture = new ProductPicture
+        {
+            ProductId = request.ProductId,
+            ProductVariantId = request.ProductVariantId,
+            MediaId = request.MediaId,
+            DisplayOrder = order,
+        };
         _db.ProductPictures.Add(picture);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return new ProductPictureDto
+        picture.Media = media;
+        return ProductPictureDto.From(picture);
+    }
+}
+
+// ---- Add video (embed URL) ---------------------------------------------------
+
+/// <summary>
+/// Adds a video embed (YouTube/Vimeo/…) to a product as a Media-backed picture: creates a video
+/// Media row holding the embed URL, then assigns it. Keeps all product media in the one pattern.
+/// </summary>
+public record AddProductVideoCommand(Guid ProductId, string Url, string? AltText = null, Guid? ProductVariantId = null)
+    : IRequest<ProductPictureDto>;
+
+public class AddProductVideoCommandValidator : AbstractValidator<AddProductVideoCommand>
+{
+    public AddProductVideoCommandValidator()
+    {
+        RuleFor(x => x.ProductId).NotEmpty();
+        RuleFor(x => x.Url).NotEmpty().MaximumLength(2048);
+        RuleFor(x => x.AltText).MaximumLength(500);
+    }
+}
+
+public class AddProductVideoCommandHandler : IRequestHandler<AddProductVideoCommand, ProductPictureDto>
+{
+    private readonly IApplicationDbContext _db;
+
+    public AddProductVideoCommandHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<ProductPictureDto> Handle(AddProductVideoCommand request, CancellationToken cancellationToken)
+    {
+        if (!await _db.Products.AnyAsync(p => p.Id == request.ProductId, cancellationToken))
+            throw new NotFoundException(nameof(Product), request.ProductId);
+
+        if (request.ProductVariantId is Guid variantId
+            && !await _db.ProductVariants.AnyAsync(v => v.Id == variantId && v.ProductId == request.ProductId, cancellationToken))
+            throw new NotFoundException(nameof(ProductVariant), variantId);
+
+        var url = request.Url.Trim();
+
+        // A video embed is a URL, not an uploaded file: the embed URL is both the asset key and the
+        // resolved URL. SeoFileName only needs to be unique among live media.
+        var media = new Domain.Entities.Media
         {
-            Id = picture.Id,
-            MediaId = media.Id,
-            Url = await _storage.GetFileUrlAsync(media.AssetKey, cancellationToken),
-            AltText = media.AltText,
-            DisplayOrder = picture.DisplayOrder,
+            OriginalFileName = url.Length > 400 ? url[..400] : url,
+            SeoFileName = "video-" + Guid.NewGuid().ToString("n"),
+            AssetKey = url,
+            Url = url,
+            MediaType = MediaType.Video,
+            MimeType = "text/html",
+            FileSizeBytes = 0,
+            AltText = request.AltText,
         };
+        _db.Media.Add(media);
+
+        var max = await _db.ProductPictures.Where(p => p.ProductId == request.ProductId)
+            .Select(p => (int?)p.DisplayOrder).MaxAsync(cancellationToken) ?? -1;
+
+        var picture = new ProductPicture
+        {
+            ProductId = request.ProductId,
+            ProductVariantId = request.ProductVariantId,
+            MediaId = media.Id,
+            DisplayOrder = max + 1,
+        };
+        _db.ProductPictures.Add(picture);
+        await _db.SaveChangesAsync(cancellationToken);
+
+        picture.Media = media;
+        return ProductPictureDto.From(picture);
     }
 }
 
 // ---- Remove ------------------------------------------------------------------
 
-/// <summary>Removes a product picture (the underlying Media asset is left intact) (WO-123).</summary>
+/// <summary>Removes a product picture (the underlying Media asset is left intact).</summary>
 public record RemoveProductPictureCommand(Guid PictureId) : IRequest;
 
 public class RemoveProductPictureCommandHandler : IRequestHandler<RemoveProductPictureCommand>

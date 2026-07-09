@@ -56,6 +56,11 @@ public class ManufacturerConfiguration : IEntityTypeConfiguration<Manufacturer>
         b.Property(x => x.MetaDescription).HasMaxLength(500);
         b.Property(x => x.MetaKeywords).HasMaxLength(500);
 
+        b.HasOne(x => x.LogoMedia)
+            .WithMany()
+            .HasForeignKey(x => x.LogoMediaId)
+            .OnDelete(DeleteBehavior.NoAction);
+
         b.HasIndex(x => x.Slug).IsUnique().HasFilter("[Slug] IS NOT NULL AND [Deleted] = 0");
         b.HasQueryFilter(x => !x.Deleted);
     }
@@ -177,38 +182,19 @@ public class SpecificationAttributeOptionConfiguration : IEntityTypeConfiguratio
     }
 }
 
-public class ProductImageConfiguration : IEntityTypeConfiguration<ProductImage>
-{
-    public void Configure(EntityTypeBuilder<ProductImage> b)
-    {
-        b.ToTable("ProductImages");
-        b.HasKey(x => x.Id);
-        b.Property(x => x.Url).HasMaxLength(1000).IsRequired();
-        b.Property(x => x.ThumbnailUrl).HasMaxLength(1000);
-        b.Property(x => x.AltText).HasMaxLength(400);
-        b.Property(x => x.MediaType).HasConversion<int>();
-
-        b.HasOne(x => x.Product)
-            .WithMany(p => p.Images)
-            .HasForeignKey(x => x.ProductId)
-            .OnDelete(DeleteBehavior.Cascade);
-
-        b.HasOne(x => x.ProductVariant)
-            .WithMany(v => v.Images)
-            .HasForeignKey(x => x.ProductVariantId)
-            .OnDelete(DeleteBehavior.NoAction);
-
-        b.HasIndex(x => x.ProductId);
-    }
-}
-
-/// <summary>Media-library-backed product pictures (WO-123): product cascades; Media is a NoAction lookup.</summary>
+/// <summary>Media-library-backed product pictures (WO-123): the unified image + video mapping. Product
+/// cascades; the optional variant and the Media asset are NoAction lookups.</summary>
 public class ProductPictureConfiguration : IEntityTypeConfiguration<ProductPicture>
 {
     public void Configure(EntityTypeBuilder<ProductPicture> b)
     {
         b.ToTable("ProductPictures");
         b.HasKey(x => x.Id);
+
+        b.HasOne(x => x.ProductVariant)
+            .WithMany()
+            .HasForeignKey(x => x.ProductVariantId)
+            .OnDelete(DeleteBehavior.NoAction);
 
         b.HasOne(x => x.Product)
             .WithMany(p => p.Pictures)
@@ -221,6 +207,28 @@ public class ProductPictureConfiguration : IEntityTypeConfiguration<ProductPictu
             .OnDelete(DeleteBehavior.NoAction);
 
         b.HasIndex(x => new { x.ProductId, x.DisplayOrder });
+    }
+}
+
+/// <summary>Media-library-backed category pictures: category cascades; Media is a NoAction lookup.</summary>
+public class CategoryPictureConfiguration : IEntityTypeConfiguration<CategoryPicture>
+{
+    public void Configure(EntityTypeBuilder<CategoryPicture> b)
+    {
+        b.ToTable("CategoryPictures");
+        b.HasKey(x => x.Id);
+
+        b.HasOne(x => x.Category)
+            .WithMany()
+            .HasForeignKey(x => x.CategoryId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        b.HasOne(x => x.Media)
+            .WithMany()
+            .HasForeignKey(x => x.MediaId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasIndex(x => new { x.CategoryId, x.DisplayOrder });
     }
 }
 

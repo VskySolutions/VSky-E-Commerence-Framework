@@ -76,6 +76,9 @@
  * + size limits. Uploads to the generic storage endpoint and returns public URLs.
  *
  * v-model: single → the URL string; multiple → an array of { url, assetKey, name }.
+ * `media` mode (single only): v-model binds the central Media asset **id**, and the display URL is
+ * carried separately via `v-model:previewUrl`. Uploads run the two-step Media flow (prepare → commit)
+ * so no physical URL is stored on the owning record — only the Media id.
  * Limits: single ≤ 5 MB; multiple ≤ 20 files and ≤ 50 MB per selection.
  */
 import { ref, computed } from 'vue'
@@ -86,6 +89,9 @@ import AppFieldLabel from './AppFieldLabel.vue'
 const props = defineProps({
   modelValue: { type: [String, Array], default: '' },
   multiple: { type: Boolean, default: false },
+  // Media mode: model is the Media asset id; the display URL is v-model:previewUrl. Single-file only.
+  media: { type: Boolean, default: false },
+  previewUrl: { type: String, default: '' },
   label: { type: String, default: '' },
   required: { type: Boolean, default: false },
   hint: { type: String, default: '' },
@@ -98,7 +104,7 @@ const props = defineProps({
   multiMaxTotalMb: { type: Number, default: 50 }
 })
 
-const emit = defineEmits(['update:modelValue'])
+const emit = defineEmits(['update:modelValue', 'update:previewUrl'])
 const notify = useNotify()
 
 const inputRef = ref(null)
@@ -112,6 +118,10 @@ const IMAGE_EXT = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif']
 
 // Normalise the model into a preview list of { url, assetKey?, name }.
 const items = computed(() => {
+  if (props.media) {
+    // Media mode: the model holds the id; preview comes from previewUrl.
+    return props.previewUrl ? [{ url: props.previewUrl, name: fileNameFromUrl(props.previewUrl) }] : []
+  }
   if (props.multiple) {
     return Array.isArray(props.modelValue)
       ? props.modelValue.map((v) => (typeof v === 'string' ? { url: v, name: fileNameFromUrl(v) } : v))
@@ -186,7 +196,43 @@ function validate (files) {
   return files
 }
 
+// Media mode: run the two-step Media flow (prepare → commit) for a single file and emit the Media id
+// + resolved preview URL. No physical URL is stored on the owning record.
+async function uploadMedia (rawFiles) {
+  errorMessage.value = ''
+  const file = (rawFiles || [])[0]
+  if (!file) return
+  if (file.size / (1024 * 1024) > props.singleMaxMb) {
+    errorMessage.value = `File exceeds the ${props.singleMaxMb} MB limit.`
+    return
+  }
+
+  uploading.value = true
+  try {
+    const form = new FormData()
+    form.append('file', file)
+    const draft = await api.post('/api/admin/media/prepare', form).then(unwrap)
+    const committed = await api.post('/api/admin/media', {
+      tempId: draft.tempId,
+      seoFileName: draft.suggestedSeoFileName,
+      altText: null,
+      title: null,
+      caption: null,
+      description: null
+    }).then(unwrap)
+    emit('update:modelValue', committed.mediaId)
+    emit('update:previewUrl', committed.publicUrl)
+  } catch (err) {
+    errorMessage.value = getApiErrorMessage(err)
+    notify.error(errorMessage.value)
+  } finally {
+    uploading.value = false
+  }
+}
+
 async function upload (rawFiles) {
+  if (props.media) return uploadMedia(rawFiles)
+
   const files = validate(rawFiles)
   if (!files) return
 
@@ -217,7 +263,10 @@ async function upload (rawFiles) {
 
 function remove (index) {
   errorMessage.value = ''
-  if (props.multiple) {
+  if (props.media) {
+    emit('update:modelValue', null)
+    emit('update:previewUrl', '')
+  } else if (props.multiple) {
     const next = (Array.isArray(props.modelValue) ? props.modelValue.slice() : [])
     next.splice(index, 1)
     emit('update:modelValue', next)

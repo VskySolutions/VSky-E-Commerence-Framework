@@ -8,5 +8,18 @@ export default [
     name: 'users',
     meta: { title: 'Users', permissions: ['Users.Read'] },
     component: () => import('modules/users/pages/index.vue')
+  },
+  {
+    // Create: the same detail page in "create mode" (must precede the :id route).
+    path: 'users/new',
+    name: 'user-new',
+    meta: { title: 'New user', permissions: ['Users.Write'] },
+    component: () => import('modules/users/pages/user-detail.vue')
+  },
+  {
+    path: 'users/:id',
+    name: 'user-detail',
+    meta: { title: 'User', permissions: ['Users.Read'] },
+    component: () => import('modules/users/pages/user-detail.vue')
   }
 ]

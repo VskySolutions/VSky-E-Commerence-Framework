@@ -20,6 +20,14 @@ public class Media : AuditableEntity, ISoftDeletable
     /// <summary>Provider-agnostic storage key returned by the file-storage service.</summary>
     public string AssetKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Resolved public URL, denormalized so read paths (storefront listings, search) can serve the
+    /// image directly without resolving the provider per request. Populated at commit time from the
+    /// storage adapter (and, for video embeds / migrated assets, holds the source URL). Refresh via the
+    /// storage service if the provider/CDN changes.
+    /// </summary>
+    public string? Url { get; set; }
+
     public MediaType MediaType { get; set; }
     public string MimeType { get; set; } = string.Empty;
     public long FileSizeBytes { get; set; }

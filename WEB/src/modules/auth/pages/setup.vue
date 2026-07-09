@@ -23,8 +23,8 @@
           :rules="[(v) => !!v || 'Required']" />
         <q-input v-model="form.email" type="email" label="Email" outlined dense
           :rules="[(v) => !!v || 'Required']" />
-        <q-input v-model="form.password" type="password" label="Password" outlined dense
-          :rules="[(v) => (v && v.length >= 8) || 'Min 8 characters']" />
+        <AppPasswordField v-model="form.password" label="Password" strength
+          :rules="passwordRules()" />
         <q-btn type="submit" color="primary" unelevated class="full-width"
           label="Complete setup" :loading="submitting" />
       </q-form>
@@ -49,6 +49,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { anonApi, getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
+import { passwordRules } from 'validators'
 
 const router = useRouter()
 const notify = useNotify()

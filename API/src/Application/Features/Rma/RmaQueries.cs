@@ -10,8 +10,9 @@ namespace VSky.Application.Features.Rma;
 
 // ---- Admin: list + get -------------------------------------------------------
 
-/// <summary>Lists returns for admin review, newest first, optionally filtered by status (AC-ORD-004.3).</summary>
-public record ListRmasQuery(string? Status = null, int Page = 1, int PageSize = 20) : IRequest<PaginatedList<RmaDto>>;
+/// <summary>Lists returns for admin review, newest first, optionally filtered by status, resolution and/or an RMA-number search term (AC-ORD-004.3).</summary>
+public record ListRmasQuery(string? Status = null, int Page = 1, int PageSize = 20, string? Search = null, string? Resolution = null)
+    : IRequest<PaginatedList<RmaDto>>;
 
 public class ListRmasQueryHandler : IRequestHandler<ListRmasQuery, PaginatedList<RmaDto>>
 {
@@ -25,6 +26,16 @@ public class ListRmasQueryHandler : IRequestHandler<ListRmasQuery, PaginatedList
         if (!string.IsNullOrWhiteSpace(request.Status)
             && Enum.TryParse<RmaStatus>(request.Status, ignoreCase: true, out var status))
             query = query.Where(r => r.Status == status);
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim();
+            query = query.Where(r => r.RmaNumber.Contains(term));
+        }
+
+        if (!string.IsNullOrWhiteSpace(request.Resolution)
+            && Enum.TryParse<RmaResolution>(request.Resolution, ignoreCase: true, out var resolution))
+            query = query.Where(r => r.Resolution == resolution);
 
         var page = await PaginatedList<Domain.Entities.Rma>.CreateAsync(
             query.OrderByDescending(r => r.RequestedOnUtc), request.Page, request.PageSize, cancellationToken);

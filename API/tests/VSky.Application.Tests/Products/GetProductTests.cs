@@ -16,14 +16,14 @@ public class GetProductTests : CatalogTestBase
         var taxId = SeedTaxCategory();
         var productId = SeedProduct(p => { p.Name = "Graphed"; p.ProductType = ProductType.WithVariants; }, taxId);
         var variantId = SeedVariant(productId, v => v.Sku = "V-1");
-        SeedImage(productId);
+        SeedPicture(productId);
 
         var dto = await NewHandler().Handle(new GetProductQuery(productId), CancellationToken.None);
 
         Assert.Equal("Graphed", dto.Name);
         Assert.Single(dto.Variants);
         Assert.Equal(variantId, dto.Variants[0].Id);
-        Assert.Single(dto.Images);
+        Assert.Single(dto.Pictures);
     }
 
     [Fact]

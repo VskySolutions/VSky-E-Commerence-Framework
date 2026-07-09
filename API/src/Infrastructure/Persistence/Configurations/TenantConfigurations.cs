@@ -21,6 +21,16 @@ public class TenantBrandingConfiguration : IEntityTypeConfiguration<TenantBrandi
         b.Property(x => x.SupportEmail).HasMaxLength(255);
         b.Property(x => x.SupportPhone).HasMaxLength(50);
         b.Property(x => x.DefaultLanguage).HasMaxLength(10);
+
+        b.HasOne(x => x.LogoMedia)
+            .WithMany()
+            .HasForeignKey(x => x.LogoMediaId)
+            .OnDelete(DeleteBehavior.NoAction);
+
+        b.HasOne(x => x.FaviconMedia)
+            .WithMany()
+            .HasForeignKey(x => x.FaviconMediaId)
+            .OnDelete(DeleteBehavior.NoAction);
     }
 }
 

@@ -6,9 +6,13 @@ using VSky.Domain.Entities;
 
 namespace VSky.Application.Features.AdminUsers;
 
-/// <summary>Returns a page of users ordered by email, optionally filtered by an email/username search term.</summary>
-public record ListUsersQuery(int Page = 1, int PageSize = 20, string? Search = null)
-    : IRequest<PaginatedList<AdminUserDto>>;
+/// <summary>Returns a page of users ordered by email, optionally filtered by an email/username search term, active state and/or email-verified state.</summary>
+public record ListUsersQuery(
+    int Page = 1,
+    int PageSize = 20,
+    string? Search = null,
+    bool? IsActive = null,
+    bool? EmailVerified = null) : IRequest<PaginatedList<AdminUserDto>>;
 
 public class ListUsersQueryHandler : IRequestHandler<ListUsersQuery, PaginatedList<AdminUserDto>>
 {
@@ -29,6 +33,12 @@ public class ListUsersQueryHandler : IRequestHandler<ListUsersQuery, PaginatedLi
             var term = request.Search.Trim();
             query = query.Where(u => u.Email.Contains(term) || u.Username.Contains(term));
         }
+
+        if (request.IsActive.HasValue)
+            query = query.Where(u => u.IsActive == request.IsActive.Value);
+
+        if (request.EmailVerified.HasValue)
+            query = query.Where(u => u.EmailVerified == request.EmailVerified.Value);
 
         var ordered = query.OrderBy(u => u.Email);
 

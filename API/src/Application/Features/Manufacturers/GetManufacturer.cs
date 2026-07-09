@@ -18,6 +18,7 @@ public class GetManufacturerQueryHandler : IRequestHandler<GetManufacturerQuery,
     {
         var manufacturer = await _db.Manufacturers
             .AsNoTracking()
+            .Include(m => m.LogoMedia)
             .FirstOrDefaultAsync(m => m.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Manufacturer), request.Id);
 

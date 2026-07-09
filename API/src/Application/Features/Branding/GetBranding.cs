@@ -24,6 +24,8 @@ public class GetBrandingQueryHandler : IRequestHandler<GetBrandingQuery, Brandin
     {
         var branding = await _db.TenantBrandings
             .AsNoTracking()
+            .Include(b => b.LogoMedia)
+            .Include(b => b.FaviconMedia)
             .FirstOrDefaultAsync(cancellationToken);
 
         if (branding is not null)

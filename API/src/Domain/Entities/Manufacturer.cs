@@ -9,6 +9,12 @@ public class Manufacturer : AuditableEntity, ISoftDeletable
 {
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+
+    /// <summary>Central Media asset for the logo (preferred). Uploads set this going forward.</summary>
+    public Guid? LogoMediaId { get; set; }
+    public Media? LogoMedia { get; set; }
+
+    /// <summary>Legacy logo URL, retained as a read fallback for records migrated before <see cref="LogoMediaId"/>.</summary>
     public string? LogoUrl { get; set; }
 
     // SEO metadata (AC-CAT-005.1)

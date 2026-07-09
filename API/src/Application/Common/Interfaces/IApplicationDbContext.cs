@@ -50,8 +50,8 @@ public interface IApplicationDbContext
     DbSet<ProductAttributeValue> ProductAttributeValues { get; }
     DbSet<SpecificationAttribute> SpecificationAttributes { get; }
     DbSet<SpecificationAttributeOption> SpecificationAttributeOptions { get; }
-    DbSet<ProductImage> ProductImages { get; }
     DbSet<ProductPicture> ProductPictures { get; }
+    DbSet<CategoryPicture> CategoryPictures { get; }
     DbSet<TierPrice> TierPrices { get; }
     DbSet<ProductRelationship> ProductRelationships { get; }
     DbSet<ProductTag> ProductTags { get; }

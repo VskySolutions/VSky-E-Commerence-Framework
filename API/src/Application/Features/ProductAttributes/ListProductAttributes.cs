@@ -3,11 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.ProductAttributes;
 
-/// <summary>Returns a page of product attributes ordered by display order then name, optionally filtered by a name search term.</summary>
-public record ListProductAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null)
+/// <summary>Returns a page of product attributes ordered by display order then name, optionally filtered by a name search term and/or display type.</summary>
+public record ListProductAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null, ProductAttributeDisplayType? DisplayType = null)
     : IRequest<PaginatedList<ProductAttributeDto>>;
 
 public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttributesQuery, PaginatedList<ProductAttributeDto>>
@@ -27,6 +28,9 @@ public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttr
             var term = request.Search.Trim();
             query = query.Where(a => a.Name.Contains(term));
         }
+
+        if (request.DisplayType.HasValue)
+            query = query.Where(a => a.DisplayType == request.DisplayType.Value);
 
         var ordered = query.OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name);
 

@@ -38,9 +38,15 @@
             />
           </template>
         </q-input>
+
+        <div class="row justify-end">
+          <router-link class="text-primary text-caption" :to="{ name: 'forgot-password' }">
+            Forgot password?
+          </router-link>
+        </div>
       </q-card-section>
 
-      <q-card-actions class="q-px-md q-pb-md">
+      <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
         <q-btn
           type="submit"
           color="primary"

@@ -10,6 +10,14 @@ public class TenantBranding : AuditableEntity
 {
     public string BrandName { get; set; } = string.Empty;
     public string? Domain { get; set; }
+
+    /// <summary>Central Media assets for the logo/favicon (preferred). Uploads set these going forward.</summary>
+    public Guid? LogoMediaId { get; set; }
+    public Media? LogoMedia { get; set; }
+    public Guid? FaviconMediaId { get; set; }
+    public Media? FaviconMedia { get; set; }
+
+    /// <summary>Legacy logo/favicon URLs, retained as read fallbacks for pre-migration records.</summary>
     public string? LogoUrl { get; set; }
     public string? FaviconUrl { get; set; }
     public string? PrimaryColor { get; set; }

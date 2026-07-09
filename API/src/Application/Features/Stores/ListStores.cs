@@ -6,9 +6,14 @@ using VSky.Domain.Entities;
 
 namespace VSky.Application.Features.Stores;
 
-/// <summary>Returns a page of stores ordered by name, optionally filtered by a name search term.</summary>
-public record ListStoresQuery(int Page = 1, int PageSize = 20, string? Search = null)
-    : IRequest<PaginatedList<StoreDto>>;
+/// <summary>Returns a page of stores ordered by name, optionally filtered by a name search term, enabled state, guest-ordering and/or pickup availability.</summary>
+public record ListStoresQuery(
+    int Page = 1,
+    int PageSize = 20,
+    string? Search = null,
+    bool? IsEnabled = null,
+    bool? GuestOrderingEnabled = null,
+    bool? PickupEnabled = null) : IRequest<PaginatedList<StoreDto>>;
 
 public class ListStoresQueryHandler : IRequestHandler<ListStoresQuery, PaginatedList<StoreDto>>
 {
@@ -25,6 +30,15 @@ public class ListStoresQueryHandler : IRequestHandler<ListStoresQuery, Paginated
             var term = request.Search.Trim();
             query = query.Where(s => s.Name.Contains(term));
         }
+
+        if (request.IsEnabled.HasValue)
+            query = query.Where(s => s.IsEnabled == request.IsEnabled.Value);
+
+        if (request.GuestOrderingEnabled.HasValue)
+            query = query.Where(s => s.GuestOrderingEnabled == request.GuestOrderingEnabled.Value);
+
+        if (request.PickupEnabled.HasValue)
+            query = query.Where(s => s.PickupEnabled == request.PickupEnabled.Value);
 
         var ordered = query.OrderBy(s => s.Name);
 

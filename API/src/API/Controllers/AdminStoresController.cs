@@ -12,11 +12,12 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Stores)]
 public class AdminStoresController : ApiControllerBase
 {
-    /// <summary>List stores (paged), optionally filtered by name.</summary>
+    /// <summary>List stores (paged), optionally filtered by name, enabled state, guest-ordering and/or pickup availability.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<StoreDto>>> List(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
-        => Ok(await Mediator.Send(new ListStoresQuery(page, pageSize, search)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] bool? isEnabled = null, [FromQuery] bool? guestOrderingEnabled = null, [FromQuery] bool? pickupEnabled = null)
+        => Ok(await Mediator.Send(new ListStoresQuery(page, pageSize, search, isEnabled, guestOrderingEnabled, pickupEnabled)));
 
     /// <summary>Get a single store by id.</summary>
     [HttpGet("{id:guid}")]

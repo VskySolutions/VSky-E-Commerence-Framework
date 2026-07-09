@@ -19,6 +19,10 @@
       show-actions
       @request="onRequest"
     >
+      <template #body-cell-name="cell">
+        <q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.name }}</a></q-td>
+      </template>
+
       <template #body-cell-isSystemRole="cell">
         <q-td :props="cell">
           <q-badge
@@ -35,8 +39,8 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_edit" :disable="row.isSystemRole" @click="onEdit(row)">
-          <q-tooltip>{{ row.isSystemRole ? 'System roles cannot be edited' : 'Edit' }}</q-tooltip>
+        <q-btn flat round dense :icon="row.isSystemRole ? 'o_visibility' : 'o_edit'" @click="onManage(row)">
+          <q-tooltip>{{ row.isSystemRole ? 'View (read-only)' : 'Edit' }}</q-tooltip>
         </q-btn>
         <q-btn
           flat
@@ -51,33 +55,26 @@
         </q-btn>
       </template>
     </AppDataTable>
-
-    <RoleFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
   </q-page>
 </template>
 
 <script setup>
 /*
- * Roles list page (WO-62 / REQ-ADM-004): AppListHeader + AppDataTable + a
- * RoleFormDrawer, following the widget template. System roles (isSystemRole)
- * are read-only, so their Edit/Delete actions are disabled (AC-ADM-004.5).
+ * Roles list page (WO-62 / REQ-ADM-004): AppListHeader + AppDataTable. Create/edit
+ * open the full-page role detail (`role-new` / `role-detail`). System roles
+ * (isSystemRole) are read-only — they open a read-only detail and cannot be deleted.
  *
  * The list endpoint returns a plain (unpaged) array; rowsPerPage is 0 ("All")
  * so the table shows every role in one page.
  */
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { roleApi } from 'modules/roles/api'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import RoleFormDrawer from 'modules/roles/components/RoleFormDrawer.vue'
 
+const router = useRouter()
 const notify = useNotify()
 
 const columns = [
@@ -89,10 +86,6 @@ const columns = [
 const rows = ref([])
 const loading = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 0, rowsNumber: 0 })
-
-const drawerOpen = ref(false)
-const editing = ref(null)
-const saving = ref(false)
 
 async function fetch (props) {
   const p = props?.pagination || pagination.value
@@ -119,35 +112,8 @@ function reload () {
   fetch({ pagination: { ...pagination.value, page: 1 } })
 }
 
-function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
-
-function onEdit (row) {
-  if (row.isSystemRole) return
-  editing.value = { ...row }
-  drawerOpen.value = true
-}
-
-async function onSubmit (payload) {
-  saving.value = true
-  try {
-    if (editing.value && editing.value.id) {
-      await roleApi.update(editing.value.id, payload)
-      notify.success('Role updated')
-    } else {
-      await roleApi.create(payload)
-      notify.success('Role created')
-    }
-    drawerOpen.value = false
-    reload()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
+function onAdd () { router.push({ name: 'role-new' }) }
+function onManage (row) { router.push({ name: 'role-detail', params: { id: row.id } }) }
 
 async function onDelete (row) {
   if (row.isSystemRole) return

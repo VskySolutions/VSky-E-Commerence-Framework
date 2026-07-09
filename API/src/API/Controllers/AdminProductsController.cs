@@ -109,28 +109,10 @@ public class AdminProductsController : ApiControllerBase
 
     // ----- Media + downloads ---------------------------------------------------------------------
 
-    /// <summary>Add an image or video-embed to the product (or one of its variants).</summary>
-    [HttpPost("{id:guid}/images")]
-    public async Task<ActionResult<ProductImageDto>> AddImage(Guid id, [FromBody] AddProductImageCommand command)
+    /// <summary>Add a video embed (URL) to the product as a Media-backed picture (images use the pictures endpoints).</summary>
+    [HttpPost("{id:guid}/videos")]
+    public async Task<ActionResult<ProductPictureDto>> AddVideo(Guid id, [FromBody] AddProductVideoCommand command)
         => Ok(await Mediator.Send(command with { ProductId = id }));
-
-    /// <summary>Replace the product's entire image/video gallery.</summary>
-    [HttpPut("{id:guid}/images")]
-    public async Task<ActionResult<List<ProductImageDto>>> ReplaceImages(Guid id, [FromBody] ReplaceProductImagesCommand command)
-        => Ok(await Mediator.Send(command with { ProductId = id }));
-
-    /// <summary>Update a single gallery entry (route id wins over any id in the body).</summary>
-    [HttpPut("images/{imageId:guid}")]
-    public async Task<ActionResult<ProductImageDto>> UpdateImage(Guid imageId, [FromBody] UpdateProductImageCommand command)
-        => Ok(await Mediator.Send(command with { ImageId = imageId }));
-
-    /// <summary>Delete a single gallery entry.</summary>
-    [HttpDelete("images/{imageId:guid}")]
-    public async Task<IActionResult> DeleteImage(Guid imageId)
-    {
-        await Mediator.Send(new DeleteProductImageCommand(imageId));
-        return NoContent();
-    }
 
     // ----- Pictures (Media-library backed, WO-123) -----------------------------------------------
 

@@ -15,24 +15,38 @@
           outlined
           debounce="400"
           placeholder="Search"
-          class="q-mr-sm"
+          style="min-width: 240px"
           @update:model-value="reload"
         >
           <template #prepend><q-icon name="o_search" /></template>
+          <template v-if="search" #append><q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" /></template>
         </q-input>
+        <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" class="q-ml-sm" @click="filtersOpen = true">
+          <q-badge v-if="activeFilterCount" color="red" floating>{{ activeFilterCount }}</q-badge>
+        </q-btn>
       </template>
     </AppListHeader>
+
+    <AppFilterDrawer v-model="filtersOpen" title="Filter users" @clear="clearFilters">
+      <AppSelect v-model="activeFilter" label="Status" :options="statusOptions" @update:model-value="reload" />
+      <AppSelect v-model="verifiedFilter" label="Email verified" :options="verifiedOptions" @update:model-value="reload" />
+    </AppFilterDrawer>
 
     <AppDataTable
       page-key="users"
       row-key="id"
+      title="All users"
       :rows="rows"
       :columns="columns"
       :loading="loading"
       :pagination="pagination"
       show-actions
       @request="onRequest"
+      @refresh="reload"
     >
+      <template #body-cell-email="cell">
+        <q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.email }}</a></q-td>
+      </template>
       <template #body-cell-roles="cell">
         <q-td :props="cell">
           <template v-if="cell.row.roles && cell.row.roles.length">
@@ -58,41 +72,33 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_edit" @click="onEdit(row)">
+        <q-btn flat round dense icon="o_edit" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
+        </q-btn>
+        <q-btn flat round dense icon="o_lock_reset" color="primary" :loading="sendingResetId === row.id" @click="onSendReset(row)">
+          <q-tooltip>Send password-reset link</q-tooltip>
         </q-btn>
         <q-btn flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
           <q-tooltip>Delete</q-tooltip>
         </q-btn>
       </template>
     </AppDataTable>
-
-    <UserFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
   </q-page>
 </template>
 
 <script setup>
 /*
  * Users list page (WO-62 / REQ-ADM-004): AppListHeader + AppDataTable (server
- * pagination) + a UserFormDrawer, following the widget template.
- *
- * Create is a single POST. Edit is two calls — update() for the profile/status,
- * then assignRoles() for the (single) role — because UpdateUserCommand does not
- * touch role assignments.
+ * pagination). Create/edit open the full-page user detail (`user-new` / `user-detail`).
  */
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { userApi } from 'modules/users/api'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import UserFormDrawer from 'modules/users/components/UserFormDrawer.vue'
 
+const router = useRouter()
 const notify = useNotify()
 
 const columns = [
@@ -102,14 +108,35 @@ const columns = [
   { name: 'isActive', label: 'Status', field: 'isActive', align: 'center' }
 ]
 
+const statusOptions = [
+  { label: 'All', value: null },
+  { label: 'Active', value: true },
+  { label: 'Inactive', value: false }
+]
+const verifiedOptions = [
+  { label: 'All', value: null },
+  { label: 'Verified', value: true },
+  { label: 'Unverified', value: false }
+]
+
 const rows = ref([])
 const loading = ref(false)
+const sendingResetId = ref(null)
 const search = ref('')
+const activeFilter = ref(null)
+const verifiedFilter = ref(null)
+const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0 })
 
-const drawerOpen = ref(false)
-const editing = ref(null)
-const saving = ref(false)
+const activeFilterCount = computed(() =>
+  (activeFilter.value !== null ? 1 : 0) + (verifiedFilter.value !== null ? 1 : 0)
+)
+
+function clearFilters () {
+  activeFilter.value = null
+  verifiedFilter.value = null
+  reload()
+}
 
 async function fetch (props) {
   const p = props?.pagination || pagination.value
@@ -118,7 +145,9 @@ async function fetch (props) {
     const result = await userApi.list({
       page: p.page,
       pageSize: p.rowsPerPage,
-      search: search.value || undefined
+      search: search.value || undefined,
+      isActive: activeFilter.value === null ? undefined : activeFilter.value,
+      emailVerified: verifiedFilter.value === null ? undefined : verifiedFilter.value
     })
     const items = Array.isArray(result) ? result : result?.items || result?.data || []
     const total = Array.isArray(result)
@@ -143,45 +172,18 @@ function reload () {
   fetch({ pagination: { ...pagination.value, page: 1 } })
 }
 
-function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
+function onAdd () { router.push({ name: 'user-new' }) }
+function onManage (row) { router.push({ name: 'user-detail', params: { id: row.id } }) }
 
-function onEdit (row) {
-  editing.value = { ...row }
-  drawerOpen.value = true
-}
-
-async function onSubmit (payload) {
-  saving.value = true
+async function onSendReset (row) {
+  sendingResetId.value = row.id
   try {
-    const roleIds = payload.roleId ? [payload.roleId] : []
-    if (editing.value && editing.value.id) {
-      const id = editing.value.id
-      await userApi.update(id, {
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        isActive: payload.isActive
-      })
-      await userApi.assignRoles(id, roleIds)
-      notify.success('User updated')
-    } else {
-      await userApi.create({
-        email: payload.email,
-        password: payload.password,
-        firstName: payload.firstName,
-        lastName: payload.lastName,
-        roleIds
-      })
-      notify.success('User created')
-    }
-    drawerOpen.value = false
-    reload()
+    await userApi.sendPasswordReset(row.id)
+    notify.success(`Password-reset link sent to ${row.email}`)
   } catch (err) {
     notify.error(getApiErrorMessage(err))
   } finally {
-    saving.value = false
+    sendingResetId.value = null
   }
 }
 

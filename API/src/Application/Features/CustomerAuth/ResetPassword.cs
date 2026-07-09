@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Validation;
 using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.CustomerAuth;
@@ -15,7 +16,7 @@ public class ResetPasswordCommandValidator : AbstractValidator<ResetPasswordComm
     public ResetPasswordCommandValidator()
     {
         RuleFor(x => x.Token).NotEmpty();
-        RuleFor(x => x.NewPassword).MinimumLength(8);
+        RuleFor(x => x.NewPassword).Password();
     }
 }
 

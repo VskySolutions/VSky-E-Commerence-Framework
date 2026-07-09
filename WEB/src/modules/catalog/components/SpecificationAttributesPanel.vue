@@ -1,30 +1,26 @@
 <template>
   <div>
-    <div class="row items-center justify-between q-mb-sm">
-      <q-input
-        v-model="search"
-        dense
-        outlined
-        debounce="400"
-        placeholder="Search attributes"
-        style="max-width: 280px"
-        @update:model-value="reload"
-      >
-        <template #prepend><q-icon name="o_search" /></template>
-      </q-input>
-      <q-btn v-if="canWrite" color="primary" unelevated no-caps icon="o_add" label="Add attribute" @click="onAdd" />
-    </div>
+    <AppFilterDrawer v-model="filtersOpen" title="Filter attributes" @clear="clearFilters">
+      <AppSelect v-model="filterableFilter" label="Filterable" :options="filterableOptions" @update:model-value="reload" />
+    </AppFilterDrawer>
 
     <AppDataTable
       page-key="catalog-specification-attributes"
       row-key="id"
+      title="Specification attributes"
       :rows="rows"
       :columns="columns"
       :loading="loading"
       :pagination="pagination"
       show-actions
       @request="onRequest"
+      @refresh="reload"
     >
+      <template #body-cell-name="cell">
+        <q-td :props="cell">
+          <a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.name }}</a>
+        </q-td>
+      </template>
       <template #body-cell-isFilterable="cell">
         <q-td :props="cell">
           <q-badge :color="cell.row.isFilterable ? 'positive' : 'grey'" :label="cell.row.isFilterable ? 'Filterable' : 'Not filterable'" />
@@ -32,18 +28,10 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onEdit(row)"><q-tooltip>Edit</q-tooltip></q-btn>
+        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
       </template>
     </AppDataTable>
-
-    <SpecificationAttributeFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
   </div>
 </template>
 
@@ -52,15 +40,21 @@
  * Specification Attributes panel (WO-15): the global specification-attribute library
  * list + CRUD. Filterable attributes drive the storefront faceted navigation.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { specificationAttributeApi } from 'modules/catalog/api'
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
 import AppDataTable from 'components/common/AppDataTable.vue'
-import SpecificationAttributeFormDrawer from 'modules/catalog/components/SpecificationAttributeFormDrawer.vue'
 
+// Toolbar (search/Advanced/Add) lives in the parent tab page; this panel is driven via the
+// `search` prop + exposed onAdd/openFilters and the `filter-count` event.
+const props = defineProps({ search: { type: String, default: '' } })
+const emit = defineEmits(['filter-count'])
+
+const router = useRouter()
 const notify = useNotify()
 const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
@@ -71,22 +65,40 @@ const columns = [
   { name: 'optionsCount', label: 'Values', field: (r) => (r.options || []).length, align: 'center' }
 ]
 
+const filterableOptions = [
+  { label: 'All', value: null },
+  { label: 'Filterable', value: true },
+  { label: 'Not filterable', value: false }
+]
+
 const rows = ref([])
 const loading = ref(false)
-const search = ref('')
+const filterableFilter = ref(null)
+const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0 })
-const drawerOpen = ref(false)
-const editing = ref(null)
-const saving = ref(false)
 
-async function fetch (props) {
-  const p = props?.pagination || pagination.value
+const activeFilterCount = computed(() => (filterableFilter.value !== null ? 1 : 0))
+
+watch(activeFilterCount, (v) => emit('filter-count', v), { immediate: true })
+watch(() => props.search, () => reload())
+
+function openFilters () { filtersOpen.value = true }
+defineExpose({ onAdd, openFilters })
+
+function clearFilters () {
+  filterableFilter.value = null
+  reload()
+}
+
+async function fetch (req) {
+  const p = req?.pagination || pagination.value
   loading.value = true
   try {
     const result = await specificationAttributeApi.list({
       page: p.page,
       pageSize: p.rowsPerPage,
-      search: search.value || undefined
+      search: props.search || undefined,
+      isFilterable: filterableFilter.value === null ? undefined : filterableFilter.value
     })
     const items = Array.isArray(result) ? result : result?.items || []
     const total = Array.isArray(result) ? result.length : result?.totalCount ?? items.length
@@ -101,41 +113,11 @@ async function fetch (props) {
   }
 }
 
-function onRequest (props) { fetch(props) }
+function onRequest (req) { fetch(req) }
 function reload () { fetch({ pagination: { ...pagination.value, page: 1 } }) }
 
-async function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
-
-async function onEdit (row) {
-  try {
-    editing.value = await specificationAttributeApi.get(row.id)
-  } catch (err) {
-    editing.value = { ...row }
-  }
-  drawerOpen.value = true
-}
-
-async function onSubmit (payload) {
-  saving.value = true
-  try {
-    if (editing.value && editing.value.id) {
-      await specificationAttributeApi.update(editing.value.id, payload)
-      notify.success('Attribute updated')
-    } else {
-      await specificationAttributeApi.create(payload)
-      notify.success('Attribute created')
-    }
-    drawerOpen.value = false
-    reload()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
+function onAdd () { router.push({ name: 'spec-attribute-new' }) }
+function onManage (row) { router.push({ name: 'spec-attribute-detail', params: { id: row.id } }) }
 
 async function onDelete (row) {
   if (!(await deleteConfirmation(`the specification attribute "${row.name}"`))) return

@@ -10,6 +10,8 @@ namespace VSky.Application.Features.Branding;
 public record UpdateBrandingCommand(
     string BrandName,
     string? Domain,
+    Guid? LogoMediaId,
+    Guid? FaviconMediaId,
     string? LogoUrl,
     string? FaviconUrl,
     string? PrimaryColor,
@@ -59,8 +61,11 @@ public class UpdateBrandingCommandHandler : IRequestHandler<UpdateBrandingComman
 
         entity.BrandName = request.BrandName;
         entity.Domain = request.Domain;
-        entity.LogoUrl = request.LogoUrl;
-        entity.FaviconUrl = request.FaviconUrl;
+        entity.LogoMediaId = request.LogoMediaId;
+        entity.FaviconMediaId = request.FaviconMediaId;
+        // Going forward the assets live in Media; clear the legacy URL once a Media asset is chosen.
+        entity.LogoUrl = request.LogoMediaId.HasValue ? null : request.LogoUrl;
+        entity.FaviconUrl = request.FaviconMediaId.HasValue ? null : request.FaviconUrl;
         entity.PrimaryColor = request.PrimaryColor;
         entity.SecondaryColor = request.SecondaryColor;
         entity.AccentColor = request.AccentColor;

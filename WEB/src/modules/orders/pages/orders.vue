@@ -9,14 +9,15 @@
           v-model="search"
           dense
           outlined
-          debounce="300"
-          placeholder="Filter this page by order # or customer"
+          debounce="400"
+          placeholder="Search by order # or customer"
           class="q-mr-sm"
           style="min-width: 260px"
+          @update:model-value="reload"
         >
           <template #prepend><q-icon name="o_search" /></template>
           <template v-if="search" #append>
-            <q-icon name="o_close" class="cursor-pointer" @click="search = ''" />
+            <q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" />
           </template>
         </q-input>
         <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" @click="filtersOpen = true">
@@ -40,7 +41,7 @@
       page-key="admin-orders"
       row-key="id"
       title="All orders"
-      :rows="filteredRows"
+      :rows="rows"
       :columns="columns"
       :loading="loading"
       :pagination="pagination"
@@ -75,7 +76,7 @@
  * (AdminOrdersController supports status + page only); the quick-search box filters
  * the loaded page client-side by order number / customer as a convenience.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
@@ -105,13 +106,6 @@ const statusFilter = ref(null)
 const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 20, rowsNumber: 0 })
 
-const filteredRows = computed(() => {
-  const term = search.value.trim().toLowerCase()
-  if (!term) return rows.value
-  return rows.value.filter((r) =>
-    (r.orderNumber || '').toLowerCase().includes(term) || (r.contactName || '').toLowerCase().includes(term))
-})
-
 async function fetch (props) {
   const p = props?.pagination || pagination.value
   loading.value = true
@@ -119,7 +113,8 @@ async function fetch (props) {
     const result = await orderApi.list({
       page: p.page,
       pageSize: p.rowsPerPage,
-      status: statusFilter.value || undefined
+      status: statusFilter.value || undefined,
+      search: search.value || undefined
     })
     rows.value = Array.isArray(result?.items) ? result.items : []
     pagination.value = { ...p, rowsNumber: result?.totalCount ?? rows.value.length }

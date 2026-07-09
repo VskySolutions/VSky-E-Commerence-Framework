@@ -235,8 +235,8 @@
             <AppFieldLabel label="Images">
               <template #hint>Uploaded to the media library; display order follows the upload sequence</template>
             </AppFieldLabel>
-            <div v-if="pictures.length" class="row q-col-gutter-sm q-mb-sm">
-              <div v-for="pic in pictures" :key="pic.id" class="col-auto">
+            <div v-if="imagePictures.length" class="row q-col-gutter-sm q-mb-sm">
+              <div v-for="pic in imagePictures" :key="pic.id" class="col-auto">
                 <div class="product-pic">
                   <img :src="pic.url" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openLightbox(pic.url)">
                   <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="product-pic__remove" @click="removePicture(pic)" />
@@ -470,9 +470,10 @@ const newVideoUrl = ref('')
 const addingVideo = ref(false)
 const generating = ref(false)
 
-// Videos remain URL-embeds on the legacy ProductImage gallery (embeds aren't file uploads).
-const videoImages = computed(() => (product.value?.images || []).filter((i) => i.mediaType === 'Video'))
-const mediaCount = computed(() => pictures.value.length + videoImages.value.length)
+// Pictures now hold both images and video embeds (unified Media-backed gallery). Split by media type.
+const imagePictures = computed(() => pictures.value.filter((p) => p.mediaType === 'Image'))
+const videoImages = computed(() => pictures.value.filter((p) => p.mediaType === 'Video'))
+const mediaCount = computed(() => pictures.value.length)
 const orgCount = computed(() => categoryIds.value.length + tagNames.value.length)
 
 // SEO: a Google-style search-result preview + character-budget hints. Meta fields fall back to the
@@ -753,12 +754,10 @@ async function addVideo () {
   if (!url) { notify.warning('Enter a video URL'); return }
   addingVideo.value = true
   try {
-    await productApi.addImage(pid.value, {
-      productVariantId: null, mediaType: 'Video', url, thumbnailUrl: null, altText: null, displayOrder: 0
-    })
+    await productApi.addVideo(pid.value, { url, altText: null })
     notify.success('Video added')
     newVideoUrl.value = ''
-    await load()
+    await loadPictures()
   } catch (err) {
     notify.error(getApiErrorMessage(err))
   } finally {
@@ -769,9 +768,9 @@ async function addVideo () {
 async function removeImage (img) {
   if (!(await deleteConfirmation('this media entry'))) return
   try {
-    await productApi.deleteImage(img.id)
+    await productApi.removePicture(img.id)
     notify.success('Media deleted')
-    await load()
+    await loadPictures()
   } catch (err) {
     notify.error(getApiErrorMessage(err))
   }

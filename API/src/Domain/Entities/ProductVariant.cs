@@ -32,7 +32,6 @@ public class ProductVariant : AuditableEntity, ISoftDeletable
 
     /// <summary>The attribute-value combination that defines this variant.</summary>
     public ICollection<ProductVariantAttributeValue> AttributeValues { get; set; } = new List<ProductVariantAttributeValue>();
-    public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
     public ICollection<TierPrice> TierPrices { get; set; } = new List<TierPrice>();
     public ICollection<InventoryLevel> InventoryLevels { get; set; } = new List<InventoryLevel>();
 }

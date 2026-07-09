@@ -3,6 +3,7 @@ using VSky.API.Authorization;
 using VSky.Application.Common.Authorization;
 using VSky.Application.Common.Models;
 using VSky.Application.Features.ShippingMethods;
+using VSky.Domain.Enums;
 
 namespace VSky.API.Controllers;
 
@@ -11,11 +12,12 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Shipping)]
 public class AdminShippingMethodsController : ApiControllerBase
 {
-    /// <summary>List shipping methods (paged), optionally filtered by name.</summary>
+    /// <summary>List shipping methods (paged), optionally filtered by name, calculation type and/or enabled state.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<ShippingMethodDto>>> List(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
-        => Ok(await Mediator.Send(new ListShippingMethodsQuery(page, pageSize, search)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] ShippingMethodType? methodType = null, [FromQuery] bool? isEnabled = null)
+        => Ok(await Mediator.Send(new ListShippingMethodsQuery(page, pageSize, search, methodType, isEnabled)));
 
     /// <summary>Get a single shipping method by id.</summary>
     [HttpGet("{id:guid}")]

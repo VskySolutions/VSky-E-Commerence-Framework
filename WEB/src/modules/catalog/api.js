@@ -60,12 +60,9 @@ export const productApi = {
     return api.put(`/api/admin/products/${id}/tier-prices`, { productVariantId, tiers }).then(unwrap)
   },
 
-  // Media
-  addImage (id, payload) {
-    return api.post(`/api/admin/products/${id}/images`, payload).then(unwrap)
-  },
-  deleteImage (imageId) {
-    return api.delete(`/api/admin/products/images/${imageId}`).then(unwrap)
+  // Video embeds are Media-backed pictures too (added by URL); images use the picture endpoints below.
+  addVideo (id, payload) {
+    return api.post(`/api/admin/products/${id}/videos`, payload).then(unwrap)
   },
 
   // Media-library-backed pictures (WO-123): list / assign / remove product pictures.
@@ -127,6 +124,17 @@ export const categoryApi = {
   },
   remove (id) {
     return api.delete(`/api/admin/categories/${id}`).then(unwrap)
+  },
+
+  // Media-library-backed pictures (mirrors productApi): list / assign / remove category pictures.
+  listPictures (id) {
+    return api.get(`/api/admin/categories/${id}/pictures`).then(unwrap)
+  },
+  assignPicture (id, payload) {
+    return api.post(`/api/admin/categories/${id}/pictures`, payload).then(unwrap)
+  },
+  removePicture (pictureId) {
+    return api.delete(`/api/admin/categories/pictures/${pictureId}`).then(unwrap)
   }
 }
 

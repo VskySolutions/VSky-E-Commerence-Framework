@@ -185,7 +185,7 @@
     </q-page-container>
 
     <!-- ===== Footer ===== -->
-    <q-footer class="sf-footer">
+    <div class="sf-footer">
       <div class="sf-container">
         <div class="row q-col-gutter-xl q-pb-lg">
           <!-- Brand + social -->
@@ -250,7 +250,7 @@
           </div>
         </div>
       </div>
-    </q-footer>
+    </div>
   </q-layout>
 </template>
 

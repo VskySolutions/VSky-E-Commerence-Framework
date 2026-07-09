@@ -4,9 +4,19 @@
       <template #actions>
         <q-input v-model="search" dense outlined debounce="400" placeholder="Search name or email" style="min-width: 240px" @update:model-value="reload">
           <template #prepend><q-icon name="o_search" /></template>
+          <template v-if="search" #append><q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" /></template>
         </q-input>
+        <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" class="q-ml-sm" @click="filtersOpen = true">
+          <q-badge v-if="activeFilterCount" color="red" floating>{{ activeFilterCount }}</q-badge>
+        </q-btn>
       </template>
     </AppListHeader>
+
+    <AppFilterDrawer v-model="filtersOpen" title="Filter customers" @clear="clearFilters">
+      <AppSelect v-model="verifiedFilter" label="Email verified" :options="verifiedOptions" @update:model-value="reload" />
+      <AppSelect v-model="activeFilter" label="Account status" :options="activeOptions" @update:model-value="reload" />
+      <AppSelect v-model="taxExemptFilter" label="Tax exempt" :options="taxExemptOptions" @update:model-value="reload" />
+    </AppFilterDrawer>
 
     <AppDataTable page-key="admin-customers" row-key="id" title="All customers" :rows="rows" :columns="columns" :loading="loading" :pagination="pagination" show-actions @request="onRequest" @refresh="reload">
       <template #body-cell-name="cell"><q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="view(cell.row)">{{ cell.row.firstName }} {{ cell.row.lastName }}</a></q-td></template>
@@ -47,7 +57,7 @@
 
 <script setup>
 /* Admin customer management (WO-117): list + role assignment + tax exemption. */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
@@ -70,11 +80,42 @@ const columns = [
   { name: 'emailVerified', label: 'Email', field: 'emailVerified', align: 'center' }
 ]
 
+const verifiedOptions = [
+  { label: 'All', value: null },
+  { label: 'Verified', value: true },
+  { label: 'Unverified', value: false }
+]
+const activeOptions = [
+  { label: 'All', value: null },
+  { label: 'Active', value: true },
+  { label: 'Inactive', value: false }
+]
+const taxExemptOptions = [
+  { label: 'All', value: null },
+  { label: 'Tax exempt', value: true },
+  { label: 'Not exempt', value: false }
+]
+
 const rows = ref([])
 const loading = ref(false)
 const search = ref('')
+const verifiedFilter = ref(null)
+const activeFilter = ref(null)
+const taxExemptFilter = ref(null)
+const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 20, rowsNumber: 0 })
 const roleOptions = ref([])
+
+const activeFilterCount = computed(() =>
+  (verifiedFilter.value !== null ? 1 : 0) + (activeFilter.value !== null ? 1 : 0) + (taxExemptFilter.value !== null ? 1 : 0)
+)
+
+function clearFilters () {
+  verifiedFilter.value = null
+  activeFilter.value = null
+  taxExemptFilter.value = null
+  reload()
+}
 
 const dialog = reactive({ open: false, loading: false, saving: false, customer: null, roleIds: [], exemption: { isTaxExempt: false, certificateNumber: '', vatId: '' } })
 
@@ -84,7 +125,14 @@ async function fetch (props) {
   const p = props?.pagination || pagination.value
   loading.value = true
   try {
-    const r = await customerAdminApi.list({ page: p.page, pageSize: p.rowsPerPage, search: search.value || undefined })
+    const r = await customerAdminApi.list({
+      page: p.page,
+      pageSize: p.rowsPerPage,
+      search: search.value || undefined,
+      emailVerified: verifiedFilter.value === null ? undefined : verifiedFilter.value,
+      isActive: activeFilter.value === null ? undefined : activeFilter.value,
+      isTaxExempt: taxExemptFilter.value === null ? undefined : taxExemptFilter.value
+    })
     rows.value = Array.isArray(r?.items) ? r.items : []
     pagination.value = { ...p, rowsNumber: r?.totalCount ?? rows.value.length }
   } catch (e) { rows.value = []; notify.error(getApiErrorMessage(e)) } finally { loading.value = false }

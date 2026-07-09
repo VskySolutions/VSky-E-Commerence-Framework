@@ -44,4 +44,24 @@ public class AdminCategoriesController : ApiControllerBase
         await Mediator.Send(new DeleteCategoryCommand(id));
         return NoContent();
     }
+
+    // ----- Pictures (Media-library backed) -------------------------------------------------------
+
+    /// <summary>List the category's Media-backed pictures (ordered) with resolved public URLs.</summary>
+    [HttpGet("{id:guid}/pictures")]
+    public async Task<ActionResult<List<CategoryPictureDto>>> ListPictures(Guid id)
+        => Ok(await Mediator.Send(new ListCategoryPicturesQuery(id)));
+
+    /// <summary>Assign a committed Media asset to the category as a picture.</summary>
+    [HttpPost("{id:guid}/pictures")]
+    public async Task<ActionResult<CategoryPictureDto>> AssignPicture(Guid id, [FromBody] AssignCategoryPictureCommand command)
+        => Ok(await Mediator.Send(command with { CategoryId = id }));
+
+    /// <summary>Remove a category picture (the underlying Media asset is left intact).</summary>
+    [HttpDelete("pictures/{pictureId:guid}")]
+    public async Task<IActionResult> RemovePicture(Guid pictureId)
+    {
+        await Mediator.Send(new RemoveCategoryPictureCommand(pictureId));
+        return NoContent();
+    }
 }

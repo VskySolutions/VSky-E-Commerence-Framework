@@ -7,6 +7,7 @@
  */
 import AppFieldLabel from 'components/common/AppFieldLabel.vue'
 import AppTextField from 'components/common/AppTextField.vue'
+import AppPasswordField from 'components/common/AppPasswordField.vue'
 import AppSelect from 'components/common/AppSelect.vue'
 import AppDateField from 'components/common/AppDateField.vue'
 import AppListHeader from 'components/common/AppListHeader.vue'
@@ -28,6 +29,7 @@ import ConfirmDialog from 'components/common/ConfirmDialog.vue'
 const globalComponents = {
   AppFieldLabel,
   AppTextField,
+  AppPasswordField,
   AppSelect,
   AppDateField,
   AppListHeader,

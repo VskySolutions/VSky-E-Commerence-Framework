@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Validation;
 using VSky.Application.Features.Authentication;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
@@ -27,7 +28,7 @@ public class CompleteSetupCommandValidator : AbstractValidator<CompleteSetupComm
     public CompleteSetupCommandValidator()
     {
         RuleFor(x => x.AdminEmail).NotEmpty().EmailAddress().MaximumLength(256);
-        RuleFor(x => x.AdminPassword).NotEmpty().MinimumLength(8).MaximumLength(128);
+        RuleFor(x => x.AdminPassword).Password();
         RuleFor(x => x.AdminFullName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.BrandName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.BaseCurrencyCode).NotEmpty().Length(3);

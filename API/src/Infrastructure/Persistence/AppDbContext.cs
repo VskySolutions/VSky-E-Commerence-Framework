@@ -67,8 +67,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<ProductAttributeValue> ProductAttributeValues => Set<ProductAttributeValue>();
     public DbSet<SpecificationAttribute> SpecificationAttributes => Set<SpecificationAttribute>();
     public DbSet<SpecificationAttributeOption> SpecificationAttributeOptions => Set<SpecificationAttributeOption>();
-    public DbSet<ProductImage> ProductImages => Set<ProductImage>();
     public DbSet<ProductPicture> ProductPictures => Set<ProductPicture>();
+    public DbSet<CategoryPicture> CategoryPictures => Set<CategoryPicture>();
     public DbSet<TierPrice> TierPrices => Set<TierPrice>();
     public DbSet<ProductRelationship> ProductRelationships => Set<ProductRelationship>();
     public DbSet<ProductTag> ProductTags => Set<ProductTag>();

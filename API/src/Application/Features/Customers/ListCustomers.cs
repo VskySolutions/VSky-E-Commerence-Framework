@@ -18,9 +18,14 @@ public class CustomerListItemDto
     public DateTime CreatedOnUtc { get; set; }
 }
 
-/// <summary>Lists customers (newest first), optionally filtered by name or email (WO-117).</summary>
-public record ListCustomersQuery(int Page = 1, int PageSize = 20, string? Search = null)
-    : IRequest<PaginatedList<CustomerListItemDto>>;
+/// <summary>Lists customers (newest first), optionally filtered by name/email search, email-verified, account-active and/or tax-exempt state (WO-117).</summary>
+public record ListCustomersQuery(
+    int Page = 1,
+    int PageSize = 20,
+    string? Search = null,
+    bool? EmailVerified = null,
+    bool? IsActive = null,
+    bool? IsTaxExempt = null) : IRequest<PaginatedList<CustomerListItemDto>>;
 
 public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, PaginatedList<CustomerListItemDto>>
 {
@@ -30,7 +35,12 @@ public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, Pag
 
     public async Task<PaginatedList<CustomerListItemDto>> Handle(ListCustomersQuery request, CancellationToken cancellationToken)
     {
-        var query = _db.Customers.AsNoTracking().Include(c => c.User).AsQueryable();
+        // Only genuine customers: exclude any account that carries admin/staff RBAC roles.
+        // A customer is a User with a Customer profile and zero UserRole assignments; admins
+        // also get a Customer profile at creation, so they must be filtered out here.
+        var query = _db.Customers.AsNoTracking().Include(c => c.User)
+            .Where(c => c.User != null && !c.User.UserRoles.Any())
+            .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
@@ -40,6 +50,15 @@ public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, Pag
                 || c.LastName.Contains(term)
                 || (c.User != null && c.User.Email.Contains(term)));
         }
+
+        if (request.EmailVerified.HasValue)
+            query = query.Where(c => c.User != null && c.User.EmailVerified == request.EmailVerified.Value);
+
+        if (request.IsActive.HasValue)
+            query = query.Where(c => c.User != null && c.User.IsActive == request.IsActive.Value);
+
+        if (request.IsTaxExempt.HasValue)
+            query = query.Where(c => c.IsTaxExempt == request.IsTaxExempt.Value);
 
         var ordered = query.OrderByDescending(c => c.CreatedOnUtc);
         var page = await PaginatedList<Customer>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);

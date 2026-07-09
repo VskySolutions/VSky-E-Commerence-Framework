@@ -513,6 +513,29 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("Categories", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CategoryPicture", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("CategoryId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("MediaId");
+
+                    b.HasIndex("CategoryId", "DisplayOrder");
+
+                    b.ToTable("CategoryPictures", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.CategoryRoleRestriction", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1403,6 +1426,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<bool>("IsEnabled")
                         .HasColumnType("bit");
 
+                    b.Property<Guid?>("LogoMediaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("LogoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -1435,6 +1461,8 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("LogoMediaId");
 
                     b.HasIndex("Slug")
                         .IsUnique()
@@ -1535,6 +1563,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTime>("UpdatedOnUtc")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Url")
+                        .HasMaxLength(2048)
+                        .HasColumnType("nvarchar(2048)");
 
                     b.Property<int?>("Width")
                         .HasColumnType("int");
@@ -2216,57 +2248,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("ProductDownloads", (string)null);
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.ProductImage", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AltText")
-                        .HasMaxLength(400)
-                        .HasColumnType("nvarchar(400)");
-
-                    b.Property<Guid?>("CreatedById")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("DisplayOrder")
-                        .HasColumnType("int");
-
-                    b.Property<int>("MediaType")
-                        .HasColumnType("int");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ProductVariantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ThumbnailUrl")
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<Guid?>("UpdatedById")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("UpdatedOnUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("Url")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ProductId");
-
-                    b.HasIndex("ProductVariantId");
-
-                    b.ToTable("ProductImages", (string)null);
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.ProductPicture", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2281,9 +2262,14 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("ProductId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("ProductVariantId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("MediaId");
+
+                    b.HasIndex("ProductVariantId");
 
                     b.HasIndex("ProductId", "DisplayOrder");
 
@@ -3649,6 +3635,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(255)
                         .HasColumnType("nvarchar(255)");
 
+                    b.Property<Guid?>("FaviconMediaId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("FaviconUrl")
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
@@ -3659,6 +3648,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("LayoutOptionsJson")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<Guid?>("LogoMediaId")
+                        .HasColumnType("uniqueidentifier");
 
                     b.Property<string>("LogoUrl")
                         .HasMaxLength(500)
@@ -3690,6 +3682,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasColumnType("datetime2");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("FaviconMediaId");
+
+                    b.HasIndex("LogoMediaId");
 
                     b.ToTable("TenantBrandings", (string)null);
                 });
@@ -4117,6 +4113,25 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Parent");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.CategoryPicture", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Category", "Category")
+                        .WithMany()
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("VSky.Domain.Entities.Media", "Media")
+                        .WithMany()
+                        .HasForeignKey("MediaId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Media");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.CategoryRoleRestriction", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
@@ -4269,6 +4284,16 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Store");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.Manufacturer", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Media", "LogoMedia")
+                        .WithMany()
+                        .HasForeignKey("LogoMediaId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("LogoMedia");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.Order", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Store", "AssignedStore")
@@ -4397,24 +4422,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Product");
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.ProductImage", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.Product", "Product")
-                        .WithMany("Images")
-                        .HasForeignKey("ProductId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("VSky.Domain.Entities.ProductVariant", "ProductVariant")
-                        .WithMany("Images")
-                        .HasForeignKey("ProductVariantId")
-                        .OnDelete(DeleteBehavior.NoAction);
-
-                    b.Navigation("Product");
-
-                    b.Navigation("ProductVariant");
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.ProductPicture", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Media", "Media")
@@ -4429,9 +4436,16 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("VSky.Domain.Entities.ProductVariant", "ProductVariant")
+                        .WithMany()
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.Navigation("Media");
 
                     b.Navigation("Product");
+
+                    b.Navigation("ProductVariant");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ProductRelationship", b =>
@@ -4658,6 +4672,23 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.TenantBranding", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.Media", "FaviconMedia")
+                        .WithMany()
+                        .HasForeignKey("FaviconMediaId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.HasOne("VSky.Domain.Entities.Media", "LogoMedia")
+                        .WithMany()
+                        .HasForeignKey("LogoMediaId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("FaviconMedia");
+
+                    b.Navigation("LogoMedia");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.TierPrice", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Product", "Product")
@@ -4810,8 +4841,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Navigation("GroupedMembers");
 
-                    b.Navigation("Images");
-
                     b.Navigation("InventoryLevels");
 
                     b.Navigation("Pictures");
@@ -4844,8 +4873,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ProductVariant", b =>
                 {
                     b.Navigation("AttributeValues");
-
-                    b.Navigation("Images");
 
                     b.Navigation("InventoryLevels");
 

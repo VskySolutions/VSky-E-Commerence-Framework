@@ -10,6 +10,13 @@ export default [
     component: () => import('modules/widget/pages/index.vue')
   },
   {
+    // Create: the same detail page in "create mode" (must precede the :id route).
+    path: 'widgets/new',
+    name: 'widget-new',
+    meta: { title: 'New widget' },
+    component: () => import('modules/widget/pages/detail.vue')
+  },
+  {
     path: 'widgets/:id',
     name: 'widget-detail',
     meta: { title: 'Widget' },

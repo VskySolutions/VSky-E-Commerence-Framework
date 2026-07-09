@@ -7,6 +7,12 @@ public class BrandingDto
 {
     public string BrandName { get; set; } = string.Empty;
     public string? Domain { get; set; }
+
+    /// <summary>Central Media asset ids for the logo/favicon (preferred going forward; null for un-migrated records).</summary>
+    public Guid? LogoMediaId { get; set; }
+    public Guid? FaviconMediaId { get; set; }
+
+    /// <summary>Resolved logo/favicon URLs: the Media asset's URL when present, else the legacy fallback column.</summary>
     public string? LogoUrl { get; set; }
     public string? FaviconUrl { get; set; }
     public string? PrimaryColor { get; set; }
@@ -23,8 +29,10 @@ public class BrandingDto
     {
         BrandName = b.BrandName,
         Domain = b.Domain,
-        LogoUrl = b.LogoUrl,
-        FaviconUrl = b.FaviconUrl,
+        LogoMediaId = b.LogoMediaId,
+        FaviconMediaId = b.FaviconMediaId,
+        LogoUrl = b.LogoMedia?.Url ?? b.LogoUrl,
+        FaviconUrl = b.FaviconMedia?.Url ?? b.FaviconUrl,
         PrimaryColor = b.PrimaryColor,
         SecondaryColor = b.SecondaryColor,
         AccentColor = b.AccentColor,

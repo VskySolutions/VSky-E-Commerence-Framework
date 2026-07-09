@@ -31,11 +31,11 @@ public class StorefrontProductSummaryDto
         ShortDescription = p.ShortDescription,
         Price = p.Price,
         ManufacturerId = p.ManufacturerId,
-        PrimaryImageUrl = p.Images
-            .Where(i => i.ProductVariantId == null)
-            .OrderBy(i => i.MediaType == ProductMediaType.Image ? 0 : 1)
+        PrimaryImageUrl = p.Pictures
+            .Where(i => i.ProductVariantId == null && i.Media != null)
+            .OrderBy(i => i.Media!.MediaType == MediaType.Image ? 0 : 1)
             .ThenBy(i => i.DisplayOrder)
-            .Select(i => i.MediaType == ProductMediaType.Image ? i.Url : (i.ThumbnailUrl ?? i.Url))
+            .Select(i => i.Media!.Url)
             .FirstOrDefault(),
     };
 }
@@ -58,18 +58,16 @@ public class StorefrontCategoryNodeDto
 public class StorefrontImageDto
 {
     public string Url { get; set; } = string.Empty;
-    public string? ThumbnailUrl { get; set; }
     public string? AltText { get; set; }
-    public ProductMediaType MediaType { get; set; }
+    public MediaType MediaType { get; set; }
     public int DisplayOrder { get; set; }
     public Guid? ProductVariantId { get; set; }
 
-    public static StorefrontImageDto From(ProductImage i) => new()
+    public static StorefrontImageDto From(ProductPicture i) => new()
     {
-        Url = i.Url,
-        ThumbnailUrl = i.ThumbnailUrl,
-        AltText = i.AltText,
-        MediaType = i.MediaType,
+        Url = i.Media?.Url ?? string.Empty,
+        AltText = i.Media?.AltText,
+        MediaType = i.Media?.MediaType ?? MediaType.Image,
         DisplayOrder = i.DisplayOrder,
         ProductVariantId = i.ProductVariantId,
     };
@@ -161,7 +159,8 @@ public class StorefrontProductDetailDto
             .OrderBy(v => v.DisplayOrder)
             .Select(StorefrontVariantDto.From)
             .ToList(),
-        Images = p.Images
+        Images = p.Pictures
+            .Where(i => i.Media != null)
             .OrderBy(i => i.DisplayOrder)
             .Select(StorefrontImageDto.From)
             .ToList(),

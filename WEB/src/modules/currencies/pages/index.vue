@@ -72,7 +72,7 @@
       <template #body="props">
         <q-tr :props="props" :class="{ 'currency-row--disabled': !props.row.isEnabled }">
           <q-td key="currencyCode" :props="props">
-            <span class="text-weight-medium">{{ props.row.currencyCode }}</span>
+            <a class="text-primary cursor-pointer text-weight-medium" @click="onManage(props.row)">{{ props.row.currencyCode }}</a>
             <q-badge v-if="props.row.isBaseCurrency" color="primary" class="q-ml-sm" label="Base" />
             <q-badge v-if="props.row.isRateLocked && !props.row.isBaseCurrency" outline color="grey-7" class="q-ml-sm" label="Rate locked" />
           </q-td>
@@ -96,7 +96,7 @@
             >
               <q-tooltip>{{ props.row.isBaseCurrency ? 'Base rate is fixed at 1' : 'Update rate' }}</q-tooltip>
             </q-btn>
-            <q-btn flat round dense icon="o_edit" :disable="!canWrite" @click="onEdit(props.row)">
+            <q-btn flat round dense icon="o_edit" :disable="!canWrite" @click="onManage(props.row)">
               <q-tooltip>Edit</q-tooltip>
             </q-btn>
             <q-btn
@@ -114,14 +114,6 @@
     <q-banner v-if="!canWrite" class="bg-grey-2 rounded-borders q-mt-md text-grey-8">
       You have read-only access to currencies.
     </q-banner>
-
-    <CurrencyFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="savingCurrency"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
 
     <RateUpdateDialog
       v-model="rateDialogOpen"
@@ -156,17 +148,18 @@
  * - Auto-refresh toggle + interval + source URL (AC-TEN-006.4).
  */
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { currenciesApi } from 'modules/currencies/api'
 import { getApiErrorMessage } from 'services/api'
 import { useAuthStore } from 'stores/auth'
 import { useNotify } from 'composables/useNotify'
 import { usePermissions, Permissions } from 'composables/usePermissions'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import CurrencyFormDrawer from 'modules/currencies/components/CurrencyFormDrawer.vue'
 import RateUpdateDialog from 'modules/currencies/components/RateUpdateDialog.vue'
 import BaseCurrencyDialog from 'modules/currencies/components/BaseCurrencyDialog.vue'
 import AutoRefreshCard from 'modules/currencies/components/AutoRefreshCard.vue'
 
+const router = useRouter()
 const auth = useAuthStore()
 const notify = useNotify()
 const { has } = usePermissions()
@@ -190,10 +183,6 @@ const rows = ref([])
 const baseCurrency = ref(null)
 const autoRefreshConfig = ref(null)
 const loading = ref(false)
-
-const drawerOpen = ref(false)
-const editing = ref(null)
-const savingCurrency = ref(false)
 
 const rateDialogOpen = ref(false)
 const rateTarget = ref(null)
@@ -252,44 +241,8 @@ async function load () {
   }
 }
 
-function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
-
-function onEdit (row) {
-  editing.value = { ...row }
-  drawerOpen.value = true
-}
-
-async function onSubmit (payload) {
-  savingCurrency.value = true
-  try {
-    if (editing.value && editing.value.currencyCode) {
-      await currenciesApi.update(editing.value.currencyCode, {
-        symbol: payload.symbol,
-        exchangeRate: payload.exchangeRate,
-        isEnabled: payload.isEnabled,
-        isRateLocked: payload.isRateLocked
-      })
-      notify.success(`${editing.value.currencyCode} updated`)
-    } else {
-      await currenciesApi.create({
-        currencyCode: payload.currencyCode,
-        symbol: payload.symbol,
-        exchangeRate: payload.exchangeRate,
-        isEnabled: payload.isEnabled
-      })
-      notify.success(`${payload.currencyCode} added`)
-    }
-    drawerOpen.value = false
-    await Promise.all([loadCurrencies(), loadBase()])
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    savingCurrency.value = false
-  }
-}
+function onAdd () { router.push({ name: 'currency-new' }) }
+function onManage (row) { router.push({ name: 'currency-detail', params: { id: row.currencyCode } }) }
 
 async function onDelete (row) {
   if (row.isBaseCurrency) return

@@ -15,6 +15,7 @@ public class MediaConfiguration : IEntityTypeConfiguration<Media>
         b.Property(x => x.OriginalFileName).IsRequired().HasMaxLength(400);
         b.Property(x => x.SeoFileName).IsRequired().HasMaxLength(400);
         b.Property(x => x.AssetKey).IsRequired().HasMaxLength(1024);
+        b.Property(x => x.Url).HasMaxLength(2048);
         b.Property(x => x.MediaType).HasConversion<int>();
         b.Property(x => x.MimeType).IsRequired().HasMaxLength(200);
         b.Property(x => x.AltText).HasMaxLength(500);

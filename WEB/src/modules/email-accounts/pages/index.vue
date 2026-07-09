@@ -58,6 +58,10 @@
           no-data-label="No SMTP accounts configured yet."
           @request="onSmtpRequest"
         >
+          <template #body-cell-displayName="cell">
+            <q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="onManageSmtp(cell.row)">{{ cell.row.displayName }}</a></q-td>
+          </template>
+
           <template #body-cell-category="cell">
             <q-td :props="cell">
               <q-badge v-if="cell.row.category" :color="categoryColor(cell.row.category)" :label="cell.row.category" />
@@ -80,7 +84,7 @@
             <q-btn flat round dense icon="o_send" @click="onTestSend(row)">
               <q-tooltip>Test send</q-tooltip>
             </q-btn>
-            <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onEditSmtp(row)">
+            <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManageSmtp(row)">
               <q-tooltip>Edit</q-tooltip>
             </q-btn>
             <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDeleteSmtp(row)">
@@ -104,15 +108,6 @@
         />
       </q-tab-panel>
     </q-tab-panels>
-
-    <!-- SMTP create / edit drawer -->
-    <SmtpAccountFormDrawer
-      v-model="smtpDrawerOpen"
-      :item="editingSmtp"
-      :saving="smtpSaving"
-      @submit="onSubmitSmtp"
-      @cancel="smtpDrawerOpen = false"
-    />
 
     <!-- SMTP test-send dialog -->
     <q-dialog v-model="testDialogOpen">
@@ -214,6 +209,7 @@
  * presentational and emit events.
  */
 import { ref, reactive, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { format, parseISO, isValid } from 'date-fns'
 import useVuelidate from '@vuelidate/core'
 import { required, email, phone } from 'validators'
@@ -223,9 +219,9 @@ import { useNotify } from 'composables/useNotify'
 import { usePermissions } from 'composables/usePermissions'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
 import { useAuthStore } from 'stores/auth'
-import SmtpAccountFormDrawer from 'modules/email-accounts/components/SmtpAccountFormDrawer.vue'
 import TwilioForm from 'modules/email-accounts/components/TwilioForm.vue'
 
+const router = useRouter()
 const notify = useNotify()
 const auth = useAuthStore()
 const { has } = usePermissions()
@@ -262,10 +258,7 @@ const smtpColumns = [
 
 const smtpRows = ref([])
 const smtpLoading = ref(false)
-const smtpSaving = ref(false)
 const togglingId = ref(null)
-const smtpDrawerOpen = ref(false)
-const editingSmtp = ref(null)
 // No rowsNumber -> AppDataTable paginates + sorts the full list client-side.
 const smtpPagination = ref({ page: 1, rowsPerPage: 10, sortBy: 'displayName', descending: false })
 
@@ -292,35 +285,8 @@ async function loadSmtp () {
   }
 }
 
-function onAddSmtp () {
-  editingSmtp.value = null
-  smtpDrawerOpen.value = true
-}
-
-function onEditSmtp (row) {
-  editingSmtp.value = { ...row }
-  smtpDrawerOpen.value = true
-}
-
-async function onSubmitSmtp (payload) {
-  const editingId = editingSmtp.value && editingSmtp.value.id
-  smtpSaving.value = true
-  try {
-    if (editingId) {
-      await smtpAccountApi.update(editingId, payload)
-      notify.success('SMTP account updated')
-    } else {
-      await smtpAccountApi.create(payload)
-      notify.success('SMTP account created')
-    }
-    smtpDrawerOpen.value = false
-    loadSmtp()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    smtpSaving.value = false
-  }
-}
+function onAddSmtp () { router.push({ name: 'smtp-account-new' }) }
+function onManageSmtp (row) { router.push({ name: 'smtp-account-detail', params: { id: row.id } }) }
 
 async function onToggleEnabled (row, value) {
   togglingId.value = row.id

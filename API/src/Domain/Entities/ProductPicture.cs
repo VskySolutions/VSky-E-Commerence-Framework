@@ -12,6 +12,10 @@ public class ProductPicture : BaseEntity
     public Guid ProductId { get; set; }
     public Product? Product { get; set; }
 
+    /// <summary>Optional variant this media belongs to (AC-CAT-002.5); null = product-level.</summary>
+    public Guid? ProductVariantId { get; set; }
+    public ProductVariant? ProductVariant { get; set; }
+
     public Guid MediaId { get; set; }
     public Media? Media { get; set; }
 

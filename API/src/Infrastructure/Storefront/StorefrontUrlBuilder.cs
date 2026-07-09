@@ -21,4 +21,6 @@ public class StorefrontUrlBuilder : IStorefrontUrlBuilder
     public string EmailVerificationUrl(string token) => $"{_baseUrl}/shop/verify-email?token={token}";
 
     public string PasswordResetUrl(string token) => $"{_baseUrl}/shop/reset-password?token={token}";
+
+    public string AdminPasswordResetUrl(string token) => $"{_baseUrl}/auth/reset-password?token={token}";
 }

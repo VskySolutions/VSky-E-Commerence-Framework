@@ -4,28 +4,62 @@
       title="Promotions"
       :breadcrumbs="[{ label: 'Home', icon: 'o_home', to: '/dashboard' }, { label: 'Promotions' }]"
       :show-add="false"
+      show-back
+      @back="router.push('/dashboard')"
     />
-    <q-tabs v-model="tab" dense no-caps align="left" active-color="primary" indicator-color="primary" class="text-grey-7 q-mb-md" @update:model-value="onTab">
-      <q-tab name="discounts" label="Discounts" icon="o_local_offer" />
-      <q-tab name="coupons" label="Coupon Codes" icon="o_confirmation_number" />
-    </q-tabs>
-    <q-tab-panels v-model="tab" animated class="bg-transparent">
-      <q-tab-panel name="discounts" class="q-pa-none"><DiscountsPanel /></q-tab-panel>
-      <q-tab-panel name="coupons" class="q-pa-none"><CouponsPanel /></q-tab-panel>
-    </q-tab-panels>
+    <div class="row items-center q-col-gutter-md q-mb-md">
+      <div class="col-12 col-md-6">
+        <q-tabs v-model="tab" dense no-caps align="left" active-color="primary" indicator-color="primary" class="text-grey-7" @update:model-value="onTab">
+          <q-tab name="discounts" label="Discounts" icon="o_local_offer" />
+          <q-tab name="coupons" label="Coupon Codes" icon="o_confirmation_number" />
+        </q-tabs>
+      </div>
+      <div class="col-12 col-md-6">
+        <div class="row items-center justify-end q-gutter-sm">
+          <q-input v-model="search" dense outlined debounce="400" :placeholder="searchPlaceholder" style="min-width: 220px">
+            <template #prepend><q-icon name="o_search" /></template>
+            <template v-if="search" #append><q-icon name="o_close" class="cursor-pointer" @click="search = ''" /></template>
+          </q-input>
+          <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" @click="panelRef?.openFilters()">
+            <q-badge v-if="filterCount" color="red" floating>{{ filterCount }}</q-badge>
+          </q-btn>
+          <q-btn v-if="canWrite" color="primary" unelevated no-caps icon="o_add" :label="addLabel" @click="panelRef?.onAdd()" />
+        </div>
+      </div>
+    </div>
+
+    <component :is="activeComponent" ref="panelRef" :search="search" @filter-count="filterCount = $event" />
   </q-page>
 </template>
 
 <script setup>
-/* Promotions admin (WO-115): Discounts + Coupon Codes sub-tabs. */
-import { ref } from 'vue'
+/* Promotions admin (WO-115): Discounts + Coupon Codes sub-tabs, with a shared toolbar next to the
+ * tabs driving the active panel (dynamic component). */
+import { ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { usePermissions } from 'composables/usePermissions'
 import AppListHeader from 'components/common/AppListHeader.vue'
 import DiscountsPanel from 'modules/pricing/components/DiscountsPanel.vue'
 import CouponsPanel from 'modules/pricing/components/CouponsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
+const { has } = usePermissions()
+const canWrite = computed(() => has('Catalog.Write'))
+
 const tab = ref(route.query.tab === 'coupons' ? 'coupons' : 'discounts')
-function onTab (value) { router.replace({ query: { ...route.query, tab: value } }) }
+const search = ref('')
+const filterCount = ref(0)
+const panelRef = ref(null)
+
+const isCoupons = computed(() => tab.value === 'coupons')
+const activeComponent = computed(() => (isCoupons.value ? CouponsPanel : DiscountsPanel))
+const searchPlaceholder = computed(() => (isCoupons.value ? 'Search codes' : 'Search discounts'))
+const addLabel = computed(() => (isCoupons.value ? 'New coupon' : 'New discount'))
+
+function onTab (value) {
+  search.value = ''
+  filterCount.value = 0
+  router.replace({ query: { ...route.query, tab: value } })
+}
 </script>

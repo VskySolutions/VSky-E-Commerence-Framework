@@ -13,9 +13,8 @@ internal static class ProductQueries
     public static IQueryable<Product> WithFullGraph(this IQueryable<Product> query) =>
         query
             .Include(p => p.Variants).ThenInclude(v => v.AttributeValues)
-            .Include(p => p.Variants).ThenInclude(v => v.Images)
             .Include(p => p.Variants).ThenInclude(v => v.TierPrices)
-            .Include(p => p.Images)
+            .Include(p => p.Pictures).ThenInclude(pic => pic.Media)
             .Include(p => p.TierPrices)
             .Include(p => p.ProductCategories)
             .Include(p => p.Tags).ThenInclude(t => t.ProductTag)

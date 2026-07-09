@@ -25,13 +25,13 @@ public class GetProductDetailQueryHandler : IRequestHandler<GetProductDetailQuer
     {
         var key = request.IdOrSlug?.Trim() ?? string.Empty;
 
-        // Product- and variant-level images both carry ProductId, so p.Images loads the full gallery.
+        // Product- and variant-level pictures both carry ProductId, so p.Pictures loads the full gallery.
         var query = _db.Products
             .AsNoTracking()
             .AsSplitQuery()
             .Where(p => p.IsPublished)
             .Include(p => p.Variants).ThenInclude(v => v.AttributeValues)
-            .Include(p => p.Images)
+            .Include(p => p.Pictures).ThenInclude(pic => pic.Media)
             .Include(p => p.SpecificationValues)
             .Include(p => p.Tags).ThenInclude(t => t.ProductTag)
             .Include(p => p.Relationships);

@@ -1,102 +1,141 @@
 <template>
   <q-page class="app-page">
     <AppDetailHeader
-      :title="widget?.name || 'Widget'"
-      :subtitle="widget?.slug"
-      :status="widget?.status"
-      :status-color="widget?.isActive ? 'positive' : 'grey'"
-      @back="router.back()"
+      :title="isCreate ? 'New widget' : (entity?.name || 'Widget')"
+      :breadcrumbs="[
+        { label: 'Home', icon: 'o_home', to: '/dashboard' },
+        { label: 'Widgets', to: { name: 'widgets' } },
+        { label: isCreate ? 'New widget' : (entity?.name || 'Widget') }
+      ]"
+      :status="!isCreate && entity ? (form.isActive ? 'Active' : 'Inactive') : ''"
+      :status-color="form.isActive ? 'positive' : 'grey'"
+      show-back
+      @back="router.push({ name: 'widgets' })"
     >
       <template #actions>
-        <q-btn unelevated color="primary" icon="o_edit" label="Edit" no-caps @click="editOpen = true" />
+        <q-chip
+          v-if="saveStatus"
+          :icon="saveStatus.icon"
+          :color="saveStatus.chip"
+          :text-color="saveStatus.text"
+          square
+          dense
+          class="q-mr-sm text-caption"
+        >
+          <q-spinner v-if="saveStatus.spin" size="14px" class="q-mr-xs" />
+          {{ saveStatus.label }}
+        </q-chip>
       </template>
     </AppDetailHeader>
 
     <q-inner-loading :showing="loading" color="primary" />
 
-    <q-card v-if="widget" flat bordered>
-      <q-list>
-        <q-item>
-          <q-item-section><q-item-label caption>Name</q-item-label>{{ widget.name }}</q-item-section>
-        </q-item>
-        <q-separator />
-        <q-item>
-          <q-item-section><q-item-label caption>Slug</q-item-label>{{ widget.slug || '—' }}</q-item-section>
-        </q-item>
-        <q-separator />
-        <q-item>
-          <q-item-section><q-item-label caption>Description</q-item-label>{{ widget.description || '—' }}</q-item-section>
-        </q-item>
-        <q-separator />
-        <q-item>
-          <q-item-section>
-            <q-item-label caption>Status</q-item-label>
-            <div>
-              <q-badge :color="widget.isActive ? 'positive' : 'grey'" :label="widget.status || '—'" />
-            </div>
-          </q-item-section>
-        </q-item>
-      </q-list>
-    </q-card>
-
-    <q-banner v-else-if="!loading" class="bg-grey-2 rounded-borders">
+    <q-banner v-if="!loading && !isCreate && !entity" class="bg-grey-2 rounded-borders">
       Widget not found.
     </q-banner>
 
-    <WidgetFormDrawer
-      v-model="editOpen"
-      :item="widget"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="editOpen = false"
-    />
+    <template v-if="isCreate || entity">
+      <div v-if="!isCreate" class="row items-center text-caption text-grey-7 q-mb-sm q-px-xs">
+        <q-icon name="o_cloud_sync" size="16px" class="q-mr-xs" />
+        Changes are saved automatically as you edit — no need to press save.
+      </div>
+
+      <q-card flat bordered class="app-section">
+        <q-tabs
+          v-model="tab"
+          align="left"
+          active-color="primary"
+          indicator-color="primary"
+          class="text-grey-7 app-detail-tabs"
+          no-caps
+          inline-label
+        >
+          <q-tab name="general" icon="o_widgets" label="General" />
+        </q-tabs>
+
+        <q-separator />
+
+        <q-tab-panels v-model="tab" animated keep-alive>
+          <q-tab-panel name="general" class="q-gutter-y-sm">
+            <AppTextField v-model="form.name" label="Name" required :v="v$.name" placeholder="Widget name" />
+            <AppTextField v-model="form.slug" label="Slug" :v="v$.slug" hint="Auto-filled from the name until you edit it" />
+            <AppRichText v-model="form.description" label="Description" placeholder="Describe this widget…" />
+            <div class="row q-col-gutter-sm items-center">
+              <div class="col-12 col-md-4">
+                <AppSelect v-model="form.status" label="Status" :options="statusOptions" />
+              </div>
+              <div class="col-auto q-mt-md">
+                <q-toggle v-model="form.isActive" label="Active" color="primary" />
+              </div>
+            </div>
+          </q-tab-panel>
+        </q-tab-panels>
+
+        <template v-if="isCreate">
+          <q-separator />
+          <q-card-actions class="q-pa-md">
+            <div class="text-caption text-grey-7">Create the widget — changes auto-save from then on.</div>
+            <q-space />
+            <q-btn unelevated color="primary" no-caps icon="o_check" label="Create widget" :loading="creating" @click="create" />
+          </q-card-actions>
+        </template>
+      </q-card>
+    </template>
   </q-page>
 </template>
 
 <script setup>
 /*
- * Widget detail page (WO-94 Step 12).
+ * Widget create + manage page (feature-module template; full-page auto-save via useDetailForm).
  */
-import { ref, onMounted } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
-import { widgetApi, getApiErrorMessage } from 'services/api'
-import { useNotify } from 'composables/useNotify'
-import WidgetFormDrawer from 'modules/widget/components/WidgetFormDrawer.vue'
+import { ref } from 'vue'
+import { useRouter } from 'vue-router'
+import { widgetApi } from 'services/api'
+import { useDetailForm } from 'composables/useDetailForm'
+import { required, maxLength } from 'validators'
+import AppDetailHeader from 'components/common/AppDetailHeader.vue'
+import AppTextField from 'components/common/AppTextField.vue'
+import AppSelect from 'components/common/AppSelect.vue'
+import AppRichText from 'components/common/AppRichText.vue'
 
-const route = useRoute()
 const router = useRouter()
-const notify = useNotify()
+const tab = ref('general')
 
-const widget = ref(null)
-const loading = ref(false)
-const editOpen = ref(false)
-const saving = ref(false)
+const statusOptions = [
+  { label: 'Draft', value: 'draft' },
+  { label: 'Published', value: 'published' },
+  { label: 'Archived', value: 'archived' }
+]
 
-async function load () {
-  loading.value = true
-  try {
-    widget.value = await widgetApi.get(route.params.id)
-  } catch (err) {
-    widget.value = null
-    notify.warning('Unable to load widget: ' + getApiErrorMessage(err))
-  } finally {
-    loading.value = false
+function buildPayload (f) {
+  return {
+    name: f.name,
+    slug: f.slug || null,
+    description: f.description || null,
+    status: f.status,
+    isActive: f.isActive
   }
 }
 
-async function onSubmit (payload) {
-  saving.value = true
-  try {
-    await widgetApi.update(route.params.id, payload)
-    notify.success('Widget updated')
-    editOpen.value = false
-    load()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    saving.value = false
+const {
+  form, v$, entity, loading, creating, isCreate, saveStatus, create
+} = useDetailForm({
+  createRouteName: 'widget-new',
+  detailRouteName: 'widget-detail',
+  entityLabel: 'widget',
+  deriveSlug: true,
+  api: widgetApi,
+  buildPayload,
+  empty: { name: '', slug: '', description: '', status: 'draft', isActive: true },
+  rules: {
+    name: { required, maxLength: maxLength(120) },
+    slug: { maxLength: maxLength(120) }
   }
-}
-
-onMounted(load)
+})
 </script>
+
+<style scoped lang="scss">
+.app-detail-tabs {
+  :deep(.q-tab) { min-height: 44px; }
+}
+</style>

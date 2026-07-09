@@ -11,11 +11,12 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Catalog)]
 public class AdminSpecificationAttributesController : ApiControllerBase
 {
-    /// <summary>List specification attributes (paged), optionally filtered by name.</summary>
+    /// <summary>List specification attributes (paged), optionally filtered by name and/or filterable state.</summary>
     [HttpGet]
     public async Task<ActionResult<PaginatedList<SpecificationAttributeDto>>> List(
-        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null)
-        => Ok(await Mediator.Send(new ListSpecificationAttributesQuery(page, pageSize, search)));
+        [FromQuery] int page = 1, [FromQuery] int pageSize = 20, [FromQuery] string? search = null,
+        [FromQuery] bool? isFilterable = null)
+        => Ok(await Mediator.Send(new ListSpecificationAttributesQuery(page, pageSize, search, isFilterable)));
 
     /// <summary>Get a single specification attribute (including its options) by id.</summary>
     [HttpGet("{id:guid}")]

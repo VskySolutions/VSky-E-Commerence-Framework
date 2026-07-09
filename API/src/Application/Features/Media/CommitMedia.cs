@@ -67,6 +67,7 @@ public class CommitMediaCommandHandler : IRequestHandler<CommitMediaCommand, Med
             OriginalFileName = entry.OriginalFileName,
             SeoFileName = seo,
             AssetKey = reference.AssetKey,
+            Url = reference.PublicUrl,
             MediaType = entry.MediaType,
             MimeType = entry.MimeType,
             FileSizeBytes = entry.FileSizeBytes,

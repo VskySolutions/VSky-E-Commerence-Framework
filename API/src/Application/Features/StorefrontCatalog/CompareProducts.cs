@@ -32,7 +32,7 @@ public class CompareProductsQueryHandler : IRequestHandler<CompareProductsQuery,
             .AsSplitQuery()
             .Published()
             .Where(p => orderedIds.Contains(p.Id))
-            .Include(p => p.Images.Where(i => i.ProductVariantId == null))
+            .Include(p => p.Pictures.Where(i => i.ProductVariantId == null)).ThenInclude(pic => pic.Media)
             .Include(p => p.SpecificationValues)
                 .ThenInclude(sv => sv.SpecificationAttributeOption)
                 .ThenInclude(o => o!.SpecificationAttribute)

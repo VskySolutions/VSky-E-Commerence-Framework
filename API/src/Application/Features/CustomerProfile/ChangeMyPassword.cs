@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Validation;
 
 namespace VSky.Application.Features.CustomerProfile;
 
@@ -16,7 +17,7 @@ public class ChangeMyPasswordCommandValidator : AbstractValidator<ChangeMyPasswo
     public ChangeMyPasswordCommandValidator()
     {
         RuleFor(x => x.CurrentPassword).NotEmpty();
-        RuleFor(x => x.NewPassword).NotEmpty().MinimumLength(8);
+        RuleFor(x => x.NewPassword).Password();
     }
 }
 

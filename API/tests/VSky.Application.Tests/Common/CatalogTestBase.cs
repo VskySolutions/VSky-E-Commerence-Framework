@@ -185,21 +185,40 @@ END";
         return option.Id;
     }
 
-    /// <summary>Seeds a gallery entry for a product (or a variant when <paramref name="variantId"/> is set).</summary>
-    protected Guid SeedImage(Guid productId, Guid? variantId = null, string url = "https://cdn/img.png", int displayOrder = 0)
+    /// <summary>Seeds a Media asset (image by default); returns the media id.</summary>
+    protected Guid SeedMedia(string url = "https://cdn/img.png", MediaType mediaType = MediaType.Image, string? altText = null)
     {
         using var db = NewContext();
-        var image = new ProductImage
+        var media = new Media
+        {
+            OriginalFileName = "img.png",
+            SeoFileName = "img-" + Guid.NewGuid().ToString("n"),
+            AssetKey = url,
+            Url = url,
+            MediaType = mediaType,
+            MimeType = mediaType == MediaType.Video ? "text/html" : "image/png",
+            AltText = altText,
+        };
+        db.Media.Add(media);
+        db.SaveChanges();
+        return media.Id;
+    }
+
+    /// <summary>Seeds a Media-backed picture for a product (or a variant when <paramref name="variantId"/> is set); returns the picture id.</summary>
+    protected Guid SeedPicture(Guid productId, Guid? variantId = null, string url = "https://cdn/img.png", int displayOrder = 0, MediaType mediaType = MediaType.Image)
+    {
+        var mediaId = SeedMedia(url, mediaType);
+        using var db = NewContext();
+        var picture = new ProductPicture
         {
             ProductId = productId,
             ProductVariantId = variantId,
-            MediaType = ProductMediaType.Image,
-            Url = url,
+            MediaId = mediaId,
             DisplayOrder = displayOrder,
         };
-        db.ProductImages.Add(image);
+        db.ProductPictures.Add(picture);
         db.SaveChanges();
-        return image.Id;
+        return picture.Id;
     }
 
     public void Dispose()

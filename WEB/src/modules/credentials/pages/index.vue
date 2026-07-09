@@ -24,6 +24,10 @@
       no-data-label="No credentials configured yet."
       @request="onRequest"
     >
+      <template #body-cell-serviceType="cell">
+        <q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.serviceType }}</a></q-td>
+      </template>
+
       <template #body-cell-maskedValue="cell">
         <q-td :props="cell">
           <span v-if="cell.row.maskedValue" class="cred-value">{{ cell.row.maskedValue }}</span>
@@ -59,7 +63,7 @@
         >
           <q-tooltip>Test connection</q-tooltip>
         </q-btn>
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onEdit(row)">
+        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
@@ -67,14 +71,6 @@
         </q-btn>
       </template>
     </AppDataTable>
-
-    <CredentialFormDrawer
-      v-model="drawerOpen"
-      :item="editing"
-      :saving="saving"
-      @submit="onSubmit"
-      @cancel="drawerOpen = false"
-    />
   </q-page>
 </template>
 
@@ -86,14 +82,15 @@
  * by the API — the table shows only the masked (last-four) value.
  */
 import { ref, computed, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { format, parseISO, isValid } from 'date-fns'
 import { credentialApi } from 'modules/credentials/api'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { usePermissions, Permissions } from 'composables/usePermissions'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'
-import CredentialFormDrawer from 'modules/credentials/components/CredentialFormDrawer.vue'
 
+const router = useRouter()
 const notify = useNotify()
 const { has } = usePermissions()
 
@@ -109,10 +106,7 @@ const columns = [
 
 const rows = ref([])
 const loading = ref(false)
-const saving = ref(false)
 const testing = ref(null)
-const drawerOpen = ref(false)
-const editing = ref(null)
 // No rowsNumber -> AppDataTable/q-table paginate + sort the full list client-side.
 const pagination = ref({ page: 1, rowsPerPage: 10, sortBy: 'serviceType', descending: false })
 
@@ -139,33 +133,8 @@ async function load () {
   }
 }
 
-function onAdd () {
-  editing.value = null
-  drawerOpen.value = true
-}
-
-function onEdit (row) {
-  editing.value = { ...row }
-  drawerOpen.value = true
-}
-
-async function onSubmit (payload) {
-  const wasEdit = !!editing.value
-  saving.value = true
-  try {
-    await credentialApi.upsert(payload.serviceType, {
-      value: payload.value,
-      description: payload.description
-    })
-    notify.success(wasEdit ? 'Credential updated' : 'Credential created')
-    drawerOpen.value = false
-    load()
-  } catch (err) {
-    notify.error(getApiErrorMessage(err))
-  } finally {
-    saving.value = false
-  }
-}
+function onAdd () { router.push({ name: 'credential-new' }) }
+function onManage (row) { router.push({ name: 'credential-detail', params: { id: row.serviceType } }) }
 
 async function onTest (row) {
   testing.value = row.serviceType

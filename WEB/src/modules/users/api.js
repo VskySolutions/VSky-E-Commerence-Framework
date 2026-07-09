@@ -35,6 +35,14 @@ export const userApi = {
   // Role options for the user's role selector (the roles list endpoint returns all).
   roles () {
     return api.get('/api/admin/roles').then(unwrap)
+  },
+  // PUT /api/admin/users/{id}/password — admin overwrites the user's password directly.
+  setPassword (id, newPassword) {
+    return api.put(`/api/admin/users/${id}/password`, { newPassword }).then(unwrap)
+  },
+  // POST /api/admin/users/{id}/send-password-reset — email the user a reset link.
+  sendPasswordReset (id) {
+    return api.post(`/api/admin/users/${id}/send-password-reset`).then(unwrap)
   }
 }
 

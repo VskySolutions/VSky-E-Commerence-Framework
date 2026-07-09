@@ -61,8 +61,7 @@ public class Product : AuditableEntity, ISoftDeletable
 
     // Navigation collections.
     public ICollection<ProductVariant> Variants { get; set; } = new List<ProductVariant>();
-    public ICollection<ProductImage> Images { get; set; } = new List<ProductImage>();
-    /// <summary>Media-library-backed pictures (WO-123): the centralized image assignment (REQ-CAT-012).</summary>
+    /// <summary>Media-library-backed pictures (WO-123): the unified image + video assignment (REQ-CAT-012).</summary>
     public ICollection<ProductPicture> Pictures { get; set; } = new List<ProductPicture>();
     public ICollection<TierPrice> TierPrices { get; set; } = new List<TierPrice>();
     public ICollection<ProductCategory> ProductCategories { get; set; } = new List<ProductCategory>();
