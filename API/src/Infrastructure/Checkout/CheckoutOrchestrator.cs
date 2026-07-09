@@ -333,10 +333,21 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         ShippingRateOption? selected;
         if (forPlacement)
         {
-            // The buyer's chosen method must still be on offer.
-            selected = shippingOptions.FirstOrDefault(o => o.MethodId == shippingMethodId)
-                ?? throw new ConflictException(
-                    $"The selected shipping method '{shippingMethodId}' is no longer available. Please choose another option.");
+            if (string.IsNullOrWhiteSpace(shippingMethodId))
+            {
+                // No method chosen — valid only when the store offers no shipping for this order
+                // (the storefront enables Place order directly in that case).
+                if (shippingOptions.Any())
+                    throw new ConflictException("Please choose a shipping method.");
+                selected = null;
+            }
+            else
+            {
+                // The buyer's chosen method must still be on offer.
+                selected = shippingOptions.FirstOrDefault(o => o.MethodId == shippingMethodId)
+                    ?? throw new ConflictException(
+                        $"The selected shipping method '{shippingMethodId}' is no longer available. Please choose another option.");
+            }
         }
         else
         {
@@ -502,10 +513,25 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 .FirstOrDefaultAsync(c => c.UserId == userId, ct)
                 ?? throw new ForbiddenAccessException("The current user does not have a customer profile.");
 
-            return await _db.Carts
+            var customerCart = await _db.Carts
                 .Include(c => c.Items)
-                .FirstOrDefaultAsync(c => c.CustomerId == customer.Id && !c.IsCheckedOut, ct)
-                ?? throw new NotFoundException("No active cart exists for the current user.");
+                .FirstOrDefaultAsync(c => c.CustomerId == customer.Id && !c.IsCheckedOut, ct);
+            if (customerCart is not null)
+                return customerCart;
+
+            // Storefront carts are guest/session-based (built with anonymous cart calls). A logged-in
+            // buyer checking out with that session cart resolves it here; the order is still linked to the
+            // customer at placement (CustomerId is set from the authenticated user).
+            if (!string.IsNullOrWhiteSpace(sessionId))
+            {
+                var authSessionCart = await _db.Carts
+                    .Include(c => c.Items)
+                    .FirstOrDefaultAsync(c => c.SessionId == sessionId.Trim() && c.CustomerId == null && !c.IsCheckedOut, ct);
+                if (authSessionCart is not null)
+                    return authSessionCart;
+            }
+
+            throw new NotFoundException("No active cart exists for the current user.");
         }
 
         if (string.IsNullOrWhiteSpace(sessionId))

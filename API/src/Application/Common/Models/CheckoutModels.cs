@@ -66,7 +66,7 @@ public record PlaceCheckoutRequest(
     Guid? CartId,
     string? SessionId,
     CheckoutAddress ShipTo,
-    string SelectedShippingMethodId,
+    string? SelectedShippingMethodId,
     PaymentMethodType PaymentMethod,
     string? PaymentToken,
     string? CouponCode,

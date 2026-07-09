@@ -132,15 +132,19 @@ export const wishlistApi = {
 const CHECKOUT = '/api/checkout'
 
 export const checkoutApi = {
+  // Uses `customerApi` so a logged-in shopper's bearer token flows through — the backend then treats
+  // the buyer as authenticated (bypassing the store's guest-ordering gate and linking the order to the
+  // customer). For a guest no token is sent, so it behaves exactly like the anonymous instance.
+
   // Read-only price preview for a delivery address. Returns CheckoutQuote
   // (subtotal, discounts, shippingOptions, tax, total, isRoutable, guestOrderingAllowed).
   quote (payload) {
-    return anonApi.post(CHECKOUT + '/quote', payload).then(unwrap)
+    return customerApi.post(CHECKOUT + '/quote', payload).then(unwrap)
   },
   // Finalize the order + authorize payment. Returns CheckoutResult — a declined
   // payment comes back with success=false and a retryable pending order.
   place (payload) {
-    return anonApi.post(CHECKOUT + '/place', payload).then(unwrap)
+    return customerApi.post(CHECKOUT + '/place', payload).then(unwrap)
   }
 }
 
