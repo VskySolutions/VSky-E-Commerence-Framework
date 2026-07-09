@@ -238,7 +238,7 @@
             <div v-if="imagePictures.length" class="row q-col-gutter-sm q-mb-sm">
               <div v-for="pic in imagePictures" :key="pic.id" class="col-auto">
                 <div class="product-pic">
-                  <img :src="pic.url" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openLightbox(pic.url)">
+                  <img :src="$media(pic.url)" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openLightbox(pic.url)">
                   <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="product-pic__remove" @click="removePicture(pic)" />
                 </div>
               </div>
@@ -288,7 +288,7 @@
 
             <q-dialog v-model="lightboxOpen">
               <q-card flat class="bg-transparent" style="box-shadow: none">
-                <img :src="lightboxUrl" style="max-width: 90vw; max-height: 85vh; border-radius: 6px" alt="Preview">
+                <img :src="$media(lightboxUrl)" style="max-width: 90vw; max-height: 85vh; border-radius: 6px" alt="Preview">
               </q-card>
             </q-dialog>
           </q-tab-panel>

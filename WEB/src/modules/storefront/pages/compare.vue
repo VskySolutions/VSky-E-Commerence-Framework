@@ -33,7 +33,7 @@
             <div class="column items-center q-gutter-xs q-py-sm">
               <q-img
                 v-if="p.primaryImageUrl"
-                :src="p.primaryImageUrl"
+                :src="$media(p.primaryImageUrl)"
                 :alt="p.name"
                 :ratio="1"
                 fit="contain"

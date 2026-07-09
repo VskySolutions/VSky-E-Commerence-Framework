@@ -1,6 +1,10 @@
 <template>
   <q-layout view="hHh lpR fFf" class="storefront-root">
     <q-header>
+      <q-scroll-observer @scroll="onScroll" />
+
+      <!-- Only the top info bar collapses on scroll-down; the main header + mega-menu stay sticky. -->
+      <div class="sf-chrome" :class="{ 'sf-chrome--collapsed': chromeHidden }">
       <!-- ===== Top info bar ===== -->
       <div class="sf-topbar">
         <div class="sf-container row items-center justify-between q-py-xs">
@@ -55,12 +59,13 @@
           </div>
         </div>
       </div>
+      </div>
 
-      <!-- ===== Main header ===== -->
+      <!-- ===== Main header (stays sticky with the mega-menu) ===== -->
       <div class="sf-header">
-        <div class="sf-container row items-center no-wrap q-py-md q-gutter-md">
+        <div class="sf-container row items-center no-wrap q-py-md q-gutter-xs">
           <router-link :to="{ name: 'shop-home' }" class="sf-header__logo" aria-label="Home">
-            <img v-if="branding.logoUrl" :src="branding.logoUrl" :alt="branding.brandName" class="sf-header__logo-img">
+            <img v-if="branding.logoUrl" :src="$media(branding.logoUrl)" :alt="branding.brandName" class="sf-header__logo-img">
             <template v-else>
               <q-icon name="o_storefront" size="26px" />
               <span class="gt-xs">{{ branding.brandName }}</span>
@@ -174,7 +179,7 @@
         </div>
       </div>
 
-      <!-- ===== Mega-menu ===== -->
+      <!-- ===== Mega-menu (stays sticky at top on scroll) ===== -->
       <MegaMenu />
     </q-header>
 
@@ -191,7 +196,7 @@
           <!-- Brand + social -->
           <div class="col-12 col-sm-6 col-md-3">
             <div class="row items-center q-gutter-sm q-mb-md">
-              <img v-if="branding.logoUrl" :src="branding.logoUrl" :alt="branding.brandName" style="max-height: 34px">
+              <img v-if="branding.logoUrl" :src="$media(branding.logoUrl)" :alt="branding.brandName" style="max-height: 34px">
               <template v-else>
                 <q-icon name="o_storefront" size="24px" color="primary" />
                 <span class="sf-heading text-h6 text-weight-bold">{{ branding.brandName }}</span>
@@ -294,6 +299,16 @@ const topCategories = computed(() => categories.value.slice(0, 12))
 
 const cartDrawer = ref(false)
 const catMenu = ref(false)
+
+// Collapse the top info bar on scroll-down (reveal on scroll-up / near top); the main header
+// and mega-menu remain sticky at the top.
+const chromeHidden = ref(false)
+function onScroll (info) {
+  const top = info.position ? info.position.top : 0
+  if (top < 90) chromeHidden.value = false
+  else if (info.direction === 'down') chromeHidden.value = true
+  else if (info.direction === 'up') chromeHidden.value = false
+}
 
 // Static footer "Information" links — no CMS Page Groups API exists yet (WO-110 flag).
 const informationLinks = [

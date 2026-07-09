@@ -9,17 +9,15 @@
       </q-banner>
 
       <template v-if="!notFound">
-        <!-- Breadcrumbs -->
-        <q-breadcrumbs class="text-grey-7 q-mb-sm" active-color="primary" gutter="xs">
-          <q-breadcrumbs-el label="Home" :to="{ name: 'shop-home' }" />
-          <q-breadcrumbs-el :label="category.name || 'Category'" />
-        </q-breadcrumbs>
-
-        <!-- Category header + promo description (REQ-CNT-012.3) -->
-        <div class="q-mb-md">
-          <h1 class="sf-section__title" style="font-size: 26px; padding-bottom: 8px">{{ category.name || 'Category' }}</h1>
-          <div v-if="category.description" class="text-body2 text-grey-7 q-mt-sm">{{ category.description }}</div>
-        </div>
+        <!-- Breadcrumb doubles as the page heading — no separate repeated title (REQ-CNT-012.3) -->
+        <nav class="sf-crumbs" aria-label="Breadcrumb">
+          <router-link class="sf-crumbs__link" :to="{ name: 'shop-home' }">
+            <q-icon name="o_home" size="15px" /> Home
+          </router-link>
+          <q-icon name="o_chevron_right" size="16px" class="sf-crumbs__sep" />
+          <h1 class="sf-crumbs__current">{{ category.name || 'Category' }}</h1>
+        </nav>
+        <div v-if="category.description" class="text-body2 text-grey-7 q-mb-md">{{ category.description }}</div>
 
         <div class="row q-col-gutter-lg">
           <!-- ===== Sidebar ===== -->
@@ -157,7 +155,7 @@
             <div v-else class="q-gutter-md">
               <q-card v-for="p in items" :key="p.id" flat bordered class="row no-wrap sf-list-row">
                 <router-link :to="productTo(p)" class="sf-list-row__media">
-                  <img v-if="productImage(p)" :src="productImage(p)" :alt="p.name">
+                  <img v-if="productImage(p)" :src="$media(productImage(p))" :alt="p.name">
                   <div v-else class="full-height row items-center justify-center bg-grey-2 text-grey-5"><q-icon name="o_image" size="36px" /></div>
                 </router-link>
                 <q-card-section class="col">

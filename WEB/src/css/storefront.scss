@@ -63,6 +63,9 @@
     font-family: var(--sf-font);
     color: var(--sf-heading);
     font-weight: 600;
+    line-height: 1.25;
+    margin-top: 0;
+    margin-bottom: 0.4em;
   }
 }
 
@@ -72,6 +75,19 @@
   margin: 0 auto;
   padding-left: 16px;
   padding-right: 16px;
+}
+
+// ---- Collapsible chrome (top bar + main header) ----
+// Hidden on scroll-down so only the mega-menu stays as the sticky top bar; revealed on scroll-up.
+.sf-chrome {
+  overflow: hidden;
+  max-height: 240px;
+  opacity: 1;
+  transition: max-height 0.3s ease, opacity 0.2s ease;
+}
+.sf-chrome--collapsed {
+  max-height: 0;
+  opacity: 0;
 }
 
 // ---- Top info bar ----
@@ -345,16 +361,76 @@
 }
 
 // ============================================================================
+// Breadcrumb (doubles as the page heading on listing/detail pages)
+// ============================================================================
+.sf-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.sf-crumbs__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--sf-muted);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  transition: color var(--sf-transition);
+}
+.sf-crumbs__link:hover { color: var(--sf-accent); }
+.sf-crumbs__sep {
+  color: var(--sf-border);
+  flex: 0 0 auto;
+}
+// The trailing (current-page) crumb is the visual heading — no separate big title needed.
+.sf-crumbs__current {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--sf-heading);
+  margin: 0;
+}
+.sf-crumbs__current::before {
+  content: '';
+  display: inline-block;
+  width: 4px;
+  height: 18px;
+  border-radius: 2px;
+  background: var(--sf-accent);
+  margin-right: 8px;
+  vertical-align: -3px;
+}
+// A compact non-link current crumb, for pages that keep their own big heading (e.g. product page).
+.sf-crumbs__here {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--sf-heading);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 55vw;
+}
+
+// ============================================================================
 // Section headings (home + listing rails)
 // ============================================================================
-.sf-section { padding: 40px 0; }
-.sf-section__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.sf-section { padding: 22px 0; }
+.sf-section__head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .sf-section__title {
   font-size: 22px;
   font-weight: 700;
+  line-height: 1.2;
+  margin: 0;
   color: var(--sf-heading);
   position: relative;
-  padding-bottom: 10px;
+  padding-bottom: 8px;
 }
 .sf-section__title::after {
   content: '';

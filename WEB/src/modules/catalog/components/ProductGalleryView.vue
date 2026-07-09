@@ -21,13 +21,13 @@
         <q-video
           v-if="img.mediaType === 'Video' || img.mediaType === 1"
           :ratio="16 / 9"
-          :src="img.url"
+          :src="$media(img.url)"
           class="product-gallery__video"
         />
         <!-- Image entry: QImg lazy-loads via IntersectionObserver -->
         <q-img
           v-else
-          :src="img.url"
+          :src="$media(img.url)"
           :alt="img.altText || productName"
           fit="contain"
           loading="lazy"
@@ -55,7 +55,7 @@
         @click="select(img.id)"
       >
         <q-img
-          :src="img.thumbnailUrl || img.url"
+          :src="$media(img.thumbnailUrl || img.url)"
           :alt="img.altText || productName"
           fit="cover"
           loading="lazy"

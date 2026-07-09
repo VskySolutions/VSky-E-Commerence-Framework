@@ -1,7 +1,7 @@
 <template>
   <q-card flat bordered class="app-toolbar q-px-md q-py-sm q-mb-md">
     <div class="row items-center q-gutter-sm">
-      <div class="col">
+      <div class="col flex">
         <q-breadcrumbs
           v-if="breadcrumbs.length"
           class="text-grey-7"
@@ -16,13 +16,14 @@
             :to="crumb.to"
           />
         </q-breadcrumbs>
-        <div v-if="(title && !breadcrumbs.length) || status" class="row items-center q-gutter-sm">
-          <span v-if="title && !breadcrumbs.length" class="app-page-title">{{ title }}</span>
-          <q-badge v-if="status" :color="statusColor" :label="status" class="q-px-sm" />
-        </div>
       </div>
 
       <slot name="actions" />
+
+      <div v-if="(title && !breadcrumbs.length) || status" class="q-ml-sm">
+        <span v-if="title && !breadcrumbs.length" class="app-page-title">{{ title }}</span>
+        <q-badge v-if="status" :color="statusColor" :label="status" class="q-px-sm" />
+      </div>
 
       <slot name="back">
         <q-btn

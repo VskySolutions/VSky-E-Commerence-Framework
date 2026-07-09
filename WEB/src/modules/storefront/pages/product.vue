@@ -11,11 +11,14 @@
       </q-banner>
 
       <template v-if="product">
-        <!-- Breadcrumbs -->
-        <q-breadcrumbs class="text-grey-7 q-mb-md" active-color="primary" gutter="xs">
-          <q-breadcrumbs-el label="Home" :to="{ name: 'shop-home' }" />
-          <q-breadcrumbs-el :label="product.name" />
-        </q-breadcrumbs>
+        <!-- Breadcrumb (the product name is the H1 in the info column, so keep it compact here) -->
+        <nav class="sf-crumbs" aria-label="Breadcrumb">
+          <router-link class="sf-crumbs__link" :to="{ name: 'shop-home' }">
+            <q-icon name="o_home" size="15px" /> Home
+          </router-link>
+          <q-icon name="o_chevron_right" size="16px" class="sf-crumbs__sep" />
+          <span class="sf-crumbs__here">{{ product.name }}</span>
+        </nav>
 
         <div class="row q-col-gutter-xl">
           <!-- Gallery -->
@@ -45,8 +48,13 @@
             </div>
             <div class="text-caption text-grey-6 q-mb-md">Price includes applicable taxes at checkout.</div>
 
-            <q-badge :color="availability.color" :label="availability.label" class="q-py-xs q-px-sm q-mb-md" />
-            <div v-if="restockNote" class="text-caption text-orange-8 q-mb-sm">{{ restockNote }}</div>
+            <div class="row items-center q-gutter-sm q-mb-md">
+              <q-badge :color="availability.color" :label="availability.label" class="q-py-xs q-px-sm" />
+              <span v-if="stockNote" class="text-caption row items-center" :class="stockNote.cls">
+                <q-icon name="o_inventory_2" size="14px" class="q-mr-xs" />{{ stockNote.text }}
+              </span>
+            </div>
+            <div v-if="restockNote" class="text-caption text-orange-9 q-mb-sm">{{ restockNote }}</div>
 
             <div v-if="product.shortDescription" class="text-body1 text-grey-8 q-mb-md">{{ product.shortDescription }}</div>
 
@@ -69,12 +77,12 @@
               </div>
               <button
                 class="sf-btn sf-btn--primary col"
-                :disabled="addingToCart || availability.color === 'grey'"
+                :disabled="addingToCart || needsSelection || availability.color === 'grey'"
                 @click="onAddToCart"
               >
                 <q-icon v-if="!addingToCart" name="o_shopping_cart" size="18px" />
                 <q-spinner v-else size="16px" />
-                Add to Cart
+                {{ needsSelection ? 'Select options' : 'Add to Cart' }}
               </button>
             </div>
 
@@ -268,13 +276,28 @@ const rating = computed(() => {
 })
 const reviewCount = computed(() => product.value?.reviewCount ?? null)
 
+const hasVariants = computed(() => (product.value?.variants || []).length > 0)
+
 const stock = computed(() =>
   selectedVariant.value ? selectedVariant.value.stockQuantity : (product.value?.stockQuantity ?? 0)
 )
+
+// For variant products, availability/stock only make sense once a variant is chosen.
+const needsSelection = computed(() => hasVariants.value && !selectedVariant.value)
+
 const availability = computed(() => {
+  if (needsSelection.value) return { label: 'Select options', color: 'grey-6' }
   if (stock.value > 0) return { label: 'In stock', color: 'positive' }
   if (product.value?.allowBackorder) return { label: 'Available on backorder', color: 'warning' }
   return { label: 'Out of stock', color: 'grey' }
+})
+
+// The available-quantity hint shown next to the badge (once a variant is picked, or for simple products).
+const stockNote = computed(() => {
+  if (needsSelection.value || stock.value <= 0) return null
+  return stock.value <= 5
+    ? { text: `Only ${stock.value} left`, cls: 'text-orange-9' }
+    : { text: `${stock.value} in stock`, cls: 'text-grey-7' }
 })
 const restockNote = computed(() => {
   if (stock.value > 0 || !product.value?.allowBackorder || !product.value?.estimatedRestockDate) return null

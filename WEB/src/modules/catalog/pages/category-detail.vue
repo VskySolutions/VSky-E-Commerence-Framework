@@ -122,7 +122,7 @@
             <div v-if="pictures.length" class="row q-col-gutter-sm q-mb-sm">
               <div v-for="pic in pictures" :key="pic.id" class="col-auto">
                 <div class="detail-pic">
-                  <img :src="pic.url" :alt="pic.altText || (entity && entity.name)" class="detail-pic__img" @click="openLightbox(pic.url)">
+                  <img :src="$media(pic.url)" :alt="pic.altText || (entity && entity.name)" class="detail-pic__img" @click="openLightbox(pic.url)">
                   <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="detail-pic__remove" @click="removePicture(pic)" />
                 </div>
               </div>
@@ -160,7 +160,7 @@
     <q-dialog v-model="lightboxOpen">
       <q-card flat class="detail-lightbox">
         <q-btn round dense icon="o_close" class="detail-lightbox__close" color="white" text-color="dark" v-close-popup />
-        <img :src="lightboxUrl" class="detail-lightbox__img" alt="Preview">
+        <img :src="$media(lightboxUrl)" class="detail-lightbox__img" alt="Preview">
       </q-card>
     </q-dialog>
   </q-page>

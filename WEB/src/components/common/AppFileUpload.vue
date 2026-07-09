@@ -33,7 +33,7 @@
         <div class="app-fileupload__item">
           <img
             v-if="isImage(item)"
-            :src="item.url"
+            :src="$media(item.url)"
             :alt="item.name"
             class="app-fileupload__thumb"
             @click="openLightbox(item)"
@@ -62,7 +62,7 @@
     <q-dialog v-model="lightbox">
       <q-card flat class="app-fileupload__lightbox">
         <q-btn round dense icon="o_close" class="app-fileupload__lightbox-close" color="white" text-color="dark" v-close-popup />
-        <img :src="lightboxUrl" class="app-fileupload__lightbox-img" alt="Preview">
+        <img :src="$media(lightboxUrl)" class="app-fileupload__lightbox-img" alt="Preview">
       </q-card>
     </q-dialog>
   </div>

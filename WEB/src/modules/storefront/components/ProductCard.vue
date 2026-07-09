@@ -8,7 +8,7 @@
     <div class="product-card__media bg-grey-1">
       <q-img
         v-if="image"
-        :src="image"
+        :src="$media(image)"
         :alt="product.name"
         :ratio="1"
         fit="contain"

@@ -6,7 +6,7 @@
       class="q-mr-sm"
       square
     >
-      <img :src="tenant.logoUrl" alt="logo" />
+      <img :src="$media(tenant.logoUrl)" alt="logo" />
     </q-avatar>
     <q-icon
       v-else

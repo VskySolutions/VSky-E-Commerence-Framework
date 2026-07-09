@@ -5,7 +5,7 @@
       <router-link :to="detailTo" :aria-label="product.name">
         <img
           v-if="image"
-          :src="image"
+          :src="$media(image)"
           :alt="product.name"
           class="sf-card__img"
           loading="lazy"
@@ -15,7 +15,7 @@
         </div>
         <img
           v-if="hoverImage"
-          :src="hoverImage"
+          :src="$media(hoverImage)"
           :alt="product.name"
           class="sf-card__img-alt"
           loading="lazy"
@@ -52,7 +52,7 @@
         <span v-if="oldPrice" class="sf-card__price-old">{{ formatPrice(oldPrice) }}</span>
       </div>
 
-      <div v-if="restockNote" class="text-caption text-orange-8">{{ restockNote }}</div>
+      <div v-if="restockNote" class="text-caption text-orange-9">{{ restockNote }}</div>
 
       <div class="sf-card__cart">
         <button class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding" @click.prevent="addToCart">

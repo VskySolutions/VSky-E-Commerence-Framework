@@ -34,7 +34,7 @@
           <q-item v-for="item in items" :key="item.id" class="q-py-md">
             <q-item-section avatar>
               <q-avatar rounded size="56px" color="grey-2" text-color="grey-6">
-                <img v-if="item.imageUrl || item.primaryImageUrl" :src="item.imageUrl || item.primaryImageUrl" :alt="item.productName">
+                <img v-if="item.imageUrl || item.primaryImageUrl" :src="$media(item.imageUrl || item.primaryImageUrl)" :alt="item.productName">
                 <q-icon v-else name="o_image" />
               </q-avatar>
             </q-item-section>

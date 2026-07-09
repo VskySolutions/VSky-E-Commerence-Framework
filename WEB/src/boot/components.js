@@ -21,6 +21,7 @@ import AppViewDrawer from 'components/common/AppViewDrawer.vue'
 import AppRichText from 'components/common/AppRichText.vue'
 import AppFileUpload from 'components/common/AppFileUpload.vue'
 import ConfirmDialog from 'components/common/ConfirmDialog.vue'
+import { mediaUrl } from 'services/api'
 
 // NOTE: AppPhoneInput (libphonenumber-js) and AppAddressFields
 // (country-state-city, ~large city dataset) are intentionally NOT registered
@@ -49,4 +50,7 @@ export default ({ app }) => {
   for (const [name, component] of Object.entries(globalComponents)) {
     app.component(name, component)
   }
+  // Global media-URL resolver: `$media(url)` prefixes domain-less local paths with the API origin
+  // (blob/CDN/absolute URLs pass through). Available in every template.
+  app.config.globalProperties.$media = mediaUrl
 }

@@ -24,6 +24,19 @@ export function qsSerializer (params) {
   return qs.stringify(params, { arrayFormat: 'repeat', skipNulls: true })
 }
 
+// ---- Media URL resolution ---------------------------------------------------
+// Locally-stored files are saved as domain-less relative paths (e.g. "/uploads/x.png"), so an
+// <img src> would resolve them against the SPA origin instead of the API. Prefix those with the
+// API origin (API_BASE_URL). Absolute (http/https or protocol-relative, i.e. blob/CDN), data: and
+// blob: URLs are already complete and returned unchanged. Registered globally as `$media`.
+export function mediaUrl (url) {
+  if (!url || typeof url !== 'string') return url
+  if (/^(https?:)?\/\//i.test(url) || url.startsWith('data:') || url.startsWith('blob:')) return url
+  const base = (process.env.API_BASE_URL || '').replace(/\/$/, '')
+  if (!base) return url
+  return url.startsWith('/') ? base + url : base + '/' + url
+}
+
 // ---- Error normalisation ----------------------------------------------------
 export const ApiErrorCodes = Object.freeze({
   UNKNOWN: 'UNKNOWN',
@@ -214,5 +227,6 @@ export default {
   getApiErrorCode,
   getApiErrorMessage,
   unwrap,
-  envelope
+  envelope,
+  mediaUrl
 }
