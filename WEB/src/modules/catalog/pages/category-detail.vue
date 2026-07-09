@@ -174,6 +174,7 @@ import { categoryApi, mediaApi } from 'modules/catalog/api'
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
 import { useDetailForm } from 'composables/useDetailForm'
+import { deleteConfirmation } from 'dialogs/delete_confirmation'
 import { required, maxLength } from 'validators'
 import AppDetailHeader from 'components/common/AppDetailHeader.vue'
 import AppTextField from 'components/common/AppTextField.vue'
@@ -315,6 +316,7 @@ async function onImageFiles (selection) {
 }
 
 async function removePicture (pic) {
+  if (!(await deleteConfirmation('this image', { title: 'Remove', okLabel: 'Remove', message: 'Are you sure you want to remove this image?' }))) return
   try {
     await categoryApi.removePicture(pic.id)
     pictures.value = pictures.value.filter((p) => p.id !== pic.id)

@@ -49,6 +49,7 @@
 import { ref, reactive, watch } from 'vue'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
+import { deleteConfirmation } from 'dialogs/delete_confirmation'
 import { deliveryZoneApi } from 'modules/stores/api'
 
 const props = defineProps({
@@ -101,6 +102,7 @@ async function add () {
 }
 
 async function remove (zone) {
+  if (!(await deleteConfirmation(zone.name ? `the "${zone.name}" delivery zone` : 'this delivery zone', { title: 'Remove', okLabel: 'Remove' }))) return
   try {
     await deliveryZoneApi.remove(props.store.id, zone.id)
     await load()

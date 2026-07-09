@@ -84,6 +84,7 @@
 import { ref, computed } from 'vue'
 import { api, unwrap, getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
+import { deleteConfirmation } from 'dialogs/delete_confirmation'
 import AppFieldLabel from './AppFieldLabel.vue'
 
 const props = defineProps({
@@ -261,7 +262,8 @@ async function upload (rawFiles) {
   }
 }
 
-function remove (index) {
+async function remove (index) {
+  if (!(await deleteConfirmation('this file', { title: 'Remove', okLabel: 'Remove', message: 'Are you sure you want to remove this file?' }))) return
   errorMessage.value = ''
   if (props.media) {
     emit('update:modelValue', null)

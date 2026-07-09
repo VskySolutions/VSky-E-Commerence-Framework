@@ -745,6 +745,7 @@ async function onImageFiles (selection) {
 }
 
 async function removePicture (pic) {
+  if (!(await deleteConfirmation('this image', { title: 'Remove', okLabel: 'Remove', message: 'Are you sure you want to remove this image?' }))) return
   try {
     await productApi.removePicture(pic.id)
     pictures.value = pictures.value.filter((p) => p.id !== pic.id)

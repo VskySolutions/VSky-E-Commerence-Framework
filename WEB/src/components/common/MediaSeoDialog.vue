@@ -36,12 +36,8 @@
         <!-- SEO / accessibility fields -->
         <div class="col-12 col-md-7">
           <template v-if="editable">
-            <AppTextField v-model="form.altText" label="Alt text">
-              <template #hint>Describes the image for screen readers &amp; SEO</template>
-            </AppTextField>
-            <AppTextField v-model="form.seoFileName" label="SEO file name">
-              <template #hint>Lowercase letters, digits and single hyphens (e.g. red-running-shoe)</template>
-            </AppTextField>
+            <AppTextField v-model="form.altText" label="Alt text" hint="Describes the image for screen readers & SEO" />
+            <AppTextField v-model="form.seoFileName" label="SEO file name" hint="Lowercase letters, digits and single hyphens (e.g. red-running-shoe)" />
             <AppTextField v-model="form.title" label="Title" />
             <AppTextField v-model="form.caption" label="Caption" />
             <AppTextField v-model="form.description" label="Description" type="textarea" autogrow />
@@ -199,7 +195,7 @@ watch(
 
 <style scoped lang="scss">
 .media-seo {
-  width: 760px;
+  width: 60vw;
   max-width: 94vw;
 }
 .media-seo__preview {
