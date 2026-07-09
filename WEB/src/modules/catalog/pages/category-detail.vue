@@ -122,7 +122,7 @@
             <div v-if="pictures.length" class="row q-col-gutter-sm q-mb-sm">
               <div v-for="pic in pictures" :key="pic.id" class="col-auto">
                 <div class="detail-pic">
-                  <img :src="$media(pic.url)" :alt="pic.altText || (entity && entity.name)" class="detail-pic__img" @click="openLightbox(pic.url)">
+                  <img :src="$media(pic.url)" :alt="pic.altText || (entity && entity.name)" class="detail-pic__img" @click="openPicture(pic)">
                   <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="detail-pic__remove" @click="removePicture(pic)" />
                 </div>
               </div>
@@ -157,12 +157,7 @@
       </q-card>
     </template>
 
-    <q-dialog v-model="lightboxOpen">
-      <q-card flat class="detail-lightbox">
-        <q-btn round dense icon="o_close" class="detail-lightbox__close" color="white" text-color="dark" v-close-popup />
-        <img :src="$media(lightboxUrl)" class="detail-lightbox__img" alt="Preview">
-      </q-card>
-    </q-dialog>
+    <MediaSeoDialog v-model="lightboxOpen" :media-id="selectedMediaId" :fallback-url="lightboxUrl" @saved="onPictureSaved" />
   </q-page>
 </template>
 
@@ -272,6 +267,7 @@ const imageFiles = ref(null)
 const uploadingImages = ref(false)
 const lightboxOpen = ref(false)
 const lightboxUrl = ref('')
+const selectedMediaId = ref(null)
 
 async function loadPictures () {
   try {
@@ -279,7 +275,14 @@ async function loadPictures () {
   } catch (err) { pictures.value = [] }
 }
 
-function openLightbox (url) { lightboxUrl.value = url; lightboxOpen.value = true }
+function openPicture (pic) {
+  selectedMediaId.value = pic.mediaId || null
+  lightboxUrl.value = pic.url
+  lightboxOpen.value = true
+}
+async function onPictureSaved () {
+  try { pictures.value = await categoryApi.listPictures(id.value) } catch (e) { /* keep current */ }
+}
 
 async function onImageFiles (selection) {
   const files = Array.isArray(selection) ? selection : (selection ? [selection] : [])

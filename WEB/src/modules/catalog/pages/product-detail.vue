@@ -238,7 +238,7 @@
             <div v-if="imagePictures.length" class="row q-col-gutter-sm q-mb-sm">
               <div v-for="pic in imagePictures" :key="pic.id" class="col-auto">
                 <div class="product-pic">
-                  <img :src="$media(pic.url)" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openLightbox(pic.url)">
+                  <img :src="$media(pic.url)" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openPicture(pic)">
                   <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="product-pic__remove" @click="removePicture(pic)" />
                 </div>
               </div>
@@ -286,11 +286,7 @@
               </template>
             </q-input>
 
-            <q-dialog v-model="lightboxOpen">
-              <q-card flat class="bg-transparent" style="box-shadow: none">
-                <img :src="$media(lightboxUrl)" style="max-width: 90vw; max-height: 85vh; border-radius: 6px" alt="Preview">
-              </q-card>
-            </q-dialog>
+            <MediaSeoDialog v-model="lightboxOpen" :media-id="selectedMediaId" :fallback-url="lightboxUrl" @saved="onPictureSaved" />
           </q-tab-panel>
 
           <!-- ============ SEO ============ -->
@@ -466,6 +462,7 @@ const imageFiles = ref(null)        // q-file selection, processed then cleared
 const uploadingImages = ref(false)
 const lightboxOpen = ref(false)
 const lightboxUrl = ref('')
+const selectedMediaId = ref(null)
 const newVideoUrl = ref('')
 const addingVideo = ref(false)
 const generating = ref(false)
@@ -705,7 +702,15 @@ async function loadPictures () {
   } catch (err) { pictures.value = [] }
 }
 
-function openLightbox (url) { lightboxUrl.value = url; lightboxOpen.value = true }
+function openPicture (pic) {
+  selectedMediaId.value = pic.mediaId || null
+  lightboxUrl.value = pic.url
+  lightboxOpen.value = true
+}
+async function onPictureSaved () {
+  // Refresh so the new alt text / SEO-renamed URL is reflected in the grid.
+  try { pictures.value = await productApi.listPictures(pid.value) } catch (e) { /* keep current */ }
+}
 
 // Each image runs the two-step media flow (prepare → commit) then is assigned as a ProductPicture.
 // Alt text defaults to the product name; the SEO file name comes from the prepare step's suggestion.

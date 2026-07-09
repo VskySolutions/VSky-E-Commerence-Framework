@@ -58,13 +58,13 @@
 
     <div v-if="errorMessage" class="text-negative text-caption q-mt-xs">{{ errorMessage }}</div>
 
-    <!-- Full-width centred image lightbox -->
-    <q-dialog v-model="lightbox">
-      <q-card flat class="app-fileupload__lightbox">
-        <q-btn round dense icon="o_close" class="app-fileupload__lightbox-close" color="white" text-color="dark" v-close-popup />
-        <img :src="$media(lightboxUrl)" class="app-fileupload__lightbox-img" alt="Preview">
-      </q-card>
-    </q-dialog>
+    <!-- Image preview + SEO/metadata editor (editable when the item is a media-library asset) -->
+    <MediaSeoDialog
+      v-model="lightbox"
+      :media-id="media ? (modelValue || null) : null"
+      :fallback-url="lightboxUrl"
+      @saved="onMediaSaved"
+    />
   </div>
 </template>
 
@@ -278,6 +278,11 @@ function remove (index) {
 function openLightbox (item) {
   lightboxUrl.value = item.url
   lightbox.value = true
+}
+
+// A SEO file-name change can alter the resolved public URL — refresh the preview to match.
+function onMediaSaved (dto) {
+  if (props.media && dto && dto.publicUrl) emit('update:previewUrl', dto.publicUrl)
 }
 </script>
 

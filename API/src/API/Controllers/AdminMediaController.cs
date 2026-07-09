@@ -21,6 +21,11 @@ public class AdminMediaController : ApiControllerBase
         [FromQuery] string? search = null, [FromQuery] string? mediaType = null)
         => Ok(await Mediator.Send(new ListMediaQuery(page, pageSize, search, mediaType)));
 
+    /// <summary>Get a single media item (with its resolved public URL) for the SEO/metadata editor.</summary>
+    [HttpGet("{id:guid}")]
+    public async Task<ActionResult<MediaDto>> Get(Guid id)
+        => Ok(await Mediator.Send(new GetMediaQuery(id)));
+
     /// <summary>Step 1 — process the upload in memory and return a draft with suggested SEO metadata (no DB write).</summary>
     [HttpPost("prepare")]
     [RequestSizeLimit(52_428_800)]

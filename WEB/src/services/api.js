@@ -196,6 +196,18 @@ export const authApi = {
   }
 }
 
+// ---- media resource group (SEO/metadata editor) -----------------------------
+export const mediaApi = {
+  // GET /api/admin/media/{id} -> MediaDto (id, seoFileName, altText, title, caption, description, publicUrl, …).
+  get (id) {
+    return api.get(`/api/admin/media/${id}`).then(unwrap)
+  },
+  // PUT /api/admin/media/{id} — update SEO / accessibility metadata (no re-upload).
+  update (id, payload) {
+    return api.put(`/api/admin/media/${id}`, payload).then(unwrap)
+  }
+}
+
 // ---- widget resource group (CRUD template, WO-94 Step 12) -------------------
 export const widgetApi = {
   list (params = {}) {
@@ -223,6 +235,7 @@ export default {
   customerApi,
   authApi,
   widgetApi,
+  mediaApi,
   ApiErrorCodes,
   getApiErrorCode,
   getApiErrorMessage,
