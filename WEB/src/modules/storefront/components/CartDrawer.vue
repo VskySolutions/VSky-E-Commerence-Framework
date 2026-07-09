@@ -10,12 +10,12 @@
   >
     <div class="column full-height">
       <!-- Header -->
-      <div class="row items-center justify-between q-pa-md bg-dark text-white">
+      <div class="row items-center justify-between q-pa-md sf-cart-drawer__head">
         <div class="row items-center q-gutter-sm">
-          <q-icon name="o_shopping_cart" size="22px" />
+          <q-icon name="o_shopping_cart" size="22px" color="primary" />
           <span class="text-weight-bold">My Cart ({{ itemCount }})</span>
         </div>
-        <q-btn flat dense round icon="o_close" color="white" @click="close" />
+        <q-btn flat dense round icon="o_close" color="grey-8" @click="close" />
       </div>
 
       <!-- Items -->
@@ -57,7 +57,7 @@
           <span class="text-grey-7">Subtotal</span>
           <span class="text-h6 text-weight-bold">{{ format(subtotal) }}</span>
         </div>
-        <q-btn class="full-width q-mb-sm" color="dark" no-caps unelevated label="View cart" :to="{ name: 'shop-cart' }" @click="close" />
+        <q-btn class="full-width q-mb-sm" color="primary" outline no-caps label="View cart" :to="{ name: 'shop-cart' }" @click="close" />
         <q-btn class="full-width" color="primary" no-caps unelevated label="Checkout" :to="{ name: 'shop-checkout' }" @click="close" />
       </div>
     </div>
@@ -95,6 +95,10 @@ onMounted(ensureLoaded)
 </script>
 
 <style scoped lang="scss">
+.sf-cart-drawer__head {
+  border-bottom: 1px solid var(--sf-border);
+  background: #fff;
+}
 .sf-cart-drawer__footer {
   border-top: 1px solid var(--sf-border);
   background: #fff;

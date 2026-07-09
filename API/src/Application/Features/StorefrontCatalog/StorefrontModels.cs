@@ -100,6 +100,26 @@ public class StorefrontVariantDto
 }
 
 /// <summary>
+/// A variant-driving product attribute (e.g. "Colour", "Size") with the values actually used by the
+/// product's variants — powers the storefront's grouped option pickers (Dropdown/Button/Swatch).
+/// </summary>
+public class StorefrontAttributeDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public ProductAttributeDisplayType DisplayType { get; set; }
+    public List<StorefrontAttributeValueDto> Values { get; set; } = new();
+}
+
+/// <summary>A single selectable attribute value (e.g. "Red") with an optional swatch colour.</summary>
+public class StorefrontAttributeValueDto
+{
+    public Guid Id { get; set; }
+    public string Value { get; set; } = string.Empty;
+    public string? ColorHex { get; set; }
+}
+
+/// <summary>
 /// Full storefront product detail (AC-CAT-007.2): display fields, variants, product- and variant-level
 /// media, specification option ids, tag names, and the related / cross-sell / up-sell sections.
 /// </summary>
@@ -125,6 +145,10 @@ public class StorefrontProductDetailDto
     public int? DownloadLimit { get; set; }
 
     public List<StorefrontVariantDto> Variants { get; set; } = new();
+
+    /// <summary>The variant-driving attributes (with labels + swatch colours) for the option pickers.</summary>
+    public List<StorefrontAttributeDto> Attributes { get; set; } = new();
+
     public List<StorefrontImageDto> Images { get; set; } = new();
     public List<Guid> SpecificationOptionIds { get; set; } = new();
     public List<string> TagNames { get; set; } = new();
@@ -159,6 +183,7 @@ public class StorefrontProductDetailDto
             .OrderBy(v => v.DisplayOrder)
             .Select(StorefrontVariantDto.From)
             .ToList(),
+        Attributes = BuildAttributes(p),
         Images = p.Pictures
             .Where(i => i.Media != null)
             .OrderBy(i => i.DisplayOrder)
@@ -173,6 +198,55 @@ public class StorefrontProductDetailDto
             .OrderBy(n => n)
             .ToList(),
     };
+
+    /// <summary>
+    /// Groups the attribute values actually used by the product's variants into their parent
+    /// attributes (Colour, Size, …), carrying each attribute's display type and each value's swatch
+    /// colour, so the storefront can render labelled option pickers instead of raw SKUs. Expects
+    /// <c>Variants.AttributeValues.ProductAttributeValue.ProductAttribute</c> to be loaded.
+    /// </summary>
+    private static List<StorefrontAttributeDto> BuildAttributes(Product p)
+    {
+        var values = p.Variants
+            .SelectMany(v => v.AttributeValues)
+            .Select(av => av.ProductAttributeValue)
+            .Where(pav => pav != null && pav.ProductAttribute != null)
+            .Select(pav => pav!)
+            .ToList();
+
+        return values
+            .GroupBy(pav => pav.ProductAttributeId)
+            .Select(g =>
+            {
+                var attr = g.First().ProductAttribute!;
+                return new
+                {
+                    attr.DisplayOrder,
+                    Dto = new StorefrontAttributeDto
+                    {
+                        Id = attr.Id,
+                        Name = attr.Name,
+                        DisplayType = attr.DisplayType,
+                        Values = g
+                            .GroupBy(pav => pav.Id)
+                            .Select(vg => vg.First())
+                            .OrderBy(pav => pav.DisplayOrder)
+                            .ThenBy(pav => pav.Value)
+                            .Select(pav => new StorefrontAttributeValueDto
+                            {
+                                Id = pav.Id,
+                                Value = pav.Value,
+                                ColorHex = pav.ColorHex,
+                            })
+                            .ToList(),
+                    },
+                };
+            })
+            .OrderBy(x => x.DisplayOrder)
+            .ThenBy(x => x.Dto.Name)
+            .Select(x => x.Dto)
+            .ToList();
+    }
 }
 
 /// <summary>A specification attribute present in a product set, with the options actually present (AC-STF-003.1).</summary>

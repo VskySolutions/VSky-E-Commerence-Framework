@@ -78,16 +78,24 @@ function toModel (dto) {
   }
 }
 
-// Apply branding colours onto the Porto tokens (accent drives buttons/badges/hover;
-// primary drives the dark header/footer). No-ops for unset colours (keeps the defaults).
+// Apply branding colours onto the storefront tokens. The chrome (header/topbar/footer) is
+// light/white by design, so brand colour comes through the accent + primary tokens: accent
+// drives links/hover/badges, primary drives the solid CTA buttons. We also map Quasar's
+// --q-primary/secondary/accent so storefront `color="primary"` q-btns follow branding even
+// when the admin tenant store hasn't run. No-ops for unset colours (keeps the defaults).
 function applyTheme (model) {
   const root = document.documentElement
   if (model.accentColor) {
     root.style.setProperty('--sf-accent', model.accentColor)
     root.style.setProperty('--sf-badge-sale', model.accentColor)
+    root.style.setProperty('--q-accent', model.accentColor)
   }
   if (model.primaryColor) {
     root.style.setProperty('--sf-primary', model.primaryColor)
+    root.style.setProperty('--q-primary', model.primaryColor)
+  }
+  if (model.secondaryColor) {
+    root.style.setProperty('--q-secondary', model.secondaryColor)
   }
 }
 

@@ -9,7 +9,7 @@
     swipeable
     arrows
     navigation
-    control-color="white"
+    control-color="primary"
     height="clamp(280px, 42vw, 520px)"
     class="sf-hero"
   >
@@ -27,7 +27,7 @@
           <div v-if="s.subtitle" class="sf-hero__subtitle">{{ s.subtitle }}</div>
           <div class="sf-hero__cta q-gutter-sm q-mt-md">
             <q-btn v-if="s.primaryTo" unelevated color="primary" no-caps :label="s.primaryLabel" :to="s.primaryTo" />
-            <q-btn v-if="s.secondaryTo" outline color="white" no-caps :label="s.secondaryLabel" :to="s.secondaryTo" />
+            <q-btn v-if="s.secondaryTo" outline color="primary" no-caps :label="s.secondaryLabel" :to="s.secondaryTo" />
           </div>
         </div>
       </div>
@@ -54,10 +54,11 @@ const slide = ref(0)
 const { categories, loadCategories } = useCategories()
 const { branding, loadBranding } = useStorefront()
 
+// Soft, settled light gradients — the brand colour comes through the CTAs, not the backdrop.
 const gradients = [
-  'linear-gradient(120deg, #1a1a2e 0%, #2d2d5a 100%)',
-  'linear-gradient(120deg, #2b1a2e 0%, #5a2d4a 100%)',
-  'linear-gradient(120deg, #1a2b2e 0%, #2d5a55 100%)'
+  'linear-gradient(120deg, #f5f6fb 0%, #e8ebf6 100%)',
+  'linear-gradient(120deg, #f8f3f7 0%, #eee2ee 100%)',
+  'linear-gradient(120deg, #eff5f4 0%, #e0efec 100%)'
 ]
 
 const slides = computed(() => {
@@ -96,7 +97,7 @@ onMounted(() => {
 
 <style scoped lang="scss">
 .sf-hero { border-radius: 0; }
-.sf-hero__slide { padding: 0; color: #fff; }
+.sf-hero__slide { padding: 0; color: var(--sf-heading); }
 .sf-hero__content { max-width: 560px; }
 .text-right .sf-hero__content,
 .sf-hero__content.text-right { margin-left: auto; }

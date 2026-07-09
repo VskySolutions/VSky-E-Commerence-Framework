@@ -20,10 +20,12 @@ export function useCategories () {
     try {
       const tree = await storefrontApi.categories()
       categories.value = Array.isArray(tree) ? tree : []
+      // Only cache as loaded on success, so a transient failure retries next time
+      // instead of permanently pinning an empty list for the session.
+      loaded.value = true
     } catch (e) {
       categories.value = []
     } finally {
-      loaded.value = true
       loading.value = false
     }
     return categories.value

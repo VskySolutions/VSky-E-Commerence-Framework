@@ -31,6 +31,7 @@ public class GetProductDetailQueryHandler : IRequestHandler<GetProductDetailQuer
             .AsSplitQuery()
             .Where(p => p.IsPublished)
             .Include(p => p.Variants).ThenInclude(v => v.AttributeValues)
+                .ThenInclude(av => av.ProductAttributeValue).ThenInclude(pav => pav!.ProductAttribute)
             .Include(p => p.Pictures).ThenInclude(pic => pic.Media)
             .Include(p => p.SpecificationValues)
             .Include(p => p.Tags).ThenInclude(t => t.ProductTag)

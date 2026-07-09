@@ -56,6 +56,7 @@
               v-if="product.variants && product.variants.length"
               v-model="variantId"
               :variants="product.variants"
+              :attributes="product.attributes"
               class="q-mb-md"
             />
 

@@ -69,7 +69,7 @@
 
           <!-- Search with category prefix + submit -->
           <div class="sf-search col">
-            <div class="sf-search__cat gt-sm" @click="catMenu = true">
+            <div class="sf-search__cat gt-sm">
               {{ searchCategoryLabel }}
               <q-icon name="o_expand_more" size="16px" class="q-ml-xs" />
               <q-menu v-model="catMenu" fit>
@@ -193,8 +193,8 @@
             <div class="row items-center q-gutter-sm q-mb-md">
               <img v-if="branding.logoUrl" :src="branding.logoUrl" :alt="branding.brandName" style="max-height: 34px">
               <template v-else>
-                <q-icon name="o_storefront" size="24px" color="white" />
-                <span class="text-white text-h6 text-weight-bold">{{ branding.brandName }}</span>
+                <q-icon name="o_storefront" size="24px" color="primary" />
+                <span class="sf-heading text-h6 text-weight-bold">{{ branding.brandName }}</span>
               </template>
             </div>
             <p class="text-body2">{{ branding.tagline }}</p>

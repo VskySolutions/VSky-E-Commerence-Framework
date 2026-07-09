@@ -65,9 +65,9 @@
 
     <!-- Mobile drawer: accordion category tree -->
     <q-drawer v-model="drawer" side="left" overlay bordered :width="290" class="sf-mobile-nav">
-      <div class="row items-center justify-between q-pa-md bg-dark text-white">
+      <div class="row items-center justify-between q-pa-md sf-mobile-nav__head">
         <span class="text-weight-bold">Categories</span>
-        <q-btn flat dense round icon="o_close" color="white" @click="drawer = false" />
+        <q-btn flat dense round icon="o_close" color="grey-8" @click="drawer = false" />
       </div>
       <q-scroll-area style="height: calc(100% - 60px)">
         <q-list>
@@ -149,4 +149,5 @@ onMounted(loadCategories)
 <style scoped lang="scss">
 .sf-megamenu__bar { flex: 1; overflow: hidden; }
 .sf-megamenu__item { display: inline-flex; }
+.sf-mobile-nav__head { border-bottom: 1px solid var(--sf-border); }
 </style>

@@ -11,7 +11,7 @@
   >
     <div class="column no-wrap full-height">
       <!-- Header -->
-      <div class="row items-center q-px-md q-py-sm bg-grey-9 text-white">
+      <div class="row items-center q-px-md q-py-sm bg-primary text-white">
         <div class="text-subtitle1 text-weight-medium col ellipsis">{{ title }}</div>
         <q-btn flat round dense icon="o_close" aria-label="Close" @click="close" />
       </div>
