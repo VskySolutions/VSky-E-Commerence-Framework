@@ -12,6 +12,11 @@ public class Customer : AuditableEntity, ISoftDeletable
     public string FirstName { get; set; } = string.Empty;
     public string LastName { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
+
+    /// <summary>Optional IANA timezone id chosen by the customer; overrides the tenant display zone for
+    /// their own storefront views. Null = follow the tenant default.</summary>
+    public string? PreferredTimeZone { get; set; }
+
     public bool IsTaxExempt { get; set; }
     public string? TaxExemptionCertificate { get; set; }
     public string? VatId { get; set; }

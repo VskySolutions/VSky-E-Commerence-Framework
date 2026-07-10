@@ -18,6 +18,15 @@ public class CustomerAuthController : ApiControllerBase
     public async Task<ActionResult<Guid>> Register([FromBody] RegisterCustomerCommand command)
         => Ok(await Mediator.Send(command));
 
+    /// <summary>
+    /// Express registration from checkout: creates a ready-to-use (email-verified) account from the
+    /// delivery details, emails a generated password, and saves the address — so a guest can sign in
+    /// and finish the order without re-entering anything.
+    /// </summary>
+    [HttpPost("register-at-checkout")]
+    public async Task<ActionResult<RegisterAtCheckoutResult>> RegisterAtCheckout([FromBody] RegisterCustomerAtCheckoutCommand command)
+        => Ok(await Mediator.Send(command));
+
     /// <summary>Verify a customer's email address with the token from the verification email.</summary>
     [HttpPost("verify-email")]
     public async Task<IActionResult> VerifyEmail([FromBody] VerifyEmailCommand command)

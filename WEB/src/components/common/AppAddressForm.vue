@@ -20,8 +20,9 @@
       use-input
       fill-input
       hide-selected
-      clearable
       input-debounce="0"
+      lazy-rules
+      :rules="requiredRules('Country')"
       placeholder="Select a country"
       @filter="filterCountries"
       @update:model-value="onCountry"
@@ -31,15 +32,17 @@
       <div class="col-12 col-sm-6">
         <AppSelect
           label="State / Region"
+          :required="required"
           :model-value="stateModel"
           :options="stateFiltered"
           :disable="disable || !value.countryCode"
           use-input
           fill-input
           hide-selected
-          clearable
           input-debounce="0"
           new-value-mode="add-unique"
+          lazy-rules
+          :rules="requiredRules('State / Region')"
           placeholder="Select or type"
           @filter="filterStates"
           @update:model-value="onState"
@@ -54,7 +57,6 @@
           use-input
           fill-input
           hide-selected
-          clearable
           input-debounce="0"
           new-value-mode="add-unique"
           placeholder="Select or type"
@@ -64,7 +66,7 @@
       </div>
     </div>
 
-    <AppTextField label="Address line 1" :required="required" :disable="disable" :model-value="value.addressLine1" placeholder="House / flat no., building, street" @update:model-value="update('addressLine1', $event)" />
+    <AppTextField label="Address line 1" :required="required" :disable="disable" :model-value="value.addressLine1" placeholder="House / flat no., building, street" lazy-rules :rules="requiredRules('Address line 1')" @update:model-value="update('addressLine1', $event)" />
     <AppTextField label="Address line 2" :disable="disable" :model-value="value.addressLine2" placeholder="Area, colony (optional)" @update:model-value="update('addressLine2', $event)" />
     <AppTextField label="Landmark" :disable="disable" :model-value="value.landmark" placeholder="Nearby landmark, e.g. opposite City Mall (optional)" @update:model-value="update('landmark', $event)" />
 
@@ -76,12 +78,13 @@
           :disable="disable"
           :model-value="value.postalCode"
           :placeholder="postal.example ? `e.g. ${postal.example}` : 'Postal code'"
-          :v="postalV"
+          lazy-rules
+          :rules="postalRules"
           @update:model-value="update('postalCode', $event)"
         />
       </div>
       <div v-if="showPhone" class="col-12 col-sm-6">
-        <AppPhoneInput label="Phone" :disable="disable" :model-value="value.phoneNumber" :default-country="value.countryCode || 'US'" @update:model-value="update('phoneNumber', $event)" />
+        <AppPhoneInput label="Phone" :required="required" :disable="disable" :model-value="value.phoneNumber" :default-country="value.countryCode || 'US'" lazy-rules :rules="requiredRules('Phone number')" @update:model-value="update('phoneNumber', $event)" />
       </div>
     </div>
   </div>
@@ -148,14 +151,18 @@ watch(stateList, (v) => { stateFiltered.value = v }, { immediate: true })
 watch(cityList, (v) => { cityFiltered.value = v }, { immediate: true })
 
 const postal = computed(() => postalMeta(value.value.countryCode))
-// Lightweight inline validation compatible with AppTextField's `v` contract.
-const postalV = computed(() => {
-  const pc = value.value.postalCode
-  if (pc && !postalValid(value.value.countryCode, pc)) {
-    const ex = postal.value.example ? ` (e.g. ${postal.value.example})` : ''
-    return { $error: true, $errors: [{ $message: `Enter a valid ${postal.value.label}${ex}` }], $touch: () => {} }
-  }
-  return null
+
+// Quasar `:rules` so the required address fields (Country, State, Address line 1, Postal) participate in
+// the enclosing QForm's validation and in an explicit formRef.validate() — enforced only when `required`.
+function requiredRules (label) {
+  return props.required ? [(v) => (!!v && String(v).trim().length > 0) || `${label} is required`] : []
+}
+const postalRules = computed(() => {
+  const rules = requiredRules(postal.value.label)
+  // Format check (only when a value is present) using the per-country postal validator.
+  rules.push((v) => !v || postalValid(value.value.countryCode, v) ||
+    `Enter a valid ${postal.value.label}${postal.value.example ? ` (e.g. ${postal.value.example})` : ''}`)
+  return rules
 })
 
 function patch (changes) {

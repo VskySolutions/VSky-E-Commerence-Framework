@@ -1050,10 +1050,25 @@ async function generate () {
 }
 
 async function removeVariant (variant) {
-  if (!(await deleteConfirmation('this variant'))) return
+  // Summarise the inventory that will be deleted along with the variant so the user knows the impact.
+  const levels = invLevels.value.filter((l) => (l.productVariantId || null) === variant.id)
+  const storeCount = levels.length
+  const totalStock = levels.reduce((sum, l) => sum + (Number(l.stockQuantity) || 0), 0)
+  const reserved = levels.reduce((sum, l) => sum + (Number(l.reservedQuantity) || 0), 0)
+
+  let message = `Delete the variant “${variantLabel(variant)}”?`
+  if (storeCount > 0) {
+    message += ` Its per-store inventory will also be permanently deleted — ${totalStock} unit(s) across ${storeCount} store(s)`
+    message += reserved > 0 ? `, including ${reserved} reserved unit(s).` : '.'
+  } else {
+    message += ' It has no inventory recorded.'
+  }
+  message += ' This can’t be undone.'
+
+  if (!(await deleteConfirmation('this variant', { title: 'Delete variant', okLabel: 'Delete', message }))) return
   try {
     await productApi.deleteVariant(variant.id)
-    notify.success('Variant deleted')
+    notify.success('Variant and its inventory deleted')
     await load()
   } catch (err) {
     notify.error(getApiErrorMessage(err))

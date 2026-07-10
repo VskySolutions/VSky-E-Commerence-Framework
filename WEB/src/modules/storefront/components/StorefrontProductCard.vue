@@ -79,6 +79,7 @@ import { useQuasar } from 'quasar'
 import { formatPrice, productImage, productRouteParam } from 'modules/storefront/api'
 import { wishlistApi } from 'modules/storefront/api'
 import { useCart } from 'modules/storefront/composables/useCart'
+import { formatDate } from 'src/utils/datetime'
 import { useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import StarRating from 'modules/storefront/components/StarRating.vue'
@@ -132,7 +133,7 @@ const badges = computed(() => {
 const restockNote = computed(() => {
   if (props.product.stockQuantity > 0) return null
   if (props.product.allowBackorder && props.product.estimatedRestockDate) {
-    return `Backordered — restock ${new Date(props.product.estimatedRestockDate).toLocaleDateString()}`
+    return `Backordered — restock ${formatDate(props.product.estimatedRestockDate)}`
   }
   return null
 })

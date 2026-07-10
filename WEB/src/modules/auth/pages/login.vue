@@ -1,64 +1,42 @@
 <template>
-  <q-card flat bordered class="login-card q-pa-sm">
-    <q-card-section class="text-center q-pb-none">
-      <q-icon name="o_storefront" size="42px" color="primary" />
-      <div class="text-h5 q-mt-sm">{{ tenant.brandName }}</div>
-      <div class="text-subtitle2 text-grey-7">Sign in to continue</div>
-    </q-card-section>
-
-    <q-form @submit.prevent="onSubmit">
-      <q-card-section class="q-gutter-md">
-        <q-input
-          v-model="email"
-          type="email"
-          label="Email"
-          outlined
-          autocomplete="username"
-          :disable="loading"
-          :rules="[(v) => !!v || 'Email is required']"
-        >
-          <template #prepend><q-icon name="o_mail" /></template>
-        </q-input>
-
-        <q-input
-          v-model="password"
-          :type="showPassword ? 'text' : 'password'"
-          label="Password"
-          outlined
-          autocomplete="current-password"
-          :disable="loading"
-          :rules="[(v) => !!v || 'Password is required']"
-        >
-          <template #prepend><q-icon name="o_lock" /></template>
-          <template #append>
-            <q-icon
-              :name="showPassword ? 'o_visibility_off' : 'o_visibility'"
-              class="cursor-pointer"
-              @click="showPassword = !showPassword"
-            />
-          </template>
-        </q-input>
-
-        <div class="row justify-end">
-          <router-link class="text-primary text-caption" :to="{ name: 'forgot-password' }">
-            Forgot password?
-          </router-link>
-        </div>
+  <div class="account-auth-page">
+    <q-card flat bordered class="account-auth-card">
+      <q-card-section class="q-pb-none">
+        <div class="text-h6 text-weight-bold">Sign in</div>
+        <div class="text-grey-7">Sign in to {{ tenant.brandName }} to continue.</div>
       </q-card-section>
 
-      <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
-        <q-btn
-          type="submit"
-          color="primary"
-          class="full-width"
-          label="Login"
-          unelevated
-          size="md"
-          :loading="loading"
-        />
-      </q-card-actions>
-    </q-form>
-  </q-card>
+      <q-form @submit.prevent="onSubmit">
+        <q-card-section class="q-gutter-md">
+          <AppTextField
+            v-model="email"
+            label="Email"
+            type="email"
+            autocomplete="username"
+            :disable="loading"
+            :rules="[(v) => !!v || 'Email is required']"
+          />
+          <AppPasswordField
+            v-model="password"
+            label="Password"
+            autocomplete="current-password"
+            :disable="loading"
+            :rules="[(v) => !!v || 'Password is required']"
+          />
+
+          <div class="row justify-end">
+            <router-link class="text-primary text-caption" :to="{ name: 'forgot-password' }">
+              Forgot password?
+            </router-link>
+          </div>
+        </q-card-section>
+
+        <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
+          <q-btn type="submit" color="primary" no-caps unelevated label="Sign in" :loading="loading" class="full-width" />
+        </q-card-actions>
+      </q-form>
+    </q-card>
+  </div>
 </template>
 
 <script setup>
@@ -75,7 +53,6 @@ import { getApiErrorMessage } from 'services/api'
 
 const email = ref('')
 const password = ref('')
-const showPassword = ref(false)
 const loading = ref(false)
 
 const auth = useAuthStore()
@@ -104,9 +81,17 @@ async function onSubmit () {
 }
 </script>
 
-<style scoped>
-.login-card {
-  width: 380px;
-  max-width: 92vw;
+<style scoped lang="scss">
+.account-auth-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+}
+.account-auth-card {
+  width: 100%;
+  max-width: 440px;
+  border-radius: 12px;
 }
 </style>

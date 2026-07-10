@@ -12,6 +12,7 @@ import { setCssVar } from 'quasar'
 import { api, authApi } from 'services/api'
 import { useAuthStore } from 'stores/auth'
 import { STORAGE_KEYS, getItem, setItem, removeItem } from 'services/storage'
+import { setActiveTimeZone } from 'src/utils/datetime'
 
 function defaultTimeZone () {
   try {
@@ -118,6 +119,11 @@ export const useTenantStore = defineStore('tenant', () => {
       branding.value = { ...DEFAULT_BRANDING }
     }
     applyBranding(branding.value)
+    // Admin follows the tenant display timezone (whole-app standard).
+    if (branding.value.displayTimeZone) {
+      timeZone.value = branding.value.displayTimeZone
+      setActiveTimeZone(branding.value.displayTimeZone)
+    }
     return branding.value
   }
 

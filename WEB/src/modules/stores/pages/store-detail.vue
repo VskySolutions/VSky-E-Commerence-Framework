@@ -52,7 +52,7 @@
         >
           <q-tab name="general" icon="o_store" label="General" />
           <q-tab name="location" icon="o_place" label="Location" :disable="isCreate" />
-          <q-tab name="contact" icon="o_schedule" label="Contact & hours" :disable="isCreate" />
+          <q-tab name="contact" icon="o_schedule" label="Hours" :disable="isCreate" />
           <q-tab name="zones" icon="o_map" label="Delivery zones" :disable="isCreate" />
         </q-tabs>
 
@@ -63,6 +63,35 @@
           <q-tab-panel name="general" class="q-gutter-y-sm">
             <AppTextField v-model="form.name" label="Name" required :v="v$.name" placeholder="e.g. Downtown Store" :disable="!canWrite" />
             <AppTextField v-model="form.orderCapacityLimit" label="Order capacity limit" type="number" placeholder="Max concurrent orders (blank = unlimited)" :disable="!canWrite" />
+            <div class="row q-col-gutter-sm">
+              <div class="col-12 col-sm-6"><AppTextField v-model="form.contactEmail" label="Contact email" type="email" required :v="v$.contactEmail" :disable="!canWrite" /></div>
+              <div class="col-12 col-sm-6"><AppTextField v-model="form.contactPhone" label="Contact phone" :disable="!canWrite" /></div>
+            </div>
+            <AppTextField
+              v-model="form.notificationEmail"
+              label="Order notification email(s)"
+              required
+              :v="v$.notificationEmail"
+              placeholder="orders@store.com, ops@store.com"
+              hint="Where new-order alerts are sent. Separate multiple addresses with commas."
+              :disable="!canWrite"
+            />
+            <div class="row q-col-gutter-sm">
+              <div class="col-12 col-sm-6">
+                <AppSelect
+                  v-model="form.timeZone"
+                  label="Time zone"
+                  required
+                  :options="tzOptions"
+                  use-input
+                  hide-selected
+                  fill-input
+                  input-debounce="0"
+                  :disable="!canWrite"
+                  @filter="filterTz"
+                />
+              </div>
+            </div>
             <q-separator class="q-my-sm" />
             <div class="column q-gutter-xs">
               <q-toggle v-model="form.isEnabled" label="Enabled" color="primary" :disable="!canWrite" />
@@ -73,22 +102,17 @@
 
           <!-- ============ LOCATION ============ -->
           <q-tab-panel name="location" class="q-gutter-y-sm">
-            <AppAddressForm v-model="storeAddress" :show-names="false" :show-company="false" :show-phone="false" :disable="!canWrite" />
+            <AppAddressForm v-model="storeAddress" required :show-names="false" :show-company="false" :show-phone="false" :disable="!canWrite" />
             <div class="row q-col-gutter-sm">
-              <div class="col-6"><AppTextField v-model="form.latitude" label="Latitude" type="number" step="0.000001" placeholder="Used for order routing" :disable="!canWrite" /></div>
-              <div class="col-6"><AppTextField v-model="form.longitude" label="Longitude" type="number" step="0.000001" :disable="!canWrite" /></div>
+              <div class="col-6"><AppTextField v-model="form.latitude" label="Latitude" type="number" step="0.000001" required :v="v$.latitude" placeholder="Used for order routing" :disable="!canWrite" /></div>
+              <div class="col-6"><AppTextField v-model="form.longitude" label="Longitude" type="number" step="0.000001" required :v="v$.longitude" :disable="!canWrite" /></div>
             </div>
           </q-tab-panel>
 
-          <!-- ============ CONTACT & HOURS ============ -->
+          <!-- ============ HOURS ============ -->
           <q-tab-panel name="contact" class="q-gutter-y-sm">
             <div class="row q-col-gutter-sm">
-              <div class="col-6"><AppTextField v-model="form.contactEmail" label="Contact email" :disable="!canWrite" /></div>
-              <div class="col-6"><AppTextField v-model="form.contactPhone" label="Contact phone" :disable="!canWrite" /></div>
-            </div>
-            <div class="row q-col-gutter-sm">
-              <div class="col-6"><AppTextField v-model="form.timeZone" label="Time zone" placeholder="e.g. America/New_York" :disable="!canWrite" /></div>
-              <div class="col-6"><AppTextField v-model="form.currencyDisplay" label="Display currency" placeholder="e.g. USD" :disable="!canWrite" /></div>
+              <div class="col-12 col-sm-6"><AppTextField v-model="form.currencyDisplay" label="Display currency" placeholder="e.g. USD" :disable="!canWrite" /></div>
             </div>
 
             <q-separator class="q-my-sm" />
@@ -134,18 +158,32 @@
  * form.operatingHoursJson so changes auto-save like any field. Delivery zones reuse the existing dialog.
  */
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { usePermissions, Permissions } from 'composables/usePermissions'
 import { useDetailForm } from 'composables/useDetailForm'
-import { required, maxLength } from 'validators'
+import { required, requiredIf, maxLength, email } from 'validators'
 import { storeApi, storeStatus, WEEK_DAYS } from 'modules/stores/api'
+import { timeZoneOptions } from 'src/utils/datetime'
 import AppDetailHeader from 'components/common/AppDetailHeader.vue'
 import AppTextField from 'components/common/AppTextField.vue'
+import AppSelect from 'components/common/AppSelect.vue'
 import AppFieldLabel from 'components/common/AppFieldLabel.vue'
 import DeliveryZonesDialog from 'modules/stores/components/DeliveryZonesDialog.vue'
 import AppAddressForm from 'components/common/AppAddressForm.vue'
 
+// Searchable IANA timezone options for the store's time-zone picker.
+const TZ_BASE = timeZoneOptions()
+const tzOptions = ref(TZ_BASE)
+function filterTz (needle, update) {
+  const q = (needle || '').toLowerCase().trim()
+  update(() => { tzOptions.value = !q ? TZ_BASE : TZ_BASE.filter((o) => o.label.toLowerCase().includes(q)) })
+}
+
 const router = useRouter()
+const route = useRoute()
+// Location is only editable in manage mode (its tab is disabled on create), so its fields are
+// mandatory to SAVE an existing store, not to create the initial record.
+const isNew = computed(() => route.name === 'store-new')
 const { has } = usePermissions()
 const canWrite = computed(() => has(Permissions.StoresWrite))
 
@@ -189,6 +227,7 @@ function buildPayload (f) {
     longitude: numberOrNull(f.longitude),
     contactEmail: f.contactEmail || null,
     contactPhone: f.contactPhone || null,
+    notificationEmail: f.notificationEmail || null,
     timeZone: f.timeZone || 'UTC',
     currencyDisplay: f.currencyDisplay || null,
     orderCapacityLimit: numberOrNull(f.orderCapacityLimit),
@@ -209,10 +248,21 @@ const {
   buildPayload,
   empty: {
     name: '', addressLine1: '', addressLine2: '', landmark: '', city: '', stateProvince: '', postalCode: '', countryCode: '',
-    latitude: null, longitude: null, contactEmail: '', contactPhone: '', timeZone: 'UTC', currencyDisplay: '',
+    latitude: null, longitude: null, contactEmail: '', contactPhone: '', notificationEmail: '', timeZone: 'UTC', currencyDisplay: '',
     orderCapacityLimit: null, operatingHoursJson: '', isEnabled: true, maintenanceMode: false, guestOrderingEnabled: true
   },
-  rules: { name: { required, maxLength: maxLength(200) } },
+  rules: {
+    name: { required, maxLength: maxLength(200) },
+    contactEmail: { required, email },
+    notificationEmail: { required },
+    // Location fields — required to save (manage), not to create (Location tab is disabled on create).
+    countryCode: { required: requiredIf(() => !isNew.value) },
+    stateProvince: { required: requiredIf(() => !isNew.value) },
+    addressLine1: { required: requiredIf(() => !isNew.value) },
+    postalCode: { required: requiredIf(() => !isNew.value) },
+    latitude: { required: requiredIf(() => !isNew.value) },
+    longitude: { required: requiredIf(() => !isNew.value) }
+  },
   afterLoad: (e) => { hours.value = parseHours(e.operatingHoursJson) },
   resetExtra: () => { hours.value = parseHours(null) }
 })

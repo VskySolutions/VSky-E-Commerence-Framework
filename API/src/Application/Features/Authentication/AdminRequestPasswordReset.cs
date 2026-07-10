@@ -28,20 +28,20 @@ public class AdminRequestPasswordResetCommandHandler : IRequestHandler<AdminRequ
     private readonly IApplicationDbContext _db;
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IStorefrontUrlBuilder _urls;
 
     public AdminRequestPasswordResetCommandHandler(
         IApplicationDbContext db,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
-        IEmailEnqueuer emails,
+        IEmailTemplateSender templates,
         IStorefrontUrlBuilder urls)
     {
         _db = db;
         _tokens = tokens;
         _clock = clock;
-        _emails = emails;
+        _templates = templates;
         _urls = urls;
     }
 
@@ -73,19 +73,16 @@ public class AdminRequestPasswordResetCommandHandler : IRequestHandler<AdminRequ
             : $"{user.Customer.FirstName} {user.Customer.LastName}".Trim();
         var greeting = string.IsNullOrWhiteSpace(fullName) ? "there" : fullName;
         var resetUrl = _urls.AdminPasswordResetUrl(rawToken);
-        var body =
-            $"Hi {greeting},\n\n" +
-            "We received a request to reset your password. Open the link below to choose a new one:\n\n" +
-            $"{resetUrl}\n\n" +
-            "This link expires in 1 hour. If you did not request this, you can safely ignore this email.";
-
-        await _emails.EnqueueAsync(
-            "AdminPasswordReset",
+        await _templates.SendAsync(
+            "account.password-reset",
             user.Email,
             string.IsNullOrWhiteSpace(fullName) ? null : fullName,
-            "Reset your password",
-            body,
-            NotificationCategory.Transactional,
+            new Dictionary<string, string>
+            {
+                ["customerName"] = greeting,
+                ["resetUrl"] = resetUrl,
+                ["expiryMinutes"] = "60",
+            },
             cancellationToken);
     }
 }

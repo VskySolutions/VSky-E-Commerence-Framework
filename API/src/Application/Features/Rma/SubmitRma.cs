@@ -32,14 +32,14 @@ public class SubmitRmaCommandHandler : IRequestHandler<SubmitRmaCommand, RmaDto>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IDateTimeProvider _clock;
 
-    public SubmitRmaCommandHandler(IApplicationDbContext db, ICurrentUserService current, IEmailEnqueuer emails, IDateTimeProvider clock)
+    public SubmitRmaCommandHandler(IApplicationDbContext db, ICurrentUserService current, IEmailTemplateSender templates, IDateTimeProvider clock)
     {
         _db = db;
         _current = current;
-        _emails = emails;
+        _templates = templates;
         _clock = clock;
     }
 
@@ -99,18 +99,13 @@ public class SubmitRmaCommandHandler : IRequestHandler<SubmitRmaCommand, RmaDto>
         _db.Rmas.Add(rma);
         await _db.SaveChangesAsync(cancellationToken);
 
-        if (!string.IsNullOrWhiteSpace(order.ContactEmail))
-        {
-            await _emails.EnqueueAsync(
-                "RmaRequested",
-                order.ContactEmail!,
-                order.ContactName,
-                $"We've received your return request {rma.RmaNumber}",
-                $"Hi {order.ContactName},\n\n" +
-                $"Your return request {rma.RmaNumber} for order {order.OrderNumber} has been received and is under review.\n\n" +
-                "We'll email you once it has been processed.",
-                cancellationToken: cancellationToken);
-        }
+        await _templates.SendAsync("return.requested", order.ContactEmail ?? string.Empty, order.ContactName,
+            new Dictionary<string, string>
+            {
+                ["customerName"] = string.IsNullOrWhiteSpace(order.ContactName) ? "there" : order.ContactName!,
+                ["orderNumber"] = order.OrderNumber,
+                ["rmaNumber"] = rma.RmaNumber,
+            }, cancellationToken);
 
         return RmaDto.From(rma);
     }

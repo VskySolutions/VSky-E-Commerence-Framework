@@ -29,6 +29,12 @@ public class Store : AuditableEntity, ISoftDeletable
     // Business contact (kept on the store, distinct from the postal address).
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
+
+    /// <summary>
+    /// Where operational alerts (new order, etc.) are sent for this store. Accepts one or more addresses
+    /// separated by comma/semicolon (a fulfilment team). Falls back to <see cref="ContactEmail"/> when blank.
+    /// </summary>
+    public string? NotificationEmail { get; set; }
     public string? OperatingHoursJson { get; set; }
     public string TimeZone { get; set; } = "UTC";
     public string? CurrencyDisplay { get; set; }

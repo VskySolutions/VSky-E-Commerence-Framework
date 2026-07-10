@@ -66,21 +66,22 @@ const sections = [
       { label: 'Tax', icon: 'o_receipt', to: '/tax', permissions: [Permissions.SettingsRead] },
       { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
       { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
-      // { label: 'Reports', icon: 'o_bar_chart', to: '/reports', permissions: [Permissions.StoresRead] },
-      // { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] }
+      { label: 'Reports', icon: 'o_bar_chart', to: '/reports', permissions: [Permissions.StoresRead] },
+      { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] }
     ]
   },
-  // {
-  //   header: 'Storefront',
-  //   items: [
-  //     { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] }
-  //   ]
-  // },
+  {
+    header: 'Storefront',
+    items: [
+      { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] }
+    ]
+  },
   {
     header: 'Communication',
     items: [
       { label: 'Email Templates', icon: 'o_mail', to: '/email-templates', permissions: [Permissions.EmailTemplatesRead] },
-      { label: 'Email & SMS', icon: 'o_forward_to_inbox', to: '/email-accounts', permissions: [Permissions.SmtpAccountsRead] }
+      { label: 'Email & SMS', icon: 'o_forward_to_inbox', to: '/email-accounts', permissions: [Permissions.SmtpAccountsRead] },
+      { label: 'Email Log', icon: 'o_history', to: '/email-log', permissions: [Permissions.EmailLogRead] }
     ]
   },
   {
@@ -90,18 +91,18 @@ const sections = [
       { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
       { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
     ]
+  },
+  {
+    // Platform-infrastructure: Super Admin only.
+    header: 'Platform',
+    roles: ['SuperAdmin'],
+    items: [
+      { label: 'Settings', icon: 'o_settings', to: '/settings', permissions: [Permissions.SettingsRead] },
+      { label: 'Credentials', icon: 'o_key', to: '/credentials', permissions: [Permissions.CredentialsRead] },
+      { label: 'File Storage', icon: 'o_storage', to: '/storage', permissions: [Permissions.StorageRead] },
+      { label: 'Webhooks', icon: 'o_webhook', to: '/webhooks', permissions: [Permissions.WebhooksRead] }
+    ]
   }
-  // {
-  //   // Platform-infrastructure: Super Admin only.
-  //   header: 'Platform',
-  //   roles: ['SuperAdmin'],
-  //   items: [
-  //     { label: 'Settings', icon: 'o_settings', to: '/settings', permissions: [Permissions.SettingsRead] },
-  //     { label: 'Credentials', icon: 'o_key', to: '/credentials', permissions: [Permissions.CredentialsRead] },
-  //     { label: 'File Storage', icon: 'o_storage', to: '/storage', permissions: [Permissions.StorageRead] },
-  //     { label: 'Webhooks', icon: 'o_webhook', to: '/webhooks', permissions: [Permissions.WebhooksRead] }
-  //   ]
-  // },
   // {
   //   header: 'General',
   //   items: [

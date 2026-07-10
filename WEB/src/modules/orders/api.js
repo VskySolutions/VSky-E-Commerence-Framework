@@ -6,6 +6,7 @@
  * instance. Enums transport as their PascalCase string names.
  */
 import { api, unwrap, qsSerializer } from 'services/api'
+import { formatDateTime } from 'src/utils/datetime'
 
 const ORDERS = '/api/admin/orders'
 const RMA = '/api/admin/rma'
@@ -117,14 +118,10 @@ export function formatMoney (value) {
   return Number(value).toFixed(2)
 }
 
-export function formatDate (value, withTime = false) {
-  if (!value) return '—'
-  try {
-    const d = new Date(value)
-    return withTime ? d.toLocaleString() : d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
-  } catch (e) {
-    return value
-  }
+// App-wide standard: MM/DD/YYYY hh:mm AM/PM (UTC-aware). All these fields are timestamps, so the
+// legacy `withTime` flag is ignored — every value renders with the time. (See src/utils/datetime.js.)
+export function formatDate (value) {
+  return formatDateTime(value)
 }
 
 export default { orderApi, rmaApi, orderStatusColor, allowedTransitions, rmaStatusColor, rmaResolutionOptions, formatMoney, formatDate }

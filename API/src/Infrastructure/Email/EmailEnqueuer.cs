@@ -26,6 +26,7 @@ public class EmailEnqueuer : IEmailEnqueuer
         string subject,
         string body,
         NotificationCategory category = NotificationCategory.Transactional,
+        bool isHtml = false,
         CancellationToken cancellationToken = default)
     {
         _db.EmailQueue.Add(new EmailQueue
@@ -36,6 +37,7 @@ public class EmailEnqueuer : IEmailEnqueuer
             RenderedSubject = subject,
             RenderedBody = body,
             Category = category,
+            IsHtml = isHtml,
             Status = EmailStatus.Pending,
             CreatedOnUtc = _clock.UtcNow,
         });

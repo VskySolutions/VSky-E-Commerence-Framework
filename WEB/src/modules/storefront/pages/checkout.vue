@@ -57,29 +57,84 @@
             <q-card-section>
               <div class="text-subtitle1 text-weight-bold q-mb-md">Contact &amp; delivery address</div>
 
-              <div class="row q-col-gutter-x-md q-mb-sm">
-                <div class="col-12 col-sm-6">
-                  <AppTextField
-                    label="Email"
-                    type="email"
-                    required
-                    :model-value="email"
-                    :v="emailV"
-                    placeholder="you@example.com"
-                    @update:model-value="email = $event"
-                  />
-                </div>
-                <div class="col-12 col-sm-6">
-                  <AppPhoneInput
-                    label="Phone"
-                    required
-                    :model-value="addr.phoneNumber"
-                    :default-country="addr.countryCode || 'US'"
-                    @update:model-value="addr.phoneNumber = $event"
-                  />
-                </div>
+              <!-- Signed-in: pick a saved address or add a new one -->
+              <div v-if="isAuthed && savedAddresses.length" class="column q-gutter-sm q-mb-md">
+                <q-item
+                  v-for="a in savedAddresses"
+                  :key="a.id"
+                  tag="label"
+                  clickable
+                  class="sf-address-option rounded-borders"
+                  :class="{ 'sf-address-option--active': selectedAddressId === a.id }"
+                >
+                  <q-item-section avatar top>
+                    <q-radio :model-value="selectedAddressId" :val="a.id" @update:model-value="selectSaved(a)" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-weight-medium">
+                      {{ a.firstName }} {{ a.lastName }}
+                      <q-badge v-if="a.isDefault" color="primary" label="Default" class="q-ml-xs" />
+                    </q-item-label>
+                    <q-item-label caption>{{ formatAddr(a) }}</q-item-label>
+                    <q-item-label v-if="a.phoneNumber" caption>{{ a.phoneNumber }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+
+                <q-item
+                  tag="label"
+                  clickable
+                  class="sf-address-option rounded-borders"
+                  :class="{ 'sf-address-option--active': selectedAddressId === 'new' }"
+                >
+                  <q-item-section avatar>
+                    <q-radio :model-value="selectedAddressId" val="new" @update:model-value="selectNew()" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-primary text-weight-medium">
+                      <q-icon name="o_add" size="18px" class="q-mr-xs" />Use a new address
+                    </q-item-label>
+                  </q-item-section>
+                </q-item>
               </div>
-              <AppAddressForm v-model="addr" required :show-company="false" :show-phone="false" />
+
+              <!-- Contact recap when a saved address is in use -->
+              <div v-if="isAuthed && !showAddressForm" class="text-caption text-grey-7 q-mb-sm">
+                Order updates go to <strong>{{ profileEmail }}</strong>
+              </div>
+
+              <!-- Manual entry: guest, no saved addresses, or "new address" chosen -->
+              <template v-if="showAddressForm">
+                <div class="row q-col-gutter-x-md q-mb-sm">
+                  <div class="col-12 col-sm-6">
+                    <AppTextField
+                      label="Email"
+                      type="email"
+                      required
+                      :model-value="email"
+                      :v="emailV"
+                      placeholder="you@example.com"
+                      @update:model-value="email = $event"
+                    />
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <AppPhoneInput
+                      label="Phone"
+                      required
+                      :model-value="addr.phoneNumber"
+                      :default-country="addr.countryCode || 'US'"
+                      @update:model-value="addr.phoneNumber = $event"
+                    />
+                  </div>
+                </div>
+                <AppAddressForm v-model="addr" required :show-company="false" :show-phone="false" />
+                <q-toggle
+                  v-if="isAuthed"
+                  v-model="saveNewAddress"
+                  label="Save this address to my account"
+                  dense
+                  class="q-mt-sm"
+                />
+              </template>
 
               <div class="q-mt-md">
                 <q-btn
@@ -118,22 +173,37 @@
           We're unable to deliver to this address right now. Please try a different address.
         </q-banner>
 
-        <!-- Guest ordering not permitted (AC-CHK-003.2 / AC-STR-001.5) -->
+        <!-- Guest ordering not permitted — offer express account creation (AC-CHK-003.2 / AC-STR-001.5) -->
         <q-card
           v-if="quote && isRoutable && !guestOrderingAllowed"
           flat
           bordered
           class="q-mb-lg bg-amber-1"
         >
-          <q-card-section class="row items-center no-wrap">
-            <q-icon name="o_lock" color="amber-9" size="28px" class="q-mr-md" />
-            <div class="col">
-              <div class="text-subtitle2 text-weight-bold">Sign in to complete this order</div>
-              <div class="text-body2 text-grey-8">
-                Guest checkout is not available for this store. Please log in or create an account to continue.
+          <q-card-section>
+            <div class="row items-center no-wrap q-mb-sm">
+              <q-icon name="o_lock" color="amber-9" size="28px" class="q-mr-md" />
+              <div class="col">
+                <div class="text-subtitle2 text-weight-bold">One quick step to place your order</div>
+                <div class="text-body2 text-grey-8">
+                  This store requires an account. We'll create one from the details above and email you a password —
+                  sign in and your cart &amp; details will be right here to finish, no re-typing.
+                </div>
               </div>
             </div>
-            <q-btn unelevated color="primary" no-caps label="Sign in" :to="{ name: 'shop-login' }" class="q-ml-md" />
+            <div class="row items-center justify-end q-gutter-sm">
+              <q-btn flat no-caps color="primary" label="I already have an account" :to="loginTo" />
+              <q-btn
+                unelevated
+                color="primary"
+                no-caps
+                icon="o_person_add"
+                label="Create account &amp; finish"
+                :loading="registering"
+                :disable="!canQuote || registering"
+                @click="registerAndContinue"
+              />
+            </div>
           </q-card-section>
         </q-card>
 
@@ -291,7 +361,7 @@
               class="full-width q-mt-md"
               no-caps
               label="Sign in to continue"
-              :to="{ name: 'shop-login' }"
+              :to="loginTo"
             />
 
             <q-btn
@@ -323,12 +393,16 @@
  * in instead (AC-CHK-003.2 / AC-STR-001.5).
  */
 import { ref, computed, watch, onMounted } from 'vue'
+import { LocalStorage } from 'quasar'
+import { useRouter, useRoute } from 'vue-router'
 import AppAddressForm from 'components/common/AppAddressForm.vue'
 import AppTextField from 'components/common/AppTextField.vue'
 import AppPhoneInput from 'components/common/AppPhoneInput.vue'
 import { isPossiblePhoneNumber } from 'libphonenumber-js'
 import { emptyAddress } from 'composables/useAddress'
 import { checkoutApi } from 'modules/storefront/api'
+import { customerAuthApi, accountApi } from 'modules/storefront/account-api'
+import { useCustomerAuthStore } from 'stores/customerAuth'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
 import { useRecaptcha } from 'modules/storefront/composables/useRecaptcha'
@@ -339,11 +413,117 @@ const { sessionId, cart, items, subtotal, appliedCouponCode, loading, refresh } 
 const { format, load: loadCurrencies } = useCurrency()
 const { getToken: getRecaptchaToken } = useRecaptcha()
 const notify = useNotify()
+const router = useRouter()
+const route = useRoute()
+const customerAuth = useCustomerAuthStore()
 
 // ---- Address form (standard AppAddressForm; email kept separate as the order contact) ----------
 const formRef = ref(null)
 const email = ref('')
 const addr = ref(emptyAddress())
+
+// ---- Signed-in address book (Amazon-style: pick a saved address or add a new one) ---------------
+const isAuthed = computed(() => customerAuth.isAuthenticated)
+const savedAddresses = ref([])
+const selectedAddressId = ref('new') // a saved address id, or 'new' for manual entry
+const profile = ref(null)
+const profileEmail = ref('')
+const saveNewAddress = ref(true)
+
+// Show the manual form for guests, signed-in users with no saved address, or when "new" is chosen.
+const showAddressForm = computed(() =>
+  !isAuthed.value || !savedAddresses.value.length || selectedAddressId.value === 'new'
+)
+
+function fillFromAddress (a) {
+  addr.value = {
+    ...emptyAddress(),
+    firstName: a.firstName || '', lastName: a.lastName || '', company: a.company || '',
+    addressLine1: a.addressLine1 || '', addressLine2: a.addressLine2 || '', landmark: a.landmark || '',
+    city: a.city || '', stateProvince: a.stateProvince || '', postalCode: a.postalCode || '',
+    countryCode: a.countryCode || '', phoneNumber: a.phoneNumber || ''
+  }
+}
+function selectSaved (a) {
+  selectedAddressId.value = a.id
+  fillFromAddress(a)
+}
+function selectNew () {
+  selectedAddressId.value = 'new'
+  addr.value = {
+    ...emptyAddress(),
+    firstName: profile.value?.firstName || '',
+    lastName: profile.value?.lastName || '',
+    phoneNumber: profile.value?.phoneNumber || ''
+  }
+}
+function formatAddr (a) {
+  return [a.addressLine1, a.addressLine2, a.landmark, a.city, a.stateProvince, a.postalCode, a.countryCode]
+    .filter(Boolean).join(', ')
+}
+
+// Load the signed-in buyer's profile (contact email) + saved shipping addresses, and pre-select the
+// default so checkout is one tap away.
+async function loadAccountAddresses () {
+  try {
+    const [prof, book] = await Promise.all([
+      accountApi.getProfile().catch(() => null),
+      accountApi.addressBook().catch(() => null)
+    ])
+    profile.value = prof
+    if (prof && prof.email) { email.value = prof.email; profileEmail.value = prof.email }
+    const shipping = Array.isArray(book && book.shipping) ? book.shipping : []
+    savedAddresses.value = shipping
+    if (shipping.length) selectSaved(shipping.find((a) => a.isDefault) || shipping[0])
+    else selectNew()
+  } catch (e) {
+    selectedAddressId.value = 'new'
+  }
+}
+
+// Persist the just-entered delivery address to the signed-in buyer's address book.
+async function saveCurrentAddress () {
+  const a = addr.value
+  await accountApi.createAddress({
+    addressType: 'Shipping',
+    isDefault: savedAddresses.value.length === 0,
+    firstName: (a.firstName || '').trim(),
+    lastName: (a.lastName || '').trim(),
+    company: null,
+    addressLine1: (a.addressLine1 || '').trim(),
+    addressLine2: (a.addressLine2 || '').trim() || null,
+    landmark: (a.landmark || '').trim() || null,
+    city: (a.city || '').trim(),
+    stateProvince: (a.stateProvince || '').trim() || null,
+    postalCode: (a.postalCode || '').trim(),
+    countryCode: (a.countryCode || '').toUpperCase().trim(),
+    phoneNumber: (a.phoneNumber || '').trim() || null
+  })
+}
+
+// ---- Guest contact persistence ----------------------------------------------
+// Save the contact + delivery details to localStorage so a guest who must create an account can sign
+// in and come straight back to a fully-filled checkout (cleared once the order is placed). Restored on
+// mount for everyone, so returning after login/registration re-populates the form automatically.
+const CHECKOUT_KEY = 'sf.checkout.contact'
+function persistContact () {
+  try {
+    LocalStorage.set(CHECKOUT_KEY, { email: email.value, addr: addr.value })
+  } catch (e) { /* storage disabled — non-fatal */ }
+}
+function restoreContact () {
+  try {
+    const saved = LocalStorage.getItem(CHECKOUT_KEY)
+    if (saved && typeof saved === 'object') {
+      if (typeof saved.email === 'string' && !email.value) email.value = saved.email
+      if (saved.addr && typeof saved.addr === 'object') addr.value = { ...emptyAddress(), ...saved.addr }
+    }
+  } catch (e) { /* ignore malformed */ }
+}
+function clearContact () {
+  try { LocalStorage.remove(CHECKOUT_KEY) } catch (e) { /* ignore */ }
+}
+watch([email, addr], persistContact, { deep: true })
 
 const emailValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
 
@@ -373,7 +553,8 @@ const requiredComplete = computed(() => {
     emailValid.value &&
     phoneValid.value &&
     !!(a.addressLine1 || '').trim() &&
-    !!(a.city || '').trim() &&
+    !!(a.stateProvince || '').trim() &&
+    !!(a.postalCode || '').trim() &&
     !!a.countryCode
   )
 })
@@ -395,6 +576,45 @@ const selectedShipping = computed(
   () => shippingOptions.value.find((o) => o.methodId === selectedShippingMethodId.value) || null
 )
 const canQuote = computed(() => requiredComplete.value && items.value.length > 0)
+
+// ---- Guest → account (express registration) ---------------------------------
+// When a store disallows guest ordering, turn the already-entered checkout details into an account:
+// the backend creates a verified customer, emails a password and saves the delivery address. The buyer
+// signs in and returns here (details preserved) to place the order.
+const registering = ref(false)
+const loginTo = computed(() => ({ name: 'shop-login', query: { redirect: route.fullPath } }))
+
+async function registerAndContinue () {
+  if (!canQuote.value || registering.value) return
+  registering.value = true
+  try {
+    const recaptchaToken = await getRecaptchaToken('register')
+    const a = addr.value
+    const res = await customerAuthApi.registerAtCheckout({
+      email: email.value.trim(),
+      firstName: (a.firstName || '').trim(),
+      lastName: (a.lastName || '').trim(),
+      phoneNumber: (a.phoneNumber || '').trim() || null,
+      addressLine1: (a.addressLine1 || '').trim(),
+      addressLine2: (a.addressLine2 || '').trim() || null,
+      landmark: (a.landmark || '').trim() || null,
+      city: (a.city || '').trim(),
+      stateProvince: (a.stateProvince || '').trim() || null,
+      postalCode: (a.postalCode || '').trim(),
+      countryCode: a.countryCode,
+      recaptchaToken
+    })
+    persistContact()
+    notify.success(
+      `We've emailed a password to ${res.email}. Sign in to finish your order — your details are saved.`
+    )
+    router.push({ name: 'shop-login', query: { redirect: route.fullPath } })
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    registering.value = false
+  }
+}
 
 function buildShipTo () {
   const a = addr.value
@@ -498,6 +718,10 @@ async function placeOrder () {
   if (!ok || !canPlace.value) return
   placing.value = true
   try {
+    // Signed-in buyer entering a new address who opted to save it → add it to their account (best-effort).
+    if (isAuthed.value && selectedAddressId.value === 'new' && saveNewAddress.value) {
+      await saveCurrentAddress().catch(() => {})
+    }
     // reCAPTCHA token for the guest-checkout form (no-op when reCAPTCHA is disabled/unconfigured).
     const recaptchaToken = await getRecaptchaToken('guestCheckout')
     const result = await checkoutApi.place({
@@ -512,6 +736,8 @@ async function placeOrder () {
     })
     if (result && result.success) {
       orderResult.value = result
+      // Order placed — the saved checkout details are no longer needed.
+      clearContact()
       // The cart is now checked out; refreshing yields a fresh empty cart (badge resets).
       await refresh().catch(() => {})
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -530,6 +756,9 @@ async function placeOrder () {
 onMounted(() => {
   loadCurrencies()
   refresh().catch((err) => notify.error(getApiErrorMessage(err)))
+  // Signed-in buyers get their profile + saved addresses (pick-or-add); guests restore any draft.
+  if (isAuthed.value) loadAccountAddresses()
+  else restoreContact()
 })
 </script>
 
@@ -537,6 +766,21 @@ onMounted(() => {
 .storefront-container {
   max-width: 1200px;
   margin: 0 auto;
+}
+
+.sf-address-option {
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.sf-address-option--active {
+  border-color: var(--q-primary);
+  background: rgba(0, 0, 0, 0.02);
+}
+body.body--dark .sf-address-option {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+body.body--dark .sf-address-option--active {
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .confirm-card {

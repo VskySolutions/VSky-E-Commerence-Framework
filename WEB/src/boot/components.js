@@ -23,6 +23,7 @@ import AppFileUpload from 'components/common/AppFileUpload.vue'
 import MediaSeoDialog from 'components/common/MediaSeoDialog.vue'
 import ConfirmDialog from 'components/common/ConfirmDialog.vue'
 import { mediaUrl } from 'services/api'
+import { formatDate, formatDateTime } from 'src/utils/datetime'
 
 // NOTE: AppPhoneInput (libphonenumber-js) and AppAddressFields
 // (country-state-city, ~large city dataset) are intentionally NOT registered
@@ -55,4 +56,9 @@ export default ({ app }) => {
   // Global media-URL resolver: `$media(url)` prefixes domain-less local paths with the API origin
   // (blob/CDN/absolute URLs pass through). Available in every template.
   app.config.globalProperties.$media = mediaUrl
+
+  // Global UTC-aware date formatters (app-wide standard MM/DD/YYYY hh:mm AM/PM). Available in every
+  // template as `$datetime(value)` (timestamps) and `$date(value)` (calendar dates).
+  app.config.globalProperties.$datetime = formatDateTime
+  app.config.globalProperties.$date = formatDate
 }

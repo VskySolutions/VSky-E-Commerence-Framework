@@ -15,6 +15,10 @@ public class EmailQueue : BaseEntity
     public string RenderedSubject { get; set; } = string.Empty;
     public string RenderedBody { get; set; } = string.Empty;
     public NotificationCategory Category { get; set; }
+
+    /// <summary>True when <see cref="RenderedBody"/> is HTML (rendered from an email template); false = plain text.</summary>
+    public bool IsHtml { get; set; }
+
     public EmailStatus Status { get; set; } = EmailStatus.Pending;
     public int AttemptCount { get; set; }
     public DateTime? LastAttemptOnUtc { get; set; }

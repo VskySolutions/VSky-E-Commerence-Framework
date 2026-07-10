@@ -29,7 +29,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly IPaymentGatewayRouter _payments;
     private readonly ICurrentUserService _current;
     private readonly IDateTimeProvider _clock;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IPublisher _publisher;
     private readonly ICustomerRoleService _customerRoles;
 
@@ -43,7 +43,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         IPaymentGatewayRouter payments,
         ICurrentUserService current,
         IDateTimeProvider clock,
-        IEmailEnqueuer emails,
+        IEmailTemplateSender templates,
         IPublisher publisher,
         ICustomerRoleService customerRoles)
     {
@@ -56,7 +56,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _payments = payments;
         _current = current;
         _clock = clock;
-        _emails = emails;
+        _templates = templates;
         _publisher = publisher;
         _customerRoles = customerRoles;
     }
@@ -237,19 +237,41 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             new OrderRouted(BuildRoutingRequest(req.ShipTo, priced.Lines), storeId),
             ct);
 
-        // AC-CHK-003.8: queue an order-confirmation email with an inline subject/body carrying the order number.
+        // AC-CHK-003.8: order-confirmation email to the customer, plus a new-order notification to the
+        // assigned store — both rendered from admin-editable email templates.
         var contactName = $"{req.ShipTo.FirstName} {req.ShipTo.LastName}".Trim();
-        await _emails.EnqueueAsync(
-            "OrderConfirmation",
+        var displayName = string.IsNullOrWhiteSpace(contactName) ? "there" : contactName;
+        var orderTotalText = $"{order.CurrencyCode} {priced.Total:0.00}";
+        var orderDateText = now.ToString("MMM d, yyyy");
+
+        await _templates.SendAsync(
+            "order.confirmation",
             req.ShipTo.Email,
             string.IsNullOrWhiteSpace(contactName) ? null : contactName,
-            $"Your order {order.OrderNumber} is confirmed",
-            $"Hi {req.ShipTo.FirstName},\n\n" +
-            $"Thank you for your order. We've received order {order.OrderNumber} and it is now being processed.\n\n" +
-            $"Order total: {order.CurrencyCode} {priced.Total:0.00}\n\n" +
-            "You'll receive another email once your order ships.\n\n" +
-            "Thank you for shopping with us.",
-            cancellationToken: ct);
+            new Dictionary<string, string>
+            {
+                ["customerName"] = displayName,
+                ["orderNumber"] = order.OrderNumber,
+                ["orderDate"] = orderDateText,
+                ["orderTotal"] = orderTotalText,
+            },
+            ct);
+
+        var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == storeId, ct);
+        if (store is not null)
+        {
+            var storeVars = new Dictionary<string, string>
+            {
+                ["orderNumber"] = order.OrderNumber,
+                ["storeName"] = store.Name,
+                ["customerName"] = displayName,
+                ["customerEmail"] = req.ShipTo.Email,
+                ["orderTotal"] = orderTotalText,
+                ["orderDate"] = orderDateText,
+            };
+            foreach (var to in ResolveStoreRecipients(store))
+                await _templates.SendAsync("order.store-notification", to, store.Name, storeVars, ct);
+        }
 
         return new CheckoutResult
         {
@@ -261,6 +283,21 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             Success = true,
             Error = null,
         };
+    }
+
+    /// <summary>
+    /// Recipients for a store's new-order alert: the store's NotificationEmail (one or more addresses
+    /// separated by comma/semicolon), falling back to its ContactEmail when the notification field is blank.
+    /// </summary>
+    private static IEnumerable<string> ResolveStoreRecipients(Domain.Entities.Store store)
+    {
+        var raw = string.IsNullOrWhiteSpace(store.NotificationEmail) ? store.ContactEmail : store.NotificationEmail;
+        if (string.IsNullOrWhiteSpace(raw))
+            return Array.Empty<string>();
+
+        return raw
+            .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.OrdinalIgnoreCase);
     }
 
     /// <summary>

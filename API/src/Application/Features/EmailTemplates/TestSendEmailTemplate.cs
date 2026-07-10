@@ -75,7 +75,8 @@ public class TestSendEmailTemplateCommandHandler
             subject,
             body,
             template.Category,
-            cancellationToken);
+            isHtml: true,
+            cancellationToken: cancellationToken);
 
         return new EmailTemplateTestSendResult(
             true,

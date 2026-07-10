@@ -80,6 +80,7 @@ public static class DependencyInjection
 
         // Email enqueuer (WO-20): queues verification / password-reset emails for the dispatch worker.
         services.AddScoped<IEmailEnqueuer, EmailEnqueuer>();
+        services.AddScoped<IEmailTemplateSender, EmailTemplateSender>();
 
         // Settings (WO-3): cached, audited platform settings.
         services.AddMemoryCache();
@@ -152,6 +153,7 @@ public static class DependencyInjection
         services.AddSingleton<IScheduledTask, ExpiredAuthorizationWorker>();
         services.AddSingleton<IScheduledTask, DatabaseCleanupWorker>();
         services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.WebhookDispatchWorker>();
+        services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.EmailDispatchWorker>();
         // Webhooks: domain event bus that enqueues signed deliveries (WO-5).
         services.AddScoped<IDomainEventBus, VSky.Infrastructure.Webhooks.DomainEventBus>();
         services.AddHostedService<TaskSchedulerService>();

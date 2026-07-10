@@ -23,13 +23,17 @@ body,
   color: var(--brand-primary) !important;
 }
 
+.q-item {
+  min-height: 37px;
+  padding: 5px 10px;
+}
 // Crisp, dense sidebar navigation — tuned for many menu items.
 .app-menu {
   padding-top: 4px;
 
   .q-item {
-    min-height: 38px;
-    padding: 4px 12px;
+    min-height: 35px;
+    padding: 5px 10px;
     margin: 1px 8px;
     border-radius: 6px;
     font-size: 13px;

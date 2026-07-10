@@ -38,13 +38,33 @@ internal sealed class FakeEmailEnqueuer : IEmailEnqueuer
 
     public Task EnqueueAsync(
         string templateKey, string recipientEmail, string? recipientName, string subject, string body,
-        NotificationCategory category = NotificationCategory.Transactional, CancellationToken cancellationToken = default)
+        NotificationCategory category = NotificationCategory.Transactional, bool isHtml = false, CancellationToken cancellationToken = default)
     {
         SentCount++;
         LastTemplateKey = templateKey;
         LastRecipient = recipientEmail;
         LastBody = body;
         return Task.CompletedTask;
+    }
+}
+
+/// <summary>Test double for <see cref="IEmailTemplateSender"/> — records the last render request.</summary>
+internal sealed class FakeEmailTemplateSender : IEmailTemplateSender
+{
+    public int SentCount { get; private set; }
+    public string? LastTemplateKey { get; private set; }
+    public string? LastRecipient { get; private set; }
+    public IReadOnlyDictionary<string, string>? LastVariables { get; private set; }
+
+    public Task<bool> SendAsync(
+        string templateKey, string recipientEmail, string? recipientName,
+        IReadOnlyDictionary<string, string> variables, CancellationToken cancellationToken = default)
+    {
+        SentCount++;
+        LastTemplateKey = templateKey;
+        LastRecipient = recipientEmail;
+        LastVariables = variables;
+        return Task.FromResult(true);
     }
 }
 

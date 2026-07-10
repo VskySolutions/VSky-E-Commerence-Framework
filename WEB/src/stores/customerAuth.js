@@ -17,6 +17,10 @@ export const useCustomerAuthStore = defineStore('customerAuth', () => {
   const auth = useAuthStore()
 
   const isAuthenticated = computed(() => auth.isAuthenticated)
+  // Expose the shared refresh token so the storefront's 401-refresh interceptor (boot/interceptors.js)
+  // can silently refresh the unified session — same as the admin instance. Without this the storefront
+  // never refreshed an expired access token and surfaced "session expired" while the user was still in.
+  const refreshToken = computed(() => auth.refreshToken)
   const customer = computed(() => auth.user)
   const displayName = computed(() => {
     const u = auth.user
@@ -48,6 +52,7 @@ export const useCustomerAuthStore = defineStore('customerAuth', () => {
 
   return {
     isAuthenticated,
+    refreshToken,
     customer,
     displayName,
     login,

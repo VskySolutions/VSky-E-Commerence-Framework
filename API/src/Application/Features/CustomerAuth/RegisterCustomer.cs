@@ -38,7 +38,7 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
     private readonly IPasswordHasher _hasher;
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IRecaptchaVerifier _recaptcha;
     private readonly IStorefrontUrlBuilder _urls;
 
@@ -47,7 +47,7 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         IPasswordHasher hasher,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
-        IEmailEnqueuer emails,
+        IEmailTemplateSender templates,
         IRecaptchaVerifier recaptcha,
         IStorefrontUrlBuilder urls)
     {
@@ -55,7 +55,7 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         _hasher = hasher;
         _tokens = tokens;
         _clock = clock;
-        _emails = emails;
+        _templates = templates;
         _recaptcha = recaptcha;
         _urls = urls;
     }
@@ -103,19 +103,15 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         await _db.SaveChangesAsync(cancellationToken);
 
         var verifyUrl = _urls.EmailVerificationUrl(rawToken);
-        var body =
-            $"Hi {fullName},\n\n" +
-            "Thanks for creating an account. Please confirm your email address by opening the link below:\n\n" +
-            $"{verifyUrl}\n\n" +
-            "This link expires in 24 hours. If you did not create this account, you can ignore this email.";
-
-        await _emails.EnqueueAsync(
-            "CustomerEmailVerification",
+        await _templates.SendAsync(
+            "account.email-verification",
             user.Email,
             fullName,
-            "Verify your email",
-            body,
-            NotificationCategory.Transactional,
+            new Dictionary<string, string>
+            {
+                ["customerName"] = fullName,
+                ["verificationUrl"] = verifyUrl,
+            },
             cancellationToken);
 
         return user.Id;

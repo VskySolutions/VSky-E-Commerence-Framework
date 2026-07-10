@@ -17,17 +17,20 @@ public record RefundOrderCommand(
     Guid OrderId,
     List<Guid>? OrderLineItemIds = null,
     decimal? Amount = null,
-    string? Reason = null) : IRequest<PaymentDto>;
+    string? Reason = null,
+    bool NotifyCustomer = true) : IRequest<PaymentDto>;
 
 public class RefundOrderCommandHandler : IRequestHandler<RefundOrderCommand, PaymentDto>
 {
     private readonly IApplicationDbContext _db;
     private readonly ISender _mediator;
+    private readonly IEmailTemplateSender _templates;
 
-    public RefundOrderCommandHandler(IApplicationDbContext db, ISender mediator)
+    public RefundOrderCommandHandler(IApplicationDbContext db, ISender mediator, IEmailTemplateSender templates)
     {
         _db = db;
         _mediator = mediator;
+        _templates = templates;
     }
 
     public async Task<PaymentDto> Handle(RefundOrderCommand request, CancellationToken cancellationToken)
@@ -55,6 +58,21 @@ public class RefundOrderCommandHandler : IRequestHandler<RefundOrderCommand, Pay
 
         // RefundPaymentCommand validates the amount against the remaining refundable balance, calls the
         // originating gateway, and records the cumulative refund + payment status.
-        return await _mediator.Send(new RefundPaymentCommand(payment.Id, amount, request.Reason), cancellationToken);
+        var result = await _mediator.Send(new RefundPaymentCommand(payment.Id, amount, request.Reason), cancellationToken);
+
+        // Notify the customer their refund was issued, via the admin-editable template. Callers that already
+        // message the customer (e.g. an RMA resolution) pass NotifyCustomer: false to avoid a duplicate.
+        if (request.NotifyCustomer)
+        {
+            await _templates.SendAsync("order.refunded", order.ContactEmail ?? string.Empty, order.ContactName,
+                new Dictionary<string, string>
+                {
+                    ["customerName"] = string.IsNullOrWhiteSpace(order.ContactName) ? "there" : order.ContactName!,
+                    ["orderNumber"] = order.OrderNumber,
+                    ["refundAmount"] = amount is decimal a ? $"{order.CurrencyCode} {a:0.00}" : "the refunded amount",
+                }, cancellationToken);
+        }
+
+        return result;
     }
 }

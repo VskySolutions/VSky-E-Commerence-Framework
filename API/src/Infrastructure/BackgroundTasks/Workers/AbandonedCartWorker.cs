@@ -110,7 +110,7 @@ public class AbandonedCartWorker : IScheduledTask
                     : $"Hi {{{{customerName}}}}, you still have items waiting in your cart at {{{{brandName}}}}. Return any time: {{{{cartUrl}}}}",
                 name, cartUrl, brandName);
 
-            await enqueuer.EnqueueAsync(TemplateKey, customer.Email, name, subject, body, NotificationCategory.Marketing, cancellationToken);
+            await enqueuer.EnqueueAsync(TemplateKey, customer.Email, name, subject, body, NotificationCategory.Marketing, isHtml: true, cancellationToken: cancellationToken);
             cart.AbandonmentNotifiedOnUtc = now;
             sent++;
         }

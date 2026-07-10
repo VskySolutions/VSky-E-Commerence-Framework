@@ -21,6 +21,12 @@ export const customerAuthApi = {
   register (payload) {
     return anonApi.post(AUTH + '/register', payload).then(unwrap)
   },
+  // Express registration from checkout: creates a verified account from the delivery details, emails a
+  // generated password, and saves the address. Returns { email }. Lets a guest sign in and finish the
+  // order without re-entering anything.
+  registerAtCheckout (payload) {
+    return anonApi.post(AUTH + '/register-at-checkout', payload).then(unwrap)
+  },
   // Confirm an email address with the token from the verification link.
   verifyEmail (token) {
     return anonApi.post(AUTH + '/verify-email', { token }).then(unwrap)
@@ -48,8 +54,8 @@ export const accountApi = {
   getProfile () {
     return customerApi.get(PROFILE).then(unwrap)
   },
-  updateProfile ({ firstName, lastName, phoneNumber }) {
-    return customerApi.put(PROFILE, { firstName, lastName, phoneNumber }).then(unwrap)
+  updateProfile ({ firstName, lastName, phoneNumber, preferredTimeZone }) {
+    return customerApi.put(PROFILE, { firstName, lastName, phoneNumber, preferredTimeZone }).then(unwrap)
   },
   changeEmail (newEmail) {
     return customerApi.put(PROFILE + '/email', { newEmail }).then(unwrap)
@@ -76,7 +82,29 @@ export const accountApi = {
   // ---- Order history ----
   orders (params = {}) {
     return customerApi.get(ORDERS, { params, paramsSerializer: qsSerializer }).then(unwrap)
+  },
+  // Full order detail (line items + ship-to) for the current customer.
+  getOrder (id) {
+    return customerApi.get(ORDERS + '/' + encodeURIComponent(id)).then(unwrap)
+  },
+  // Download the order's invoice PDF (blob → browser download).
+  downloadInvoice (id) {
+    return downloadPdf(ORDERS + '/' + encodeURIComponent(id) + '/invoice', `invoice-${id}.pdf`)
   }
+}
+
+// Fetch a PDF as a blob (on the authenticated customer instance) and trigger a browser download.
+async function downloadPdf (url, filename) {
+  const res = await customerApi.get(url, { responseType: 'blob' })
+  const blob = new Blob([res.data], { type: 'application/pdf' })
+  const href = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = href
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(href)
 }
 
 export default { customerAuthApi, accountApi }

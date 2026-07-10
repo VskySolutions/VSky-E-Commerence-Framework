@@ -59,8 +59,11 @@ function browserTimeZone () {
   }
 }
 
-// ---- Request interceptor (auth instance only) -------------------------------
-http.interceptors.request.use((config) => {
+// Attach the unified session token + per-request tracing id + site/tenant context. Shared by the
+// admin (`http`) and storefront customer (`http3`) instances so both send IDENTICAL auth/site
+// headers — WO-112 unified the session, so the storefront must carry the same X-Site-* context as
+// admin, or authenticated customer endpoints resolve no tenant and 401 ("session expired").
+function applyAuthContext (config) {
   config.headers = config.headers || {}
 
   const token = getStoredToken()
@@ -82,23 +85,11 @@ http.interceptors.request.use((config) => {
   if (siteTz != null) config.headers['X-Site-Timezone'] = String(siteTz)
 
   return config
-})
+}
 
-// ---- Request interceptor (customer instance) --------------------------------
-http3.interceptors.request.use((config) => {
-  config.headers = config.headers || {}
-
-  // Unified session (WO-112): read the single shared token slot.
-  const token = getStoredToken()
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-
-  config.headers['X-Correlation-Id'] = uuidV4()
-  config.headers['X-Site-Timezone'] = browserTimeZone()
-
-  return config
-})
+// ---- Request interceptors (auth + customer instances) -----------------------
+http.interceptors.request.use(applyAuthContext)
+http3.interceptors.request.use(applyAuthContext)
 
 export default ({ app }) => {
   // Make instances available as $api / $anonApi / $customerApi / $axios inside templates.

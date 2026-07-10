@@ -31,7 +31,7 @@ public class ChangeMyEmailCommandHandler : IRequestHandler<ChangeMyEmailCommand>
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
     private readonly IJwtTokenService _tokens;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IDateTimeProvider _clock;
     private readonly IStorefrontUrlBuilder _urls;
 
@@ -39,14 +39,14 @@ public class ChangeMyEmailCommandHandler : IRequestHandler<ChangeMyEmailCommand>
         IApplicationDbContext db,
         ICurrentUserService current,
         IJwtTokenService tokens,
-        IEmailEnqueuer emails,
+        IEmailTemplateSender templates,
         IDateTimeProvider clock,
         IStorefrontUrlBuilder urls)
     {
         _db = db;
         _current = current;
         _tokens = tokens;
-        _emails = emails;
+        _templates = templates;
         _clock = clock;
         _urls = urls;
     }
@@ -89,19 +89,15 @@ public class ChangeMyEmailCommandHandler : IRequestHandler<ChangeMyEmailCommand>
 
         var verifyUrl = _urls.EmailVerificationUrl(rawToken);
         var fullName = $"{customer.FirstName} {customer.LastName}".Trim();
-        var body =
-            $"Hi {fullName},\n\n" +
-            "You changed the email address on your account. Please confirm this address by opening the link below:\n\n" +
-            $"{verifyUrl}\n\n" +
-            "This link expires in 24 hours. If you did not request this change, please contact support.";
-
-        await _emails.EnqueueAsync(
-            EmailVerificationTemplateKey,
+        await _templates.SendAsync(
+            "account.email-verification",
             newEmail,
             string.IsNullOrWhiteSpace(fullName) ? null : fullName,
-            "Verify your email",
-            body,
-            NotificationCategory.Transactional,
+            new Dictionary<string, string>
+            {
+                ["customerName"] = string.IsNullOrWhiteSpace(fullName) ? "there" : fullName,
+                ["verificationUrl"] = verifyUrl,
+            },
             cancellationToken);
     }
 }

@@ -32,6 +32,8 @@ export const Permissions = Object.freeze({
   StorageWrite: 'Storage.Write',
   SmtpAccountsRead: 'SmtpAccounts.Read',
   SmtpAccountsWrite: 'SmtpAccounts.Write',
+  EmailLogRead: 'EmailLog.Read',
+  EmailLogWrite: 'EmailLog.Write',
   OrdersRead: 'Orders.Read',
   OrdersWrite: 'Orders.Write',
   WebhooksRead: 'Webhooks.Read',

@@ -1,39 +1,26 @@
 <template>
   <div class="account-auth-page">
     <q-card flat bordered class="account-auth-card">
-      <q-card-section>
+      <q-card-section class="q-pb-none">
         <div class="text-h6 text-weight-bold">Sign in</div>
         <div class="text-grey-7">Access your account, orders and saved addresses.</div>
       </q-card-section>
 
       <q-form @submit.prevent="onSubmit">
         <q-card-section class="q-gutter-md">
-          <q-input
+          <AppTextField
             v-model="email"
-            type="email"
             label="Email"
-            outlined
-            dense
-            :rules="[(v) => !!v || 'Email is required']"
+            type="email"
             autocomplete="email"
+            :rules="[(v) => !!v || 'Email is required']"
           />
-          <q-input
+          <AppPasswordField
             v-model="password"
-            :type="showPassword ? 'text' : 'password'"
             label="Password"
-            outlined
-            dense
-            :rules="[(v) => !!v || 'Password is required']"
             autocomplete="current-password"
-          >
-            <template #append>
-              <q-icon
-                :name="showPassword ? 'o_visibility_off' : 'o_visibility'"
-                class="cursor-pointer"
-                @click="showPassword = !showPassword"
-              />
-            </template>
-          </q-input>
+            :rules="[(v) => !!v || 'Password is required']"
+          />
 
           <div class="row justify-end">
             <router-link class="text-primary text-caption" :to="{ name: 'shop-forgot-password' }">
@@ -58,25 +45,31 @@
 import { ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
+import { useAuthStore } from 'stores/auth'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { getApiErrorMessage } from 'services/api'
 
 const router = useRouter()
 const route = useRoute()
 const $q = useQuasar()
-const auth = useCustomerAuthStore()
+const auth = useAuthStore()
+const customerAuth = useCustomerAuthStore()
 
 const email = ref('')
 const password = ref('')
-const showPassword = ref(false)
 const loading = ref(false)
 
 async function onSubmit () {
   loading.value = true
   try {
-    await auth.login({ email: email.value.trim(), password: password.value })
+    await customerAuth.login({ email: email.value.trim(), password: password.value })
     const redirect = route.query.redirect
-    router.push(redirect && typeof redirect === 'string' ? redirect : { name: 'shop-account-profile' })
+    if (redirect && typeof redirect === 'string') {
+      router.push(redirect)
+    } else {
+      // WO-112 unified login: staff land in the Admin Portal, customers stay on the storefront.
+      router.push(auth.roles.length ? { name: 'dashboard' } : { name: 'shop-account-profile' })
+    }
   } catch (e) {
     $q.notify({ type: 'negative', message: getApiErrorMessage(e) })
   } finally {
@@ -95,7 +88,7 @@ async function onSubmit () {
 }
 .account-auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   border-radius: 12px;
 }
 </style>

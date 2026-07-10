@@ -1,43 +1,41 @@
 <template>
-  <q-card flat bordered class="fp-card q-pa-sm">
-    <q-card-section class="text-center q-pb-none">
-      <q-icon name="o_lock_reset" size="42px" color="primary" />
-      <div class="text-h5 q-mt-sm">Forgot password</div>
-      <div class="text-subtitle2 text-grey-7">We'll email you a link to choose a new password.</div>
-    </q-card-section>
+  <div class="account-auth-page">
+    <q-card flat bordered class="account-auth-card">
+      <q-card-section class="q-pb-none">
+        <div class="text-h6 text-weight-bold">Forgot password</div>
+        <div class="text-grey-7">We'll email you a link to choose a new password.</div>
+      </q-card-section>
 
-    <template v-if="!done">
-      <q-form @submit.prevent="onSubmit">
-        <q-card-section>
-          <q-input
-            v-model="email"
-            type="email"
-            label="Email"
-            outlined
-            autocomplete="username"
-            :disable="loading"
-            :rules="[(v) => !!v || 'Email is required']"
-          >
-            <template #prepend><q-icon name="o_mail" /></template>
-          </q-input>
-        </q-card-section>
+      <template v-if="!done">
+        <q-form @submit.prevent="onSubmit">
+          <q-card-section class="q-gutter-md">
+            <AppTextField
+              v-model="email"
+              label="Email"
+              type="email"
+              autocomplete="username"
+              :disable="loading"
+              :rules="[(v) => !!v || 'Email is required']"
+            />
+          </q-card-section>
 
-        <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
-          <q-btn type="submit" color="primary" class="full-width" label="Send reset link" unelevated :loading="loading" />
-          <q-btn flat no-caps color="grey-8" class="full-width" label="Back to sign in" :to="{ name: 'login' }" />
-        </q-card-actions>
-      </q-form>
-    </template>
+          <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
+            <q-btn type="submit" color="primary" class="full-width" label="Send reset link" no-caps unelevated :loading="loading" />
+            <q-btn flat no-caps color="grey-8" class="full-width" label="Back to sign in" :to="{ name: 'login' }" />
+          </q-card-actions>
+        </q-form>
+      </template>
 
-    <q-card-section v-else class="text-center q-gutter-sm">
-      <q-icon name="o_outgoing_mail" color="positive" size="48px" />
-      <div class="text-subtitle1 text-weight-medium">Check your inbox</div>
-      <div class="text-grey-7">
-        If an account exists for <strong>{{ email }}</strong>, a password-reset link is on its way. The link expires in 1 hour.
-      </div>
-      <q-btn color="primary" flat no-caps label="Back to sign in" :to="{ name: 'login' }" />
-    </q-card-section>
-  </q-card>
+      <q-card-section v-else class="text-center q-gutter-sm">
+        <q-icon name="o_outgoing_mail" color="positive" size="48px" />
+        <div class="text-subtitle1 text-weight-medium">Check your inbox</div>
+        <div class="text-grey-7">
+          If an account exists for <strong>{{ email }}</strong>, a password-reset link is on its way. The link expires in 1 hour.
+        </div>
+        <q-btn color="primary" flat no-caps label="Back to sign in" :to="{ name: 'login' }" />
+      </q-card-section>
+    </q-card>
+  </div>
 </template>
 
 <script setup>
@@ -67,9 +65,17 @@ async function onSubmit () {
 }
 </script>
 
-<style scoped>
-.fp-card {
-  width: 400px;
-  max-width: 92vw;
+<style scoped lang="scss">
+.account-auth-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+}
+.account-auth-card {
+  width: 100%;
+  max-width: 440px;
+  border-radius: 12px;
 }
 </style>

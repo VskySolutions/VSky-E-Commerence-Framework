@@ -20,4 +20,15 @@ public class CustomerOrdersController : ApiControllerBase
     [HttpGet("{id:guid}")]
     public async Task<ActionResult<OrderDto>> Get(Guid id)
         => Ok(await Mediator.Send(new GetMyOrderQuery(id)));
+
+    /// <summary>Download the current customer's own order invoice as a PDF.</summary>
+    [HttpGet("{id:guid}/invoice")]
+    public async Task<IActionResult> Invoice(Guid id)
+    {
+        // Authorize first: GetMyOrderQuery throws NotFound unless the order belongs to the signed-in
+        // customer, so a buyer can only ever download their own invoice.
+        await Mediator.Send(new GetMyOrderQuery(id));
+        var bytes = await Mediator.Send(new GetInvoicePdfQuery(id));
+        return File(bytes, "application/pdf", $"invoice-{id}.pdf");
+    }
 }

@@ -10,7 +10,8 @@ namespace VSky.Application.Features.CustomerProfile;
 public record UpdateMyProfileCommand(
     string FirstName,
     string LastName,
-    string? PhoneNumber) : IRequest<CustomerProfileDto>;
+    string? PhoneNumber,
+    string? PreferredTimeZone = null) : IRequest<CustomerProfileDto>;
 
 public class UpdateMyProfileCommandValidator : AbstractValidator<UpdateMyProfileCommand>
 {
@@ -19,6 +20,7 @@ public class UpdateMyProfileCommandValidator : AbstractValidator<UpdateMyProfile
         RuleFor(x => x.FirstName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.LastName).NotEmpty().MaximumLength(200);
         RuleFor(x => x.PhoneNumber).MaximumLength(50);
+        RuleFor(x => x.PreferredTimeZone).MaximumLength(64);
     }
 }
 
@@ -46,6 +48,7 @@ public class UpdateMyProfileCommandHandler : IRequestHandler<UpdateMyProfileComm
         customer.FirstName = request.FirstName.Trim();
         customer.LastName = request.LastName.Trim();
         customer.PhoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
+        customer.PreferredTimeZone = string.IsNullOrWhiteSpace(request.PreferredTimeZone) ? null : request.PreferredTimeZone.Trim();
 
         await _db.SaveChangesAsync(cancellationToken);
 

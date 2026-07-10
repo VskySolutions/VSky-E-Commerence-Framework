@@ -1,43 +1,45 @@
 <template>
-  <q-card flat bordered class="rp-card q-pa-sm">
-    <q-card-section class="text-center q-pb-none">
-      <q-icon name="o_password" size="42px" color="primary" />
-      <div class="text-h5 q-mt-sm">Choose a new password</div>
-    </q-card-section>
+  <div class="account-auth-page">
+    <q-card flat bordered class="account-auth-card">
+      <q-card-section class="q-pb-none">
+        <div class="text-h6 text-weight-bold">Choose a new password</div>
+        <div class="text-grey-7">Pick a password you don't use anywhere else.</div>
+      </q-card-section>
 
-    <template v-if="!done">
-      <q-banner v-if="!hasToken" dense class="bg-red-1 text-negative q-mx-md q-mb-sm rounded-borders">
-        This reset link is missing its token. Request a new one from the sign-in page.
-      </q-banner>
-      <q-form @submit.prevent="onSubmit">
-        <q-card-section class="q-gutter-md">
-          <AppPasswordField
-            v-model="password"
-            label="New password"
-            strength
-            :rules="passwordRules()"
-          />
-          <AppPasswordField
-            v-model="confirm"
-            label="Confirm new password"
-            :rules="[matchRule(() => password)]"
-          />
-        </q-card-section>
+      <template v-if="!done">
+        <q-banner v-if="!hasToken" dense class="bg-red-1 text-negative q-mx-md q-mb-sm rounded-borders">
+          This reset link is missing its token. Request a new one from the sign-in page.
+        </q-banner>
+        <q-form @submit.prevent="onSubmit">
+          <q-card-section class="q-gutter-md">
+            <AppPasswordField
+              v-model="password"
+              label="New password"
+              strength
+              :rules="passwordRules()"
+            />
+            <AppPasswordField
+              v-model="confirm"
+              label="Confirm new password"
+              :rules="[matchRule(() => password)]"
+            />
+          </q-card-section>
 
-        <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
-          <q-btn type="submit" color="primary" class="full-width" label="Update password" unelevated :loading="loading" :disable="!hasToken" />
-          <q-btn flat no-caps color="grey-8" class="full-width" label="Back to sign in" :to="{ name: 'login' }" />
-        </q-card-actions>
-      </q-form>
-    </template>
+          <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
+            <q-btn type="submit" color="primary" class="full-width" label="Update password" no-caps unelevated :loading="loading" :disable="!hasToken" />
+            <q-btn flat no-caps color="grey-8" class="full-width" label="Back to sign in" :to="{ name: 'login' }" />
+          </q-card-actions>
+        </q-form>
+      </template>
 
-    <q-card-section v-else class="text-center q-gutter-sm">
-      <q-icon name="o_lock_reset" color="positive" size="48px" />
-      <div class="text-subtitle1 text-weight-medium">Password updated</div>
-      <div class="text-grey-7">You can now sign in with your new password.</div>
-      <q-btn color="primary" unelevated no-caps label="Sign in" :to="{ name: 'login' }" />
-    </q-card-section>
-  </q-card>
+      <q-card-section v-else class="text-center q-gutter-sm">
+        <q-icon name="o_lock_reset" color="positive" size="48px" />
+        <div class="text-subtitle1 text-weight-medium">Password updated</div>
+        <div class="text-grey-7">You can now sign in with your new password.</div>
+        <q-btn color="primary" unelevated no-caps label="Sign in" :to="{ name: 'login' }" />
+      </q-card-section>
+    </q-card>
+  </div>
 </template>
 
 <script setup>
@@ -77,9 +79,17 @@ async function onSubmit () {
 }
 </script>
 
-<style scoped>
-.rp-card {
-  width: 420px;
-  max-width: 92vw;
+<style scoped lang="scss">
+.account-auth-page {
+  min-height: 70vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px 16px;
+}
+.account-auth-card {
+  width: 100%;
+  max-width: 440px;
+  border-radius: 12px;
 }
 </style>

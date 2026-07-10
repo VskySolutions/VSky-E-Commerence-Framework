@@ -19,20 +19,20 @@ public class SendUserPasswordResetCommandHandler : IRequestHandler<SendUserPassw
     private readonly IApplicationDbContext _db;
     private readonly IJwtTokenService _tokens;
     private readonly IDateTimeProvider _clock;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IStorefrontUrlBuilder _urls;
 
     public SendUserPasswordResetCommandHandler(
         IApplicationDbContext db,
         IJwtTokenService tokens,
         IDateTimeProvider clock,
-        IEmailEnqueuer emails,
+        IEmailTemplateSender templates,
         IStorefrontUrlBuilder urls)
     {
         _db = db;
         _tokens = tokens;
         _clock = clock;
-        _emails = emails;
+        _templates = templates;
         _urls = urls;
     }
 
@@ -59,19 +59,16 @@ public class SendUserPasswordResetCommandHandler : IRequestHandler<SendUserPassw
             : $"{user.Customer.FirstName} {user.Customer.LastName}".Trim();
         var greeting = string.IsNullOrWhiteSpace(fullName) ? "there" : fullName;
         var resetUrl = _urls.AdminPasswordResetUrl(rawToken);
-        var body =
-            $"Hi {greeting},\n\n" +
-            "An administrator asked us to help you set a new password. Open the link below to choose one:\n\n" +
-            $"{resetUrl}\n\n" +
-            "This link expires in 1 hour. If you did not expect this, please contact your administrator.";
-
-        await _emails.EnqueueAsync(
-            "AdminPasswordReset",
+        await _templates.SendAsync(
+            "account.password-reset",
             user.Email,
             string.IsNullOrWhiteSpace(fullName) ? null : fullName,
-            "Reset your password",
-            body,
-            NotificationCategory.Transactional,
+            new Dictionary<string, string>
+            {
+                ["customerName"] = greeting,
+                ["resetUrl"] = resetUrl,
+                ["expiryMinutes"] = "60",
+            },
             cancellationToken);
     }
 }

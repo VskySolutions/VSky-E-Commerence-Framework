@@ -54,6 +54,7 @@ import { ref, computed, watch } from 'vue'
 import useVuelidate from '@vuelidate/core'
 import { required, helpers } from 'validators'
 import AppTextField from 'components/common/AppTextField.vue'
+import { formatDateTime } from 'src/utils/datetime'
 
 const props = defineProps({
   modelValue: { type: Boolean, default: false },
@@ -73,9 +74,7 @@ const v$ = useVuelidate({ rate: { required, positiveRate } }, { rate })
 
 const lastUpdated = computed(() => {
   const iso = props.item && props.item.lastRateUpdatedOnUtc
-  if (!iso) return null
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? null : d.toLocaleString()
+  return iso ? formatDateTime(iso) : null
 })
 
 watch(

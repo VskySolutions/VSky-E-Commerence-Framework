@@ -757,6 +757,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
+                    b.Property<string>("PreferredTimeZone")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("TaxExemptionCertificate")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -1078,6 +1081,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ErrorMessage")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsHtml")
+                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastAttemptOnUtc")
                         .HasColumnType("datetime2");
@@ -3340,6 +3346,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("NotificationEmail")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("OperatingHoursJson")
                         .HasColumnType("nvarchar(max)");
 
@@ -3607,6 +3616,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<string>("DefaultLanguage")
                         .HasMaxLength(10)
                         .HasColumnType("nvarchar(10)");
+
+                    b.Property<string>("DisplayTimeZone")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Domain")
                         .HasMaxLength(255)

@@ -4,7 +4,7 @@ using VSky.Application.Common.Interfaces;
 
 namespace VSky.Application.Features.Products;
 
-/// <summary>Soft-deletes a product variant (idempotent).</summary>
+/// <summary>Soft-deletes a product variant and removes its per-store inventory (idempotent).</summary>
 public record DeleteVariantCommand(Guid VariantId) : IRequest;
 
 public class DeleteVariantCommandHandler : IRequestHandler<DeleteVariantCommand>
@@ -20,6 +20,15 @@ public class DeleteVariantCommandHandler : IRequestHandler<DeleteVariantCommand>
 
         if (variant is null)
             return;
+
+        // Remove the variant's per-store inventory levels too. The variant→inventory FK is NoAction
+        // (no cascade), so these would otherwise be orphaned and keep counting toward stock, since
+        // checkout/order-routing read InventoryLevels (not the catalog rollup).
+        var levels = await _db.InventoryLevels
+            .Where(i => i.ProductVariantId == request.VariantId)
+            .ToListAsync(cancellationToken);
+        if (levels.Count > 0)
+            _db.InventoryLevels.RemoveRange(levels);
 
         _db.ProductVariants.Remove(variant);
         await _db.SaveChangesAsync(cancellationToken);

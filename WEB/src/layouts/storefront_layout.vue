@@ -36,12 +36,19 @@
               <q-icon name="o_account_circle" size="16px" /> {{ accountLabel }}
               <q-menu>
                 <q-list style="min-width: 180px">
+                  <template v-if="isAdmin">
+                    <q-item clickable v-close-popup :to="{ name: 'dashboard' }">
+                      <q-item-section avatar><q-icon name="o_admin_panel_settings" color="primary" /></q-item-section>
+                      <q-item-section class="text-primary text-weight-medium">Admin Portal</q-item-section>
+                    </q-item>
+                    <q-separator />
+                  </template>
                   <q-item clickable v-close-popup :to="{ name: 'shop-account-profile' }">
                     <q-item-section avatar><q-icon name="o_person" /></q-item-section>
                     <q-item-section>My profile</q-item-section>
                   </q-item>
                   <q-item clickable v-close-popup :to="{ name: 'shop-account-addresses' }">
-                    <q-item-section avatar><q-icon name="o_home_pin" /></q-item-section>
+                    <q-item-section avatar><q-icon name="o_location_on" /></q-item-section>
                     <q-item-section>Addresses</q-item-section>
                   </q-item>
                   <q-item clickable v-close-popup :to="{ name: 'shop-account-orders' }">
@@ -275,8 +282,11 @@ import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { storefrontApi } from 'modules/storefront/api'
 import { useCompare } from 'modules/storefront/composables/useStorefrontStorage'
+import { useAuthStore } from 'stores/auth'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { useStorefront } from 'modules/storefront/composables/useStorefront'
+import { accountApi } from 'modules/storefront/account-api'
+import { setActiveTimeZone } from 'src/utils/datetime'
 import { useCategories } from 'modules/storefront/composables/useCategories'
 import { useCart } from 'modules/storefront/composables/useCart'
 import LanguageSelector from 'modules/storefront/components/LanguageSelector.vue'
@@ -287,6 +297,7 @@ import NewsletterForm from 'modules/storefront/components/NewsletterForm.vue'
 
 const router = useRouter()
 const { compareIds } = useCompare()
+const auth = useAuthStore()
 const customerAuth = useCustomerAuthStore()
 const { branding, loadBranding } = useStorefront()
 const { categories, loadCategories } = useCategories()
@@ -294,6 +305,9 @@ const { itemCount, ensureLoaded } = useCart()
 
 const year = new Date().getFullYear()
 const accountLabel = computed(() => customerAuth.displayName || 'Account')
+// WO-112 unified session: staff (SuperAdmin/TenantAdmin/…) carry roles; customers have none.
+// Show the Admin Portal shortcut only for signed-in staff.
+const isAdmin = computed(() => customerAuth.isAuthenticated && auth.roles.length > 0)
 const cartCount = computed(() => itemCount.value)
 const topCategories = computed(() => categories.value.slice(0, 12))
 
@@ -369,9 +383,16 @@ function onLogout () {
   router.push({ name: 'shop-home' })
 }
 
-onMounted(() => {
-  loadBranding()
+onMounted(async () => {
+  await loadBranding() // sets the tenant display timezone
   loadCategories()
   ensureLoaded()
+  // A signed-in customer's own timezone preference overrides the tenant default for their views.
+  if (customerAuth.isAuthenticated) {
+    try {
+      const profile = await accountApi.getProfile()
+      if (profile && profile.preferredTimeZone) setActiveTimeZone(profile.preferredTimeZone)
+    } catch (e) { /* non-fatal — keep the tenant default */ }
+  }
 })
 </script>

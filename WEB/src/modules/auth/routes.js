@@ -1,11 +1,14 @@
 /*
- * Auth module routes (WO-94 Step 12). Own (chrome-less) auth_layout.
- *   /auth/login, /setup, /change-password
+ * Auth module routes (WO-94 Step 12).
+ *   /auth/login + /auth/forgot-password + /auth/reset-password render inside the
+ *   public storefront_layout (WO-112 unified login), so admin sign-in looks like
+ *   the storefront auth pages (/shop/login, /shop/register).
+ *   /setup and /change-password keep the bare, chrome-less auth_layout.
  */
 export default [
   {
     path: '/auth',
-    component: () => import('layouts/auth_layout.vue'),
+    component: () => import('layouts/storefront_layout.vue'),
     children: [
       { path: '', redirect: '/auth/login' },
       {

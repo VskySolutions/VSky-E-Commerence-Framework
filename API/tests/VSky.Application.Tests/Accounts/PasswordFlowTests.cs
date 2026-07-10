@@ -186,7 +186,7 @@ public class PasswordFlowTests : CatalogTestBase
     public async Task SendUserPasswordReset_creates_token_and_emails_user()
     {
         var userId = SeedUser(email: "target@test.com");
-        var emails = new FakeEmailEnqueuer();
+        var emails = new FakeEmailTemplateSender();
 
         using (var db = NewContext())
         {
@@ -196,7 +196,7 @@ public class PasswordFlowTests : CatalogTestBase
 
         Assert.Equal(1, emails.SentCount);
         Assert.Equal("target@test.com", emails.LastRecipient);
-        Assert.Contains("/auth/reset-password?token=", emails.LastBody);
+        Assert.Contains("/auth/reset-password?token=", emails.LastVariables!["resetUrl"]);
 
         using var verify = NewContext();
         Assert.True(await verify.UserTokens.AnyAsync(t => t.UserId == userId && t.Purpose == UserTokenPurpose.PasswordReset));
@@ -205,7 +205,7 @@ public class PasswordFlowTests : CatalogTestBase
     [Fact]
     public async Task SendUserPasswordReset_for_unknown_user_throws()
     {
-        var emails = new FakeEmailEnqueuer();
+        var emails = new FakeEmailTemplateSender();
         using var db = NewContext();
         var handler = new SendUserPasswordResetCommandHandler(db, _tokens, new FixedClock(DateTime.UtcNow), emails, _urls);
         await Assert.ThrowsAsync<NotFoundException>(() =>
@@ -219,7 +219,7 @@ public class PasswordFlowTests : CatalogTestBase
     public async Task ForgotPassword_for_known_active_user_issues_token_and_email()
     {
         var userId = SeedUser(email: "known@test.com");
-        var emails = new FakeEmailEnqueuer();
+        var emails = new FakeEmailTemplateSender();
 
         using (var db = NewContext())
         {
@@ -235,7 +235,7 @@ public class PasswordFlowTests : CatalogTestBase
     [Fact]
     public async Task ForgotPassword_for_unknown_email_is_silent_noop()
     {
-        var emails = new FakeEmailEnqueuer();
+        var emails = new FakeEmailTemplateSender();
         using var db = NewContext();
         var handler = new AdminRequestPasswordResetCommandHandler(db, _tokens, new FixedClock(DateTime.UtcNow), emails, _urls);
 
@@ -248,7 +248,7 @@ public class PasswordFlowTests : CatalogTestBase
     public async Task ForgotPassword_for_inactive_user_is_silent_noop()
     {
         SeedUser(email: "inactive@test.com", isActive: false);
-        var emails = new FakeEmailEnqueuer();
+        var emails = new FakeEmailTemplateSender();
 
         using var db = NewContext();
         var handler = new AdminRequestPasswordResetCommandHandler(db, _tokens, new FixedClock(DateTime.UtcNow), emails, _urls);

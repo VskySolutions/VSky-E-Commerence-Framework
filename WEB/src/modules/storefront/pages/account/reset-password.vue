@@ -1,8 +1,9 @@
 <template>
   <div class="account-auth-page">
     <q-card flat bordered class="account-auth-card">
-      <q-card-section>
+      <q-card-section class="q-pb-none">
         <div class="text-h6 text-weight-bold">Choose a new password</div>
+        <div class="text-grey-7">Pick a password you don't use anywhere else.</div>
       </q-card-section>
 
       <template v-if="!done">
@@ -74,7 +75,7 @@ async function onSubmit () {
 }
 .account-auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   border-radius: 12px;
 }
 </style>

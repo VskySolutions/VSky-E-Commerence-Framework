@@ -32,6 +32,7 @@ public static class Modules
     public const string Orders = "Orders";
     public const string Webhooks = "Webhooks";
     public const string Languages = "Languages";
+    public const string EmailLog = "EmailLog";
 
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
@@ -58,6 +59,7 @@ public static class Modules
         new(Orders, "Order Management"),
         new(Webhooks, "Webhooks"),
         new(Languages, "Languages & Translations"),
+        new(EmailLog, "Email Log"),
     };
 
     private static readonly HashSet<string> Keys = new(All.Select(m => m.Key), StringComparer.Ordinal);

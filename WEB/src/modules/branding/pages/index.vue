@@ -26,6 +26,18 @@
           <AppTextField v-model="form.domain" label="Domain" :v="v$.domain" placeholder="store.example.com" maxlength="255" :disable="!canWrite" />
           <AppTextField v-model="form.fontFamily" label="Font family" placeholder="Poppins, Roboto, sans-serif" :disable="!canWrite" />
           <AppSelect v-model="form.defaultLanguage" label="Default language" :options="languageOptions" clearable :disable="!canWrite" />
+          <AppSelect
+            v-model="form.displayTimeZone"
+            label="Display timezone"
+            :options="tzOptions"
+            use-input
+            hide-selected
+            fill-input
+            input-debounce="0"
+            :disable="!canWrite"
+            hint="Timezone used to display all UTC dates & times across the admin app and storefront."
+            @filter="filterTz"
+          />
 
           <q-separator class="q-my-sm" />
           <div class="text-subtitle2 text-grey-8 q-mb-sm">Colours</div>
@@ -80,6 +92,7 @@ import { reactive, ref, computed, onMounted } from 'vue'
 import useVuelidate from '@vuelidate/core'
 import { required, maxLength, url, email, hexColor } from 'validators'
 import { brandingApi } from 'modules/branding/api'
+import { timeZoneOptions } from 'src/utils/datetime'
 import { getApiErrorMessage } from 'services/api'
 import { useTenantStore } from 'stores/tenant'
 import { useNotify } from 'composables/useNotify'
@@ -101,7 +114,7 @@ const saving = ref(false)
 
 const SOCIAL_KEYS = ['facebook', 'instagram', 'twitter', 'linkedin', 'youtube']
 const EMPTY = {
-  brandName: '', domain: '', fontFamily: '', defaultLanguage: null,
+  brandName: '', domain: '', fontFamily: '', defaultLanguage: null, displayTimeZone: 'UTC',
   primaryColor: '', secondaryColor: '', accentColor: '',
   logoMediaId: null, logoUrl: '', faviconMediaId: null, faviconUrl: '',
   supportEmail: '', supportPhone: '',
@@ -122,6 +135,13 @@ const rules = {
   facebook: { url }, instagram: { url }, twitter: { url }, linkedin: { url }, youtube: { url }
 }
 const v$ = useVuelidate(rules, form)
+
+const TZ_BASE = timeZoneOptions()
+const tzOptions = ref(TZ_BASE)
+function filterTz (needle, update) {
+  const q = (needle || '').toLowerCase().trim()
+  update(() => { tzOptions.value = !q ? TZ_BASE : TZ_BASE.filter((o) => o.label.toLowerCase().includes(q)) })
+}
 
 const languageOptions = [
   { label: 'English', value: 'en' }, { label: 'Spanish', value: 'es' }, { label: 'French', value: 'fr' },
@@ -147,6 +167,7 @@ function hydrate (b) {
   Object.assign(form, EMPTY, {
     brandName: b.brandName || '', domain: b.domain || '', fontFamily: b.fontFamily || '',
     defaultLanguage: b.defaultLanguage || null,
+    displayTimeZone: b.displayTimeZone || 'UTC',
     primaryColor: b.primaryColor || '', secondaryColor: b.secondaryColor || '', accentColor: b.accentColor || '',
     logoMediaId: b.logoMediaId || null, logoUrl: b.logoUrl || '',
     faviconMediaId: b.faviconMediaId || null, faviconUrl: b.faviconUrl || '',
@@ -197,7 +218,8 @@ async function onSave () {
       supportPhone: toNull(form.supportPhone),
       socialLinksJson: buildSocialJson(),
       layoutOptionsJson: layoutOptionsJson.value || null,
-      defaultLanguage: form.defaultLanguage || null
+      defaultLanguage: form.defaultLanguage || null,
+      displayTimeZone: form.displayTimeZone || 'UTC'
     })
     hydrate(updated || {})
     notify.success('Branding saved')

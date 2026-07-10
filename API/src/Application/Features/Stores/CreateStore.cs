@@ -18,6 +18,7 @@ public record CreateStoreCommand(
     double? Longitude = null,
     string? ContactEmail = null,
     string? ContactPhone = null,
+    string? NotificationEmail = null,
     string? OperatingHoursJson = null,
     string TimeZone = "UTC",
     string? CurrencyDisplay = null,
@@ -33,6 +34,8 @@ public class CreateStoreCommandValidator : AbstractValidator<CreateStoreCommand>
     public CreateStoreCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.ContactEmail).NotEmpty().EmailAddress().MaximumLength(256);
+        RuleFor(x => x.NotificationEmail).NotEmpty().MaximumLength(512);
         RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.TimeZone).NotEmpty().MaximumLength(64);
         RuleFor(x => x.CountryCode).MaximumLength(2);
@@ -56,6 +59,7 @@ public class CreateStoreCommandHandler : IRequestHandler<CreateStoreCommand, Sto
             Address = StoreAddress.FromCreate(request),
             ContactEmail = request.ContactEmail,
             ContactPhone = request.ContactPhone,
+            NotificationEmail = request.NotificationEmail,
             OperatingHoursJson = request.OperatingHoursJson,
             TimeZone = request.TimeZone,
             CurrencyDisplay = request.CurrencyDisplay,

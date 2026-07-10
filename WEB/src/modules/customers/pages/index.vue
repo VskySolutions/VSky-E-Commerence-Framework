@@ -62,6 +62,7 @@ import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import { customerAdminApi, customerRoleApi } from 'modules/customers/api'
+import { formatDateTime as formatDate } from 'src/utils/datetime'
 import AppListHeader from 'components/common/AppListHeader.vue'
 import AppDataTable from 'components/common/AppDataTable.vue'
 import AppFieldLabel from 'components/common/AppFieldLabel.vue'
@@ -119,7 +120,6 @@ function clearFilters () {
 
 const dialog = reactive({ open: false, loading: false, saving: false, customer: null, roleIds: [], exemption: { isTaxExempt: false, certificateNumber: '', vatId: '' } })
 
-function formatDate (v) { return v ? new Date(v).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—' }
 
 async function fetch (props) {
   const p = props?.pagination || pagination.value

@@ -18,7 +18,7 @@
       class="text-grey-7 q-mb-md account-tabs"
     >
       <q-route-tab name="profile" label="Profile" icon="o_person" :to="{ name: 'shop-account-profile' }" />
-      <q-route-tab name="addresses" label="Addresses" icon="o_home_pin" :to="{ name: 'shop-account-addresses' }" />
+      <q-route-tab name="addresses" label="Addresses" icon="o_location_on" :to="{ name: 'shop-account-addresses' }" />
       <q-route-tab name="orders" label="Orders" icon="o_receipt_long" :to="{ name: 'shop-account-orders' }" />
     </q-tabs>
 

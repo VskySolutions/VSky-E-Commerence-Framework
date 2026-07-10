@@ -18,6 +18,7 @@ public class StoreDto
     public double? Longitude { get; set; }
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
+    public string? NotificationEmail { get; set; }
     public string? OperatingHoursJson { get; set; }
     public string TimeZone { get; set; } = "UTC";
     public string? CurrencyDisplay { get; set; }
@@ -42,6 +43,7 @@ public class StoreDto
         Longitude = s.Longitude,
         ContactEmail = s.ContactEmail,
         ContactPhone = s.ContactPhone,
+        NotificationEmail = s.NotificationEmail,
         OperatingHoursJson = s.OperatingHoursJson,
         TimeZone = s.TimeZone,
         CurrencyDisplay = s.CurrencyDisplay,

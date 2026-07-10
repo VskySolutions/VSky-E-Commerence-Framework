@@ -1,22 +1,20 @@
 <template>
   <div class="account-auth-page">
     <q-card flat bordered class="account-auth-card">
-      <q-card-section>
+      <q-card-section class="q-pb-none">
         <div class="text-h6 text-weight-bold">Reset your password</div>
         <div class="text-grey-7">We'll email you a link to choose a new password.</div>
       </q-card-section>
 
       <template v-if="!done">
         <q-form @submit.prevent="onSubmit">
-          <q-card-section>
-            <q-input
+          <q-card-section class="q-gutter-md">
+            <AppTextField
               v-model="email"
-              type="email"
               label="Email"
-              outlined
-              dense
-              :rules="[(v) => !!v || 'Email is required']"
+              type="email"
               autocomplete="email"
+              :rules="[(v) => !!v || 'Email is required']"
             />
           </q-card-section>
           <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
@@ -76,7 +74,7 @@ async function onSubmit () {
 }
 .account-auth-card {
   width: 100%;
-  max-width: 420px;
+  max-width: 440px;
   border-radius: 12px;
 }
 </style>

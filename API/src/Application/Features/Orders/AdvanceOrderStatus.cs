@@ -21,20 +21,20 @@ public record AdvanceOrderStatusCommand(Guid OrderId, string ToStatus, string? T
 public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStatusCommand, OrderDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly ICurrentUserService _current;
     private readonly IDateTimeProvider _clock;
     private readonly IPaymentGatewayRouter _payments;
 
     public AdvanceOrderStatusCommandHandler(
         IApplicationDbContext db,
-        IEmailEnqueuer emails,
+        IEmailTemplateSender templates,
         ICurrentUserService current,
         IDateTimeProvider clock,
         IPaymentGatewayRouter payments)
     {
         _db = db;
-        _emails = emails;
+        _templates = templates;
         _current = current;
         _clock = clock;
         _payments = payments;
@@ -93,38 +93,54 @@ public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStat
         if (target == OrderStatus.Shipped)
             await _payments.CaptureForOrderAsync(order.Id, cancellationToken);
 
-        // Customer notifications on shipment and delivery (AC-ORD-001.5).
-        if (!string.IsNullOrWhiteSpace(order.ContactEmail))
+        // Notify the customer of every lifecycle change — Processing / Shipped / Delivered / Cancelled
+        // (AC-ORD-001.5) — using the admin-editable email template for the event.
+        var note = BuildStatusNotification(order, target);
+        if (note is not null)
         {
-            if (target == OrderStatus.Shipped)
-            {
-                await _emails.EnqueueAsync(
-                    "OrderShipped",
-                    order.ContactEmail!,
-                    order.ContactName,
-                    $"Your order {order.OrderNumber} has shipped",
-                    $"Hi {order.ContactName},\n\n" +
-                    $"Good news — your order {order.OrderNumber} is on its way.\n" +
-                    $"Carrier: {order.ShippingCarrier}\n" +
-                    $"Tracking number: {order.TrackingNumber}\n\n" +
-                    "Thank you for shopping with us.",
-                    cancellationToken: cancellationToken);
-            }
-            else if (target == OrderStatus.Delivered)
-            {
-                await _emails.EnqueueAsync(
-                    "OrderDelivered",
-                    order.ContactEmail!,
-                    order.ContactName,
-                    $"Your order {order.OrderNumber} has been delivered",
-                    $"Hi {order.ContactName},\n\n" +
-                    $"Your order {order.OrderNumber} has been delivered.\n\n" +
-                    "We hope you enjoy your purchase — thank you for shopping with us.",
-                    cancellationToken: cancellationToken);
-            }
+            await _templates.SendAsync(note.Value.Key, order.ContactEmail ?? string.Empty, order.ContactName,
+                note.Value.Vars, cancellationToken);
         }
 
         return OrderDto.From(order);
+    }
+
+    /// <summary>Template key + variables for the customer notification of a lifecycle transition.</summary>
+    private static (string Key, Dictionary<string, string> Vars)? BuildStatusNotification(Order order, OrderStatus target)
+    {
+        var name = string.IsNullOrWhiteSpace(order.ContactName) ? "there" : order.ContactName!;
+        Dictionary<string, string> Base() => new()
+        {
+            ["customerName"] = name,
+            ["orderNumber"] = order.OrderNumber,
+        };
+
+        return target switch
+        {
+            OrderStatus.Processing => ("order.processing", Base()),
+
+            OrderStatus.Shipped => ("order.shipped", Merge(Base(), new()
+            {
+                ["carrier"] = order.ShippingCarrier ?? string.Empty,
+                ["trackingNumber"] = order.TrackingNumber ?? string.Empty,
+                ["trackingUrl"] = string.Empty,
+            })),
+
+            OrderStatus.Delivered => ("order.delivered", Merge(Base(), new()
+            {
+                ["deliveredAt"] = order.DeliveredOnUtc?.ToString("MMM d, yyyy") ?? string.Empty,
+            })),
+
+            OrderStatus.Cancelled => ("order.cancelled", Base()),
+
+            _ => null,
+        };
+    }
+
+    private static Dictionary<string, string> Merge(Dictionary<string, string> a, Dictionary<string, string> b)
+    {
+        foreach (var kv in b) a[kv.Key] = kv.Value;
+        return a;
     }
 
     /// <summary>

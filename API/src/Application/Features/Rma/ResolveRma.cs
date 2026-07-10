@@ -27,19 +27,19 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
     private readonly IInventoryService _inventory;
     private readonly IStoreCreditService _storeCredit;
     private readonly ISender _mediator;
-    private readonly IEmailEnqueuer _emails;
+    private readonly IEmailTemplateSender _templates;
     private readonly IDateTimeProvider _clock;
 
     public ResolveRmaCommandHandler(
         IApplicationDbContext db, ICurrentUserService current, IInventoryService inventory,
-        IStoreCreditService storeCredit, ISender mediator, IEmailEnqueuer emails, IDateTimeProvider clock)
+        IStoreCreditService storeCredit, ISender mediator, IEmailTemplateSender templates, IDateTimeProvider clock)
     {
         _db = db;
         _current = current;
         _inventory = inventory;
         _storeCredit = storeCredit;
         _mediator = mediator;
-        _emails = emails;
+        _templates = templates;
         _clock = clock;
     }
 
@@ -88,7 +88,9 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
                 var amount = request.RefundAmount ?? ReturnedValue(order, rma);
                 if (amount > 0)
                 {
-                    await _mediator.Send(new RefundOrderCommand(order.Id, null, amount, $"RMA {rma.RmaNumber}"), cancellationToken);
+                    // NotifyCustomer: false — the RmaResolved email below already informs the buyer, so the
+                    // refund handler must not send a second (duplicate) email for the same action.
+                    await _mediator.Send(new RefundOrderCommand(order.Id, null, amount, $"RMA {rma.RmaNumber}", NotifyCustomer: false), cancellationToken);
                     rma.RefundedAmount = amount;
                 }
                 break;
@@ -179,20 +181,15 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
 
     private async Task NotifyAsync(Order order, Domain.Entities.Rma rma, bool approved, CancellationToken ct)
     {
-        if (string.IsNullOrWhiteSpace(order.ContactEmail))
-            return;
-
-        var outcome = approved
-            ? $"has been approved (resolution: {rma.Resolution})."
-            : "could not be approved.";
-        await _emails.EnqueueAsync(
-            "RmaResolved",
-            order.ContactEmail!,
-            order.ContactName,
-            $"Update on your return {rma.RmaNumber}",
-            $"Hi {order.ContactName},\n\nYour return {rma.RmaNumber} for order {order.OrderNumber} {outcome}\n\n" +
-            (string.IsNullOrWhiteSpace(rma.ResolutionNotes) ? string.Empty : $"Notes: {rma.ResolutionNotes}\n\n") +
-            "Thank you for shopping with us.",
-            cancellationToken: ct);
+        var vars = new Dictionary<string, string>
+        {
+            ["customerName"] = string.IsNullOrWhiteSpace(order.ContactName) ? "there" : order.ContactName!,
+            ["orderNumber"] = order.OrderNumber,
+            ["rmaNumber"] = rma.RmaNumber,
+            ["resolution"] = rma.Resolution.ToString(),
+            ["rejectionReason"] = string.IsNullOrWhiteSpace(rma.ResolutionNotes) ? "it did not meet our return policy" : rma.ResolutionNotes!,
+        };
+        var key = approved ? "return.approved" : "return.rejected";
+        await _templates.SendAsync(key, order.ContactEmail ?? string.Empty, order.ContactName, vars, ct);
     }
 }

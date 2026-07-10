@@ -21,6 +21,7 @@ public record UpdateStoreCommand(
     double? Longitude = null,
     string? ContactEmail = null,
     string? ContactPhone = null,
+    string? NotificationEmail = null,
     string? OperatingHoursJson = null,
     string TimeZone = "UTC",
     string? CurrencyDisplay = null,
@@ -37,6 +38,8 @@ public class UpdateStoreCommandValidator : AbstractValidator<UpdateStoreCommand>
     {
         RuleFor(x => x.Id).NotEmpty();
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.ContactEmail).NotEmpty().EmailAddress().MaximumLength(256);
+        RuleFor(x => x.NotificationEmail).NotEmpty().MaximumLength(512);
         RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.TimeZone).NotEmpty().MaximumLength(64);
         RuleFor(x => x.CountryCode).MaximumLength(2);
@@ -63,6 +66,7 @@ public class UpdateStoreCommandHandler : IRequestHandler<UpdateStoreCommand, Sto
         StoreAddress.ApplyUpdate(entity, request);
         entity.ContactEmail = request.ContactEmail;
         entity.ContactPhone = request.ContactPhone;
+        entity.NotificationEmail = request.NotificationEmail;
         entity.OperatingHoursJson = request.OperatingHoursJson;
         entity.TimeZone = request.TimeZone;
         entity.CurrencyDisplay = request.CurrencyDisplay;

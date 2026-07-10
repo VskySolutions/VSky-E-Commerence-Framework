@@ -36,10 +36,10 @@ public class CreateAddressCommandValidator : AbstractValidator<CreateAddressComm
         RuleFor(x => x.AddressLine2).MaximumLength(255);
         RuleFor(x => x.Landmark).MaximumLength(200);
         RuleFor(x => x.City).NotEmpty().MaximumLength(120);
-        RuleFor(x => x.StateProvince).MaximumLength(120);
+        RuleFor(x => x.StateProvince).NotEmpty().MaximumLength(120);
         RuleFor(x => x.PostalCode).NotEmpty().MaximumLength(20);
         RuleFor(x => x.CountryCode).NotEmpty().Length(2);
-        RuleFor(x => x.PhoneNumber).MaximumLength(50);
+        RuleFor(x => x.PhoneNumber).NotEmpty().MaximumLength(50);
     }
 }
 

@@ -10,22 +10,28 @@
  */
 import { ref } from 'vue'
 import { anonApi, unwrap } from 'services/api'
-
-const branding = ref(null)
-const loaded = ref(false)
-const loading = ref(false)
+import { setActiveTimeZone } from 'src/utils/datetime'
 
 // Static fallbacks used until (or when) branding is unavailable.
 const DEFAULTS = {
   brandName: 'VSky Shop',
   logoUrl: null,
+  faviconUrl: null,
   supportPhone: null,
   supportEmail: null,
   tagline: 'Quality products, delivered.',
   social: [],
   accentColor: null,
-  primaryColor: null
+  primaryColor: null,
+  secondaryColor: null,
+  displayTimeZone: 'UTC'
 }
+
+// Seed with DEFAULTS (not null) so the shell can render before loadBranding() resolves —
+// e.g. a hard load of any storefront_layout page, including /auth/login (WO-112).
+const branding = ref({ ...DEFAULTS })
+const loaded = ref(false)
+const loading = ref(false)
 
 function parseJson (raw, fallback) {
   if (!raw || typeof raw !== 'string') return fallback
@@ -74,7 +80,8 @@ function toModel (dto) {
     social: normalizeSocial(dto.socialLinksJson),
     accentColor: dto.accentColor || null,
     primaryColor: dto.primaryColor || null,
-    secondaryColor: dto.secondaryColor || null
+    secondaryColor: dto.secondaryColor || null,
+    displayTimeZone: dto.displayTimeZone || DEFAULTS.displayTimeZone
   }
 }
 
@@ -111,6 +118,9 @@ export function useStorefront () {
       branding.value = { ...DEFAULTS }
     } finally {
       applyTheme(branding.value)
+      // The storefront default zone is the tenant's; a signed-in customer's preference overrides this
+      // afterwards (see the storefront layout). Guests always get the tenant default.
+      setActiveTimeZone(branding.value.displayTimeZone)
       loaded.value = true
       loading.value = false
     }

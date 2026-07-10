@@ -25,6 +25,9 @@ public class BrandingDto
     public string? LayoutOptionsJson { get; set; }
     public string? DefaultLanguage { get; set; }
 
+    /// <summary>Tenant-wide IANA display timezone for UTC timestamps (whole-app default).</summary>
+    public string DisplayTimeZone { get; set; } = "UTC";
+
     public static BrandingDto From(TenantBranding b) => new()
     {
         BrandName = b.BrandName,
@@ -42,5 +45,6 @@ public class BrandingDto
         SocialLinksJson = b.SocialLinksJson,
         LayoutOptionsJson = b.LayoutOptionsJson,
         DefaultLanguage = b.DefaultLanguage,
+        DisplayTimeZone = string.IsNullOrWhiteSpace(b.DisplayTimeZone) ? "UTC" : b.DisplayTimeZone,
     };
 }

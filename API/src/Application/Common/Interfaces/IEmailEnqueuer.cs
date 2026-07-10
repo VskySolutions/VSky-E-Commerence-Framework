@@ -20,5 +20,6 @@ public interface IEmailEnqueuer
         string subject,
         string body,
         NotificationCategory category = NotificationCategory.Transactional,
+        bool isHtml = false,
         CancellationToken cancellationToken = default);
 }

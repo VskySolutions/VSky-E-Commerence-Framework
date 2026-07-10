@@ -29,4 +29,12 @@ public class TenantBranding : AuditableEntity
     public string? SocialLinksJson { get; set; }
     public string? LayoutOptionsJson { get; set; }
     public string? DefaultLanguage { get; set; }
+
+    /// <summary>
+    /// IANA timezone id (e.g. "America/New_York") for displaying UTC timestamps across the whole
+    /// application — the tenant-wide default for the admin app and the storefront (a signed-in
+    /// customer may override it via <see cref="Customer.PreferredTimeZone"/>). Stored data stays UTC;
+    /// this only affects display.
+    /// </summary>
+    public string DisplayTimeZone { get; set; } = "UTC";
 }

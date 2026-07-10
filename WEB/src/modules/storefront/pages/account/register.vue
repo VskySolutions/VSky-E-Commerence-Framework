@@ -1,7 +1,7 @@
 <template>
   <div class="account-auth-page">
     <q-card flat bordered class="account-auth-card">
-      <q-card-section>
+      <q-card-section class="q-pb-none">
         <div class="text-h6 text-weight-bold">Create your account</div>
         <div class="text-grey-7">It only takes a minute.</div>
       </q-card-section>
@@ -9,35 +9,40 @@
       <template v-if="!done">
         <q-form @submit.prevent="onSubmit">
           <q-card-section class="q-gutter-md">
-            <div class="row q-col-gutter-md">
-              <q-input
-                v-model="firstName"
-                label="First name"
-                outlined
-                dense
-                class="col-12 col-sm-6"
-                :rules="[(v) => !!v || 'Required']"
-              />
-              <q-input
-                v-model="lastName"
-                label="Last name"
-                outlined
-                dense
-                class="col-12 col-sm-6"
-                :rules="[(v) => !!v || 'Required']"
-              />
+            <div>
+              <div class="row q-col-gutter-md">
+                <div class="col-12 col-sm-6">
+                  <AppTextField
+                    v-model="firstName"
+                    label="First name"
+                    required
+                    :rules="[(v) => !!v || 'First Name is Required']"
+                  />
+                </div>
+                <div class="col-12 col-sm-6">
+                  <AppTextField
+                    v-model="lastName"
+                    label="Last name"
+                    required
+                    :rules="[(v) => !!v || 'Last Name is Required']"
+                  />
+                </div>
+              </div>
             </div>
-            <q-input
+            <AppTextField
               v-model="email"
-              type="email"
               label="Email"
-              outlined
-              dense
-              :rules="[(v) => !!v || 'Email is required']"
+              type="email"
+              required
               autocomplete="email"
+              :rules="[(v) => !!v || 'Email is required']"
             />
-            <q-input v-model="phoneNumber" label="Phone (optional)" outlined dense />
-            <AppPasswordField v-model="password" label="Password" strength :rules="passwordRules()" />
+            <AppPhoneInput
+              label="Phone (optional)"
+              :model-value="phoneNumber"
+              @update:model-value="phoneNumber = $event"
+            />
+            <AppPasswordField v-model="password" label="Password" required strength :rules="passwordRules()" />
           </q-card-section>
 
           <q-card-actions class="q-px-md q-pb-md column q-gutter-sm">
@@ -68,6 +73,7 @@ import { useQuasar } from 'quasar'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { getApiErrorMessage } from 'services/api'
 import { passwordRules } from 'validators'
+import AppPhoneInput from 'components/common/AppPhoneInput.vue'
 
 const $q = useQuasar()
 const auth = useCustomerAuthStore()
@@ -109,7 +115,7 @@ async function onSubmit () {
 }
 .account-auth-card {
   width: 100%;
-  max-width: 480px;
+  max-width: 440px;
   border-radius: 12px;
 }
 </style>

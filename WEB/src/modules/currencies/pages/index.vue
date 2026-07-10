@@ -150,6 +150,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { currenciesApi } from 'modules/currencies/api'
+import { formatDateTime } from 'src/utils/datetime'
 import { getApiErrorMessage } from 'services/api'
 import { useAuthStore } from 'stores/auth'
 import { useNotify } from 'composables/useNotify'
@@ -201,9 +202,7 @@ function formatRate (value) {
 }
 
 function formatDate (iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? '—' : d.toLocaleString()
+  return formatDateTime(iso)
 }
 
 async function loadCurrencies () {

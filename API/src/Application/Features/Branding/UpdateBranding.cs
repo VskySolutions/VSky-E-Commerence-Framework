@@ -22,7 +22,8 @@ public record UpdateBrandingCommand(
     string? SupportPhone,
     string? SocialLinksJson,
     string? LayoutOptionsJson,
-    string? DefaultLanguage) : IRequest<BrandingDto>;
+    string? DefaultLanguage,
+    string? DisplayTimeZone = null) : IRequest<BrandingDto>;
 
 public class UpdateBrandingCommandValidator : AbstractValidator<UpdateBrandingCommand>
 {
@@ -75,6 +76,7 @@ public class UpdateBrandingCommandHandler : IRequestHandler<UpdateBrandingComman
         entity.SocialLinksJson = request.SocialLinksJson;
         entity.LayoutOptionsJson = request.LayoutOptionsJson;
         entity.DefaultLanguage = request.DefaultLanguage;
+        entity.DisplayTimeZone = string.IsNullOrWhiteSpace(request.DisplayTimeZone) ? "UTC" : request.DisplayTimeZone.Trim();
 
         await _db.SaveChangesAsync(cancellationToken);
         await _publisher.Publish(new TenantBrandingUpdated(entity.Id, entity.BrandName), cancellationToken);

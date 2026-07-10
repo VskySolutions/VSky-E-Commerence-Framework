@@ -227,6 +227,7 @@ import { useRecentlyViewed, useCompare } from 'modules/storefront/composables/us
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
+import { formatDate } from 'src/utils/datetime'
 import ProductGalleryView from 'modules/catalog/components/ProductGalleryView.vue'
 import VariantSelector from 'modules/storefront/components/VariantSelector.vue'
 import ProductCarousel from 'modules/storefront/components/ProductCarousel.vue'
@@ -301,7 +302,7 @@ const stockNote = computed(() => {
 })
 const restockNote = computed(() => {
   if (stock.value > 0 || !product.value?.allowBackorder || !product.value?.estimatedRestockDate) return null
-  return `Estimated restock: ${new Date(product.value.estimatedRestockDate).toLocaleDateString()}`
+  return `Estimated restock: ${formatDate(product.value.estimatedRestockDate)}`
 })
 
 const inCompare = computed(() => (product.value ? has(product.value.id) : false))
