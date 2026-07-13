@@ -102,6 +102,14 @@ public class UspsCredential : IntegrationCredentialBase
     [Encrypted] public string? ConsumerSecret { get; set; }
 }
 
+/// <summary>UPS OAuth2 client credentials + merchant/account number (table <c>Credentials_UPS</c>).</summary>
+public class UpsCredential : IntegrationCredentialBase
+{
+    public string? MerchantId { get; set; }
+    public string? ClientId { get; set; }
+    [Encrypted] public string? ClientSecret { get; set; }
+}
+
 // ---- Communication ---------------------------------------------------------
 
 /// <summary>Twilio account credentials (table <c>Credentials_Twilio</c>).</summary>

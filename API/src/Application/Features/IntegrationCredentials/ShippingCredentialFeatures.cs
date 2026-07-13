@@ -244,3 +244,85 @@ public class DeleteUspsCredentialCommandHandler : IRequestHandler<DeleteUspsCred
     public Task Handle(DeleteUspsCredentialCommand request, CancellationToken ct)
         => IntegrationCredentialSupport.DeleteAsync(_db.UspsCredentials, _db, request.Id, ct);
 }
+
+// ============================ UPS ==========================================
+
+public class UpsCredentialDto
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public bool Active { get; set; }
+    public bool IsProduction { get; set; }
+    public string? MerchantId { get; set; }
+    public string? ClientId { get; set; }
+    public string? ClientSecret { get; set; }
+    public DateTime CreatedOnUtc { get; set; }
+    public DateTime UpdatedOnUtc { get; set; }
+
+    public static UpsCredentialDto From(UpsCredential e) => new()
+    {
+        Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
+        MerchantId = e.MerchantId, ClientId = e.ClientId, ClientSecret = e.ClientSecret,
+        CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
+    };
+}
+
+public record ListUpsCredentialsQuery : IRequest<IReadOnlyList<IntegrationCredentialListItemDto>>;
+
+public class ListUpsCredentialsQueryHandler
+    : IRequestHandler<ListUpsCredentialsQuery, IReadOnlyList<IntegrationCredentialListItemDto>>
+{
+    private readonly IApplicationDbContext _db;
+    public ListUpsCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
+    public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListUpsCredentialsQuery request, CancellationToken ct)
+        => IntegrationCredentialSupport.ListAsync(_db.UpsCredentials, ct);
+}
+
+public record GetUpsCredentialQuery(Guid Id) : IRequest<UpsCredentialDto>;
+
+public class GetUpsCredentialQueryHandler : IRequestHandler<GetUpsCredentialQuery, UpsCredentialDto>
+{
+    private readonly IApplicationDbContext _db;
+    public GetUpsCredentialQueryHandler(IApplicationDbContext db) => _db = db;
+    public async Task<UpsCredentialDto> Handle(GetUpsCredentialQuery request, CancellationToken ct)
+        => UpsCredentialDto.From(await IntegrationCredentialSupport.GetAsync(_db.UpsCredentials, request.Id, ct));
+}
+
+public record SaveUpsCredentialCommand(
+    Guid? Id, string Name, bool Active, bool IsProduction,
+    string? MerchantId, string? ClientId, string? ClientSecret) : IRequest<UpsCredentialDto>;
+
+public class SaveUpsCredentialCommandValidator : AbstractValidator<SaveUpsCredentialCommand>
+{
+    public SaveUpsCredentialCommandValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.ClientId).NotEmpty();
+        RuleFor(x => x.ClientSecret).NotEmpty();
+    }
+}
+
+public class SaveUpsCredentialCommandHandler : IRequestHandler<SaveUpsCredentialCommand, UpsCredentialDto>
+{
+    private readonly IApplicationDbContext _db;
+    public SaveUpsCredentialCommandHandler(IApplicationDbContext db) => _db = db;
+    public async Task<UpsCredentialDto> Handle(SaveUpsCredentialCommand request, CancellationToken ct)
+    {
+        var e = await IntegrationCredentialSupport.UpsertAsync(_db.UpsCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.MerchantId = IntegrationCredentialSupport.Norm(request.MerchantId);
+        e.ClientId = IntegrationCredentialSupport.Norm(request.ClientId);
+        e.ClientSecret = IntegrationCredentialSupport.Norm(request.ClientSecret);
+        await _db.SaveChangesAsync(ct);
+        return UpsCredentialDto.From(e);
+    }
+}
+
+public record DeleteUpsCredentialCommand(Guid Id) : IRequest;
+
+public class DeleteUpsCredentialCommandHandler : IRequestHandler<DeleteUpsCredentialCommand>
+{
+    private readonly IApplicationDbContext _db;
+    public DeleteUpsCredentialCommandHandler(IApplicationDbContext db) => _db = db;
+    public Task Handle(DeleteUpsCredentialCommand request, CancellationToken ct)
+        => IntegrationCredentialSupport.DeleteAsync(_db.UpsCredentials, _db, request.Id, ct);
+}

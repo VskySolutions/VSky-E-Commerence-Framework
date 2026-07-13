@@ -50,6 +50,7 @@ public class CredentialVault : ICredentialVault
             "fedex"        => Resolve(await ActiveAsync(_db.FedExCredentials, cancellationToken), c => Json(new { apiKey = c.ApiKey, secretKey = c.ApiSecret })),
             "dhl"          => Resolve(await ActiveAsync(_db.DhlExpressCredentials, cancellationToken), c => Json(new { apiKey = c.ApiKey, apiSecret = c.ApiSecret })),
             "usps"         => Resolve(await ActiveAsync(_db.UspsCredentials, cancellationToken), c => Json(new { consumerKey = c.ConsumerKey, consumerSecret = c.ConsumerSecret })),
+            "ups"          => Resolve(await ActiveAsync(_db.UpsCredentials, cancellationToken), c => Json(new { clientId = c.ClientId, clientSecret = c.ClientSecret, merchantId = c.MerchantId })),
             _              => null,
         };
     }

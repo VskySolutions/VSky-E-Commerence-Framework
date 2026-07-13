@@ -65,6 +65,7 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<FedExCredential> FedExCredentials => Set<FedExCredential>();
     public DbSet<DhlExpressCredential> DhlExpressCredentials => Set<DhlExpressCredential>();
     public DbSet<UspsCredential> UspsCredentials => Set<UspsCredential>();
+    public DbSet<UpsCredential> UpsCredentials => Set<UpsCredential>();
     public DbSet<TwilioCredential> TwilioCredentials => Set<TwilioCredential>();
     public DbSet<AzureBlobCredential> AzureBlobCredentials => Set<AzureBlobCredential>();
 

@@ -44,6 +44,7 @@ public interface IApplicationDbContext
     DbSet<FedExCredential> FedExCredentials { get; }
     DbSet<DhlExpressCredential> DhlExpressCredentials { get; }
     DbSet<UspsCredential> UspsCredentials { get; }
+    DbSet<UpsCredential> UpsCredentials { get; }
     DbSet<TwilioCredential> TwilioCredentials { get; }
     DbSet<AzureBlobCredential> AzureBlobCredentials { get; }
 

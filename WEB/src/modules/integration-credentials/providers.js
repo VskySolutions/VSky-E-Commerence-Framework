@@ -95,6 +95,15 @@ export const INTEGRATIONS = [
       { key: 'consumerSecret', label: 'Consumer Secret', secret: true, required: true }
     ]
   },
+  {
+    key: 'ups', kind: 'credential', label: 'UPS', category: 'Shipping', icon: 'o_local_shipping',
+    description: 'UPS rates and labels (OAuth2 client credentials).',
+    fields: [
+      { key: 'merchantId', label: 'Merchant ID', placeholder: 'UPS account / shipper number' },
+      { key: 'clientId', label: 'Client ID', required: true },
+      { key: 'clientSecret', label: 'Client Secret', secret: true, required: true }
+    ]
+  },
 
   // ---- Communication ----
   {

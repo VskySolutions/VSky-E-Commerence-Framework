@@ -104,6 +104,16 @@ public sealed class UspsCredentialConfig : IntegrationCredentialConfig<UspsCrede
         => b.Property(x => x.ConsumerKey).HasMaxLength(300);
 }
 
+public sealed class UpsCredentialConfig : IntegrationCredentialConfig<UpsCredential>
+{
+    protected override string TableName => "Credentials_UPS";
+    protected override void ConfigureFields(EntityTypeBuilder<UpsCredential> b)
+    {
+        b.Property(x => x.MerchantId).HasMaxLength(100);
+        b.Property(x => x.ClientId).HasMaxLength(300);
+    }
+}
+
 // ---- Communication ---------------------------------------------------------
 
 public sealed class TwilioCredentialConfig : IntegrationCredentialConfig<TwilioCredential>

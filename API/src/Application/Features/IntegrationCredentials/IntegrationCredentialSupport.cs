@@ -61,6 +61,27 @@ internal static class IntegrationCredentialSupport
     }
 
     /// <summary>
+    /// Sets the Active flag on one row (the admin grid's quick toggle). Activating a row deactivates every
+    /// other row of the same integration, keeping at most one active — the row the runtime resolver reads.
+    /// </summary>
+    public static async Task SetActiveAsync<T>(
+        DbSet<T> set, IApplicationDbContext db, Guid id, bool active, CancellationToken ct) where T : IntegrationCredentialBase
+    {
+        var entity = await set.FirstOrDefaultAsync(x => x.Id == id, ct)
+                     ?? throw new NotFoundException(typeof(T).Name, id);
+        entity.Active = active;
+
+        if (active)
+        {
+            var others = await set.Where(x => x.Active && x.Id != id).ToListAsync(ct);
+            foreach (var other in others)
+                other.Active = false;
+        }
+
+        await db.SaveChangesAsync(ct);
+    }
+
+    /// <summary>
     /// Loads (by id) or creates the row and applies the common fields. When the row is being set Active,
     /// every other row of the same integration is deactivated so at most one stays active — that is the
     /// row the runtime resolver reads. Returns the tracked entity; the caller sets its typed fields and

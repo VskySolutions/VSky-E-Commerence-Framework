@@ -49,10 +49,20 @@
       </template>
 
       <template #body-cell-updatedOnUtc="cell">
-        <q-td :props="cell">{{ fmtDate(cell.row.updatedOnUtc) }}</q-td>
+        <q-td :props="cell">{{ $datetime(cell.row.updatedOnUtc) }}</q-td>
       </template>
 
       <template #actions="{ row }">
+        <q-btn
+          v-if="canWrite"
+          flat round dense
+          :icon="row.active ? 'o_toggle_on' : 'o_toggle_off'"
+          :color="row.active ? 'positive' : 'grey-6'"
+          :loading="togglingId === row.id"
+          @click="onToggleActive(row)"
+        >
+          <q-tooltip>{{ row.active ? 'Set inactive' : 'Set active' }}</q-tooltip>
+        </q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onEdit(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
@@ -127,7 +137,6 @@
  * metadata. Reloads whenever the selected integration changes.
  */
 import { ref, reactive, computed, watch } from 'vue'
-import { format, parseISO, isValid } from 'date-fns'
 import { integrationCredentialApi } from 'modules/integration-credentials/api'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
@@ -156,6 +165,7 @@ const columns = [
 
 const rows = ref([])
 const loading = ref(false)
+const togglingId = ref(null)
 const pagination = ref({ page: 1, rowsPerPage: 10, sortBy: 'name', descending: false })
 
 const drawer = ref(false)
@@ -165,12 +175,6 @@ const form = reactive({ name: '', active: false, isProduction: false, fields: {}
 const reveal = reactive({})
 
 const requiredRule = (val) => (!!val && String(val).trim().length > 0) || 'Required'
-
-function fmtDate (value) {
-  if (!value) return '—'
-  const d = typeof value === 'string' ? parseISO(value) : new Date(value)
-  return isValid(d) ? format(d, 'dd MMM yyyy, HH:mm') : '—'
-}
 
 function onRequest (p) {
   if (p && p.pagination) pagination.value = p.pagination
@@ -237,6 +241,20 @@ async function onSave () {
     notify.error(getApiErrorMessage(err))
   } finally {
     saving.value = false
+  }
+}
+
+async function onToggleActive (row) {
+  const next = !row.active
+  togglingId.value = row.id
+  try {
+    await integrationCredentialApi.setActive(props.item.key, row.id, next)
+    notify.success(next ? `${props.item.label} credential activated` : `${props.item.label} credential deactivated`)
+    await load()
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    togglingId.value = null
   }
 }
 

@@ -33,6 +33,10 @@ export const integrationCredentialApi = {
   },
   remove (provider, id) {
     return api.delete(`${CRED_BASE}/${provider}/${encodeURIComponent(id)}`).then(unwrap)
+  },
+  // Quick active/inactive toggle from the grid (activating deactivates the integration's other rows).
+  setActive (provider, id, active) {
+    return api.post(`${CRED_BASE}/${provider}/${encodeURIComponent(id)}/active`, { active }).then(unwrap)
   }
 }
 

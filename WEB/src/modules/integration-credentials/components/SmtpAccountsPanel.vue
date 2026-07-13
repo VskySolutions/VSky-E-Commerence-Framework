@@ -86,7 +86,7 @@
           >
             <template #avatar><q-icon :name="testResult.success ? 'o_check_circle' : 'o_error'" /></template>
             {{ testResult.message }}
-            <div v-if="testResult.testedAtUtc" class="text-caption">{{ fmtDate(testResult.testedAtUtc) }}</div>
+            <div v-if="testResult.testedAtUtc" class="text-caption">{{ $datetime(testResult.testedAtUtc) }}</div>
           </q-banner>
         </q-card-section>
         <q-card-actions align="right" class="q-pa-md q-pt-none">
@@ -106,7 +106,6 @@
  */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { format, parseISO, isValid } from 'date-fns'
 import useVuelidate from '@vuelidate/core'
 import { required, email } from 'validators'
 import { smtpAccountApi } from 'modules/integration-credentials/api'
@@ -149,12 +148,6 @@ function categoryColor (cat) {
   if (cat === 'Transactional') return 'blue-7'
   if (cat === 'Marketing') return 'purple-6'
   return 'grey'
-}
-
-function fmtDate (value) {
-  if (!value) return ''
-  const d = typeof value === 'string' ? parseISO(value) : new Date(value)
-  return isValid(d) ? format(d, 'dd MMM yyyy, HH:mm') : ''
 }
 
 function onRequest (p) {

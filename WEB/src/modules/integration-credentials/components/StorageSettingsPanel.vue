@@ -80,7 +80,7 @@
                     {{ testResult.success ? 'Reachable' : 'Unreachable' }}
                   </div>
                   <div class="text-caption text-grey-7">{{ testResult.message }}</div>
-                  <div v-if="testResult.testedAtUtc" class="text-caption text-grey-6">Checked {{ fmtDate(testResult.testedAtUtc) }}</div>
+                  <div v-if="testResult.testedAtUtc" class="text-caption text-grey-6">Checked {{ $datetime(testResult.testedAtUtc) }}</div>
                 </div>
               </div>
             </template>
@@ -103,7 +103,6 @@
  * write-read-delete connectivity probe. The Azure connection string is a credential (Azure Blob item).
  */
 import { reactive, ref, computed, onMounted } from 'vue'
-import { format, parseISO, isValid } from 'date-fns'
 import useVuelidate from '@vuelidate/core'
 import { requiredIf, maxLength, url } from 'validators'
 import { storageApi, PROVIDERS } from 'modules/integration-credentials/api'
@@ -145,12 +144,6 @@ const v$ = useVuelidate(rules, form)
 
 function providerLabel (value) {
   return providerOptions.find((o) => o.value === value)?.label || value || '—'
-}
-
-function fmtDate (value) {
-  if (!value) return '—'
-  const d = typeof value === 'string' ? parseISO(value) : new Date(value)
-  return isValid(d) ? format(d, 'dd MMM yyyy, HH:mm') : '—'
 }
 
 function applyConfig (cfg) {

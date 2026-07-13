@@ -81,4 +81,28 @@ public class ShippingCredentialsController : ApiControllerBase
         await Mediator.Send(new DeleteUspsCredentialCommand(id));
         return NoContent();
     }
+
+    // ---- UPS ----
+    [HttpGet("ups")]
+    public async Task<ActionResult<IReadOnlyList<IntegrationCredentialListItemDto>>> ListUps()
+        => Ok(await Mediator.Send(new ListUpsCredentialsQuery()));
+
+    [HttpGet("ups/{id:guid}")]
+    public async Task<ActionResult<UpsCredentialDto>> GetUps(Guid id)
+        => Ok(await Mediator.Send(new GetUpsCredentialQuery(id)));
+
+    [HttpPost("ups")]
+    public async Task<ActionResult<UpsCredentialDto>> CreateUps([FromBody] SaveUpsCredentialCommand command)
+        => Ok(await Mediator.Send(command with { Id = null }));
+
+    [HttpPut("ups/{id:guid}")]
+    public async Task<ActionResult<UpsCredentialDto>> UpdateUps(Guid id, [FromBody] SaveUpsCredentialCommand command)
+        => Ok(await Mediator.Send(command with { Id = id }));
+
+    [HttpDelete("ups/{id:guid}")]
+    public async Task<IActionResult> DeleteUps(Guid id)
+    {
+        await Mediator.Send(new DeleteUpsCredentialCommand(id));
+        return NoContent();
+    }
 }

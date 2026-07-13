@@ -9,19 +9,21 @@ namespace VSky.Infrastructure.Shipping.Carriers;
 
 /// <summary>
 /// UPS rating adapter (WO-40), built structurally against the UPS Rating REST API (/api/rating). The
-/// credential is resolved from the credential vault under the "ups" service-type key and is expected to
-/// be a JSON document: { "accessToken", "accountNumber", "baseUrl" (optional) }; a bare string is
-/// treated as an OAuth access token. When no credential is configured — or the live call fails for any
-/// reason — an empty list is returned so the aggregating service simply excludes UPS (AC-SHP-001.3).
+/// credential is resolved from the credential vault under the "ups" service-type key and is expected to be
+/// a JSON document: { "clientId", "clientSecret", "merchantId" (shipper number), "baseUrl" (optional) }.
+/// UPS uses OAuth2 client-credentials, so this exchanges the client id/secret for a bearer token, then
+/// calls the rate endpoint. When no credential is configured — or the live call fails for any reason — an
+/// empty list is returned so the aggregating service simply excludes UPS (AC-SHP-001.3).
 /// </summary>
 /// <remarks>
-/// This performs the real UPS Rate request/response mapping, but returning actual quotes requires a
-/// valid UPS OAuth access token (and account number) plus network access to a live UPS endpoint.
+/// This performs the real UPS OAuth + Rate request/response mapping, but returning actual quotes requires
+/// valid UPS API credentials (client id/secret + merchant number) and network access to a live UPS endpoint.
 /// </remarks>
 public class UpsCarrierClient : ICarrierClient
 {
     private const string CredentialKey = "ups";
     private const string DefaultBaseUrl = "https://onlinetools.ups.com";
+    private const string TokenPath = "/security/v1/oauth/token";
     private const string RatingPath = "/api/rating/v2409/Rate";
     private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(15);
 
@@ -43,17 +45,21 @@ public class UpsCarrierClient : ICarrierClient
             return Array.Empty<ShippingRateOption>();
 
         var credential = UpsCredential.Parse(raw);
-        if (string.IsNullOrWhiteSpace(credential.AccessToken))
+        if (string.IsNullOrWhiteSpace(credential.ClientId) || string.IsNullOrWhiteSpace(credential.ClientSecret))
             return Array.Empty<ShippingRateOption>();
 
         try
         {
             var client = _httpClientFactory.CreateClient("ups");
             client.Timeout = HttpTimeout;
-
             var baseUrl = string.IsNullOrWhiteSpace(credential.BaseUrl) ? DefaultBaseUrl : credential.BaseUrl!.TrimEnd('/');
+
+            var token = await GetAccessTokenAsync(client, baseUrl, credential, ct);
+            if (string.IsNullOrWhiteSpace(token))
+                return Array.Empty<ShippingRateOption>();
+
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}{RatingPath}");
-            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", credential.AccessToken);
+            httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
             var payload = BuildRequestBody(request, credential);
             var body = JsonSerializer.Serialize(payload, payload.GetType());
@@ -74,6 +80,25 @@ public class UpsCarrierClient : ICarrierClient
         }
     }
 
+    private static async Task<string?> GetAccessTokenAsync(HttpClient client, string baseUrl, UpsCredential credential, CancellationToken ct)
+    {
+        // UPS OAuth2 client-credentials: HTTP Basic auth (clientId:clientSecret) + grant_type body.
+        using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}{TokenPath}")
+        {
+            Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["grant_type"] = "client_credentials" }),
+        };
+        var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{credential.ClientId}:{credential.ClientSecret}"));
+        tokenRequest.Headers.Authorization = new AuthenticationHeaderValue("Basic", basic);
+
+        using var tokenResponse = await client.SendAsync(tokenRequest, ct);
+        if (!tokenResponse.IsSuccessStatusCode)
+            return null;
+
+        await using var stream = await tokenResponse.Content.ReadAsStreamAsync(ct);
+        using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
+        return doc.RootElement.TryGetProperty("access_token", out var token) ? token.GetString() : null;
+    }
+
     private static object BuildRequestBody(CarrierRateRequest request, UpsCredential credential) => new
     {
         RateRequest = new
@@ -83,7 +108,7 @@ public class UpsCarrierClient : ICarrierClient
             {
                 Shipper = new
                 {
-                    ShipperNumber = credential.AccountNumber ?? string.Empty,
+                    ShipperNumber = credential.MerchantId ?? string.Empty,
                     Address = BuildAddress(request.Origin),
                 },
                 ShipFrom = new { Address = BuildAddress(request.Origin) },
@@ -161,7 +186,7 @@ public class UpsCarrierClient : ICarrierClient
             Rate: rate.Value));
     }
 
-    private sealed record UpsCredential(string? AccessToken, string? AccountNumber, string? BaseUrl)
+    private sealed record UpsCredential(string? ClientId, string? ClientSecret, string? MerchantId, string? BaseUrl)
     {
         public static UpsCredential Parse(string raw)
         {
@@ -170,14 +195,14 @@ public class UpsCarrierClient : ICarrierClient
                 using var doc = JsonDocument.Parse(raw);
                 var root = doc.RootElement;
                 return new UpsCredential(
-                    GetString(root, "accessToken") ?? GetString(root, "token"),
-                    GetString(root, "accountNumber"),
+                    GetString(root, "clientId"),
+                    GetString(root, "clientSecret"),
+                    GetString(root, "merchantId") ?? GetString(root, "accountNumber"),
                     GetString(root, "baseUrl"));
             }
             catch (JsonException)
             {
-                // Not JSON: treat the whole credential value as the OAuth access token.
-                return new UpsCredential(raw, null, null);
+                return new UpsCredential(null, null, null, null);
             }
         }
 
