@@ -15,7 +15,6 @@ public interface IApplicationDbContext
     DbSet<ApiKey> ApiKeys { get; }
     DbSet<Customer> Customers { get; }
     DbSet<RefreshToken> RefreshTokens { get; }
-    DbSet<TenantCredential> TenantCredentials { get; }
     DbSet<SmtpAccount> SmtpAccounts { get; }
     DbSet<TenantBranding> TenantBrandings { get; }
     DbSet<SupportedCurrency> SupportedCurrencies { get; }
@@ -34,11 +33,19 @@ public interface IApplicationDbContext
     // Central media library (WO-122)
     DbSet<Media> Media { get; }
 
-    // Integration Credential Vault (WO-7)
-    DbSet<IntegrationCategory> IntegrationCategories { get; }
-    DbSet<IntegrationProvider> IntegrationProviders { get; }
-    DbSet<CredentialDefinition> CredentialDefinitions { get; }
-    DbSet<IntegrationCredential> IntegrationCredentials { get; }
+    // Per-integration credential tables (Credentials_*)
+    DbSet<StripeCredential> StripeCredentials { get; }
+    DbSet<PayPalCredential> PayPalCredentials { get; }
+    DbSet<RazorpayCredential> RazorpayCredentials { get; }
+    DbSet<SquareCredential> SquareCredentials { get; }
+    DbSet<AuthorizeNetCredential> AuthorizeNetCredentials { get; }
+    DbSet<TaxJarCredential> TaxJarCredentials { get; }
+    DbSet<StripeTaxCredential> StripeTaxCredentials { get; }
+    DbSet<FedExCredential> FedExCredentials { get; }
+    DbSet<DhlExpressCredential> DhlExpressCredentials { get; }
+    DbSet<UspsCredential> UspsCredentials { get; }
+    DbSet<TwilioCredential> TwilioCredentials { get; }
+    DbSet<AzureBlobCredential> AzureBlobCredentials { get; }
 
     // Catalog (WO-10, WO-11)
     DbSet<TaxCategory> TaxCategories { get; }

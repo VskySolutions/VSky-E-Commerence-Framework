@@ -24,7 +24,7 @@ import currenciesRoutes from 'modules/currencies/routes'
 import emailTemplatesRoutes from 'modules/email-templates/routes'
 import brandingRoutes from 'modules/branding/routes'
 import settingsRoutes from 'modules/settings/routes'
-import credentialsRoutes from 'modules/credentials/routes'
+import integrationCredentialsRoutes from 'modules/integration-credentials/routes'
 import usersRoutes from 'modules/users/routes'
 import rolesRoutes from 'modules/roles/routes'
 import catalogRoutes from 'modules/catalog/routes'
@@ -35,8 +35,6 @@ import reportsRoutes from 'modules/reports/routes'
 import taxRoutes from 'modules/tax/routes'
 import customersRoutes from 'modules/customers/routes'
 import storefrontRoutes from 'modules/storefront/routes'
-import storageRoutes from 'modules/storage/routes'
-import emailAccountsRoutes from 'modules/email-accounts/routes'
 import emailLogRoutes from 'modules/email-log/routes'
 import webhooksRoutes from 'modules/webhooks/routes'
 
@@ -49,7 +47,7 @@ const moduleChildren = [
   ...emailTemplatesRoutes,
   ...brandingRoutes,
   ...settingsRoutes,
-  ...credentialsRoutes,
+  ...integrationCredentialsRoutes,
   ...usersRoutes,
   ...rolesRoutes,
   ...catalogRoutes,
@@ -59,8 +57,6 @@ const moduleChildren = [
   ...reportsRoutes,
   ...taxRoutes,
   ...customersRoutes,
-  ...storageRoutes,
-  ...emailAccountsRoutes,
   ...emailLogRoutes,
   ...webhooksRoutes
 ]

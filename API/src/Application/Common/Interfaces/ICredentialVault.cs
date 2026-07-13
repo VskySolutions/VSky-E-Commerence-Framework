@@ -1,19 +1,28 @@
+using VSky.Application.Common.Models;
+
 namespace VSky.Application.Common.Interfaces;
 
 /// <summary>
-/// Encrypts/decrypts third-party credentials via the .NET Data Protection API and resolves them at
-/// runtime for integration clients. Plaintext is held only transiently (Credential Vault blueprint).
+/// Encrypts/decrypts miscellaneous secrets held outside the per-integration credential tables (SMTP
+/// passwords, the reCAPTCHA secret) via the .NET Data Protection API, and resolves an integration's
+/// active credential at runtime as the raw string / JSON its adapter parses.
 /// </summary>
 public interface ICredentialVault
 {
     string Encrypt(string plaintext);
     string Decrypt(string ciphertext);
+
+    /// <summary>
+    /// Resolves the active credential for a runtime service type (e.g. "stripe", "fedex", "azure-blob")
+    /// into the exact raw string or JSON its adapter expects, reading the corresponding per-integration
+    /// (<c>Credentials_*</c>) table. Returns <c>null</c> when no active row is configured for the service.
+    /// </summary>
     Task<string?> GetCredentialAsync(string serviceType, CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Resolves every stored field for a provider (by its code) as a field-code → plaintext dictionary,
-    /// decrypting secret fields. This is the centralised read path for the dynamic Credential Vault
-    /// (AC-TEN-002.10); returns an empty dictionary if the provider is unknown, disabled, or unconfigured.
+    /// Same as <see cref="GetCredentialAsync"/> but also reports whether the active row is a production
+    /// (live) credential, so environment-aware adapters (PayPal/Square/Authorize.Net) can pick the sandbox
+    /// vs. live endpoint. Returns <c>null</c> when no active, usable row is configured.
     /// </summary>
-    Task<IReadOnlyDictionary<string, string>> GetCredentialsAsync(string providerCode, CancellationToken cancellationToken = default);
+    Task<ResolvedCredential?> GetResolvedCredentialAsync(string serviceType, CancellationToken cancellationToken = default);
 }

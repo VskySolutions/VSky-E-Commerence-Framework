@@ -72,8 +72,9 @@ public static class DependencyInjection
             .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
         services.AddHttpClient();
+        // Column protector (singleton so the cached EF model's encrypted-column converter stays valid).
+        services.AddSingleton<ICredentialProtector, CredentialProtector>();
         services.AddScoped<ICredentialVault, CredentialVault>();
-        services.AddScoped<ICredentialConnectivityChecker, CredentialConnectivityChecker>();
 
         // SMTP account management (WO-75).
         services.AddScoped<ISmtpTester, MailKitSmtpTester>();

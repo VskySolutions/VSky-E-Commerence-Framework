@@ -13,14 +13,15 @@ namespace VSky.Infrastructure.Payments.Adapters;
 
 /// <summary>
 /// PayPal gateway adapter (WO-32) using the Orders v2 REST API over <see cref="IHttpClientFactory"/>.
-/// Credentials are stored in the Credential Vault (service type "paypal") as <c>clientId:secret</c>; a
-/// live/sandbox app credential is required. The adapter first exchanges the credential for an OAuth2
-/// access token, then creates/authorizes/captures orders. <see cref="CaptureMode"/> maps to the order
-/// <c>intent</c> (AUTHORIZE vs. CAPTURE).
+/// Credentials are stored as <c>clientId:secret</c> (Credentials_PayPal); the credential's
+/// <c>IsProduction</c> flag selects the live vs. sandbox endpoint. The adapter first exchanges the
+/// credential for an OAuth2 access token, then creates/authorizes/captures orders. <see cref="CaptureMode"/>
+/// maps to the order <c>intent</c> (AUTHORIZE vs. CAPTURE).
 /// </summary>
 public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string BaseUrl = "https://api-m.paypal.com";
+    private const string LiveBaseUrl = "https://api-m.paypal.com";
+    private const string SandboxBaseUrl = "https://api-m.sandbox.paypal.com";
 
     public PaypalGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<PaypalGatewayAdapter> logger)
         : base(vault, httpClientFactory, logger) { }
@@ -30,15 +31,16 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> AuthorizeAsync(PaymentRequest req, CaptureMode mode, CancellationToken ct)
         => GuardAsync("authorize", async () =>
         {
-            var token = await GetAccessTokenAsync(ct);
-            if (token is null)
-                return PaymentResult.Failed("PayPal credentials are not configured in the Credential Vault (service type 'paypal', format 'clientId:secret').");
+            var ctx = await AuthenticateAsync(ct);
+            if (ctx is null)
+                return PaymentResult.Failed("PayPal credentials are not configured (format 'clientId:secret').");
+            var (baseUrl, token) = ctx.Value;
 
             // Server-side completion of an order the buyer already approved on the client.
             if (!string.IsNullOrWhiteSpace(req.PaymentToken))
             {
                 var action = mode == CaptureMode.AuthorizeOnly ? "authorize" : "capture";
-                using var actDoc = await PostJsonAsync(token, $"{BaseUrl}/v2/checkout/orders/{req.PaymentToken}/{action}", "{}", ct);
+                using var actDoc = await PostJsonAsync(token, $"{baseUrl}/v2/checkout/orders/{req.PaymentToken}/{action}", "{}", ct);
                 var actRoot = actDoc.RootElement;
                 var actStatus = GetString(actRoot, "status");
 
@@ -54,7 +56,7 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
             // after which the order id is captured/authorized. The record stays Pending until then.
             var intent = mode == CaptureMode.AuthorizeOnly ? "AUTHORIZE" : "CAPTURE";
             var body = BuildCreateOrderJson(intent, req);
-            using var doc = await PostJsonAsync(token, $"{BaseUrl}/v2/checkout/orders", body, ct);
+            using var doc = await PostJsonAsync(token, $"{baseUrl}/v2/checkout/orders", body, ct);
             var root = doc.RootElement;
 
             var orderId = GetString(root, "id");
@@ -67,15 +69,16 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> CaptureAsync(PaymentRecord payment, decimal amount, CancellationToken ct)
         => GuardAsync("capture", async () =>
         {
-            var token = await GetAccessTokenAsync(ct);
-            if (token is null)
-                return PaymentResult.Failed("PayPal credentials are not configured in the Credential Vault (service type 'paypal').");
+            var ctx = await AuthenticateAsync(ct);
+            if (ctx is null)
+                return PaymentResult.Failed("PayPal credentials are not configured.");
+            var (baseUrl, token) = ctx.Value;
 
             var orderId = payment.AuthorizationId ?? payment.GatewayReference;
             if (string.IsNullOrWhiteSpace(orderId))
                 return PaymentResult.Failed("PayPal capture requires the original order id.");
 
-            using var doc = await PostJsonAsync(token, $"{BaseUrl}/v2/checkout/orders/{orderId}/capture", "{}", ct);
+            using var doc = await PostJsonAsync(token, $"{baseUrl}/v2/checkout/orders/{orderId}/capture", "{}", ct);
             var root = doc.RootElement;
             var status = GetString(root, "status");
 
@@ -87,9 +90,10 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct)
         => GuardAsync("refund", async () =>
         {
-            var token = await GetAccessTokenAsync(ct);
-            if (token is null)
-                return PaymentResult.Failed("PayPal credentials are not configured in the Credential Vault (service type 'paypal').");
+            var ctx = await AuthenticateAsync(ct);
+            if (ctx is null)
+                return PaymentResult.Failed("PayPal credentials are not configured.");
+            var (baseUrl, token) = ctx.Value;
 
             var captureId = payment.TransactionId;
             if (string.IsNullOrWhiteSpace(captureId))
@@ -99,7 +103,7 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
             {
                 amount = new { value = amount.ToString("0.00", CultureInfo.InvariantCulture), currency_code = payment.CurrencyCode },
             });
-            using var doc = await PostJsonAsync(token, $"{BaseUrl}/v2/payments/captures/{captureId}/refund", body, ct);
+            using var doc = await PostJsonAsync(token, $"{baseUrl}/v2/payments/captures/{captureId}/refund", body, ct);
             var root = doc.RootElement;
             var status = GetString(root, "status");
 
@@ -123,20 +127,25 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
         return JsonSerializer.Serialize(order);
     }
 
-    private async Task<string?> GetAccessTokenAsync(CancellationToken ct)
+    /// <summary>
+    /// Resolves the active PayPal credential, picks the live/sandbox base URL from its production flag, and
+    /// exchanges the client id/secret for an OAuth2 access token. Returns null when unconfigured or auth fails.
+    /// </summary>
+    private async Task<(string BaseUrl, string Token)?> AuthenticateAsync(CancellationToken ct)
     {
-        var credential = await ResolveCredentialAsync(ct);
-        if (string.IsNullOrWhiteSpace(credential))
+        var resolved = await ResolveAsync(ct);
+        if (resolved is null)
             return null;
 
-        var parts = credential!.Split(':', 2);
+        var parts = resolved.Value.Split(':', 2);
         if (parts.Length != 2)
             return null;
 
+        var baseUrl = resolved.IsProduction ? LiveBaseUrl : SandboxBaseUrl;
         var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{parts[0]}:{parts[1]}"));
 
         var client = CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, $"{BaseUrl}/v1/oauth2/token")
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/v1/oauth2/token")
         {
             Content = new FormUrlEncodedContent(new Dictionary<string, string> { ["grant_type"] = "client_credentials" }),
         };
@@ -145,7 +154,8 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
         using var response = await client.SendAsync(request, ct);
         var payload = await response.Content.ReadAsStringAsync(ct);
         using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(payload) ? "{}" : payload);
-        return GetString(doc.RootElement, "access_token");
+        var token = GetString(doc.RootElement, "access_token");
+        return token is null ? null : (baseUrl, token);
     }
 
     private async Task<JsonDocument> PostJsonAsync(string accessToken, string url, string json, CancellationToken ct)

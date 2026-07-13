@@ -1,6 +1,7 @@
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Common;
 using VSky.Domain.Entities;
@@ -15,15 +16,18 @@ public class AppDbContext : DbContext, IApplicationDbContext
 {
     private readonly ICurrentUserService? _currentUser;
     private readonly IDateTimeProvider? _clock;
+    private readonly ICredentialProtector? _protector;
 
     public AppDbContext(
         DbContextOptions<AppDbContext> options,
         ICurrentUserService? currentUser = null,
-        IDateTimeProvider? clock = null)
+        IDateTimeProvider? clock = null,
+        ICredentialProtector? protector = null)
         : base(options)
     {
         _currentUser = currentUser;
         _clock = clock;
+        _protector = protector;
     }
 
     public DbSet<User> Users => Set<User>();
@@ -32,7 +36,6 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<ApiKey> ApiKeys => Set<ApiKey>();
     public DbSet<Customer> Customers => Set<Customer>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
-    public DbSet<TenantCredential> TenantCredentials => Set<TenantCredential>();
     public DbSet<SmtpAccount> SmtpAccounts => Set<SmtpAccount>();
     public DbSet<TenantBranding> TenantBrandings => Set<TenantBranding>();
     public DbSet<SupportedCurrency> SupportedCurrencies => Set<SupportedCurrency>();
@@ -51,11 +54,19 @@ public class AppDbContext : DbContext, IApplicationDbContext
     // Central media library (WO-122)
     public DbSet<Media> Media => Set<Media>();
 
-    // Integration Credential Vault (WO-7)
-    public DbSet<IntegrationCategory> IntegrationCategories => Set<IntegrationCategory>();
-    public DbSet<IntegrationProvider> IntegrationProviders => Set<IntegrationProvider>();
-    public DbSet<CredentialDefinition> CredentialDefinitions => Set<CredentialDefinition>();
-    public DbSet<IntegrationCredential> IntegrationCredentials => Set<IntegrationCredential>();
+    // Per-integration credential tables (Credentials_*)
+    public DbSet<StripeCredential> StripeCredentials => Set<StripeCredential>();
+    public DbSet<PayPalCredential> PayPalCredentials => Set<PayPalCredential>();
+    public DbSet<RazorpayCredential> RazorpayCredentials => Set<RazorpayCredential>();
+    public DbSet<SquareCredential> SquareCredentials => Set<SquareCredential>();
+    public DbSet<AuthorizeNetCredential> AuthorizeNetCredentials => Set<AuthorizeNetCredential>();
+    public DbSet<TaxJarCredential> TaxJarCredentials => Set<TaxJarCredential>();
+    public DbSet<StripeTaxCredential> StripeTaxCredentials => Set<StripeTaxCredential>();
+    public DbSet<FedExCredential> FedExCredentials => Set<FedExCredential>();
+    public DbSet<DhlExpressCredential> DhlExpressCredentials => Set<DhlExpressCredential>();
+    public DbSet<UspsCredential> UspsCredentials => Set<UspsCredential>();
+    public DbSet<TwilioCredential> TwilioCredentials => Set<TwilioCredential>();
+    public DbSet<AzureBlobCredential> AzureBlobCredentials => Set<AzureBlobCredential>();
 
     // Catalog (WO-10, WO-11)
     public DbSet<TaxCategory> TaxCategories => Set<TaxCategory>();
@@ -136,6 +147,25 @@ public class AppDbContext : DbContext, IApplicationDbContext
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // Encrypt-at-rest for [Encrypted] string columns (per-integration credential secrets). The
+        // converter is applied only when a protector is available — i.e. at runtime, not at design time.
+        // It is a string→string conversion, so the column DDL (nvarchar) is identical either way and
+        // generated migrations / model-in-sync checks are unaffected. Captured into a local so the cached
+        // model closes over the singleton protector rather than a specific (disposable) context instance.
+        var protector = _protector;
+        if (protector is not null)
+        {
+            var encryptedConverter = new ValueConverter<string, string>(
+                v => protector.Protect(v),
+                v => protector.Unprotect(v));
+
+            foreach (var entityType in modelBuilder.Model.GetEntityTypes())
+                foreach (var property in entityType.GetProperties())
+                    if (property.ClrType == typeof(string) &&
+                        property.PropertyInfo?.IsDefined(typeof(EncryptedAttribute), inherit: false) == true)
+                        property.SetValueConverter(encryptedConverter);
+        }
 
         // Every Guid surrogate key is assigned client-side in BaseEntity's initializer, yet EF's
         // convention marks single Guid keys as store-generated (ValueGeneratedOnAdd). That mismatch

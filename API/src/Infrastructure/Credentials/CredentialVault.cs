@@ -1,21 +1,26 @@
-using Microsoft.AspNetCore.DataProtection;
+using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
+using VSky.Domain.Entities;
 
 namespace VSky.Infrastructure.Credentials;
 
 /// <summary>
-/// Column-level credential encryption backed by the .NET Data Protection API. The deployment-specific
-/// key ring lives outside the main database (Credential Vault blueprint, encryption ADR).
+/// Runtime credential resolution over the per-integration <c>Credentials_*</c> tables, plus the generic
+/// Encrypt/Decrypt used by the few secrets stored elsewhere (SMTP, reCAPTCHA). Integration adapters keep
+/// calling <see cref="GetCredentialAsync"/> with their service-type key; this reads the active row of the
+/// matching table and rebuilds the exact string/JSON that adapter parses. Secret columns are decrypted
+/// transparently by the EF value converter, so this only assembles the resolved shape.
 /// </summary>
 public class CredentialVault : ICredentialVault
 {
-    private readonly IDataProtector _protector;
+    private readonly ICredentialProtector _protector;
     private readonly IApplicationDbContext _db;
 
-    public CredentialVault(IDataProtectionProvider provider, IApplicationDbContext db)
+    public CredentialVault(ICredentialProtector protector, IApplicationDbContext db)
     {
-        _protector = provider.CreateProtector("VSky.CredentialVault.v1");
+        _protector = protector;
         _db = db;
     }
 
@@ -24,28 +29,50 @@ public class CredentialVault : ICredentialVault
     public string Decrypt(string ciphertext) => _protector.Unprotect(ciphertext);
 
     public async Task<string?> GetCredentialAsync(string serviceType, CancellationToken cancellationToken = default)
-    {
-        var cred = await _db.TenantCredentials
-            .AsNoTracking()
-            .FirstOrDefaultAsync(c => c.ServiceType == serviceType, cancellationToken);
+        => (await GetResolvedCredentialAsync(serviceType, cancellationToken))?.Value;
 
-        return cred is null ? null : Decrypt(cred.EncryptedValue);
+    public async Task<ResolvedCredential?> GetResolvedCredentialAsync(string serviceType, CancellationToken cancellationToken = default)
+    {
+        return serviceType switch
+        {
+            // Payment gateways
+            "stripe"       => Resolve(await ActiveAsync(_db.StripeCredentials, cancellationToken), c => c.SecretKey),
+            "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey)),
+            "razorpay"     => Resolve(await ActiveAsync(_db.RazorpayCredentials, cancellationToken), c => Pair(c.KeyId, c.KeySecret)),
+            "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), c => c.AccessToken),
+            "authorizenet" => Resolve(await ActiveAsync(_db.AuthorizeNetCredentials, cancellationToken), c => Pair(c.ApplicationLoginId, c.TransactionKey)),
+            // Tax providers
+            "taxjar"       => Resolve(await ActiveAsync(_db.TaxJarCredentials, cancellationToken), c => c.SecretKey),
+            "stripe-tax"   => Resolve(await ActiveAsync(_db.StripeTaxCredentials, cancellationToken), c => c.SecretKey),
+            // Storage
+            "azure-blob"   => Resolve(await ActiveAsync(_db.AzureBlobCredentials, cancellationToken), c => c.ConnectionString),
+            // Shipping carriers (adapters parse a small JSON document)
+            "fedex"        => Resolve(await ActiveAsync(_db.FedExCredentials, cancellationToken), c => Json(new { apiKey = c.ApiKey, secretKey = c.ApiSecret })),
+            "dhl"          => Resolve(await ActiveAsync(_db.DhlExpressCredentials, cancellationToken), c => Json(new { apiKey = c.ApiKey, apiSecret = c.ApiSecret })),
+            "usps"         => Resolve(await ActiveAsync(_db.UspsCredentials, cancellationToken), c => Json(new { consumerKey = c.ConsumerKey, consumerSecret = c.ConsumerSecret })),
+            _              => null,
+        };
     }
 
-    public async Task<IReadOnlyDictionary<string, string>> GetCredentialsAsync(string providerCode, CancellationToken cancellationToken = default)
+    /// <summary>The active (non-deleted) row for an integration, most-recently-updated first.</summary>
+    private static Task<T?> ActiveAsync<T>(DbSet<T> set, CancellationToken ct) where T : IntegrationCredentialBase
+        => set.AsNoTracking()
+            .Where(x => x.Active)
+            .OrderByDescending(x => x.UpdatedOnUtc)
+            .FirstOrDefaultAsync(ct);
+
+    /// <summary>Projects the active row's credential string and pairs it with its production flag; null when unusable.</summary>
+    private static ResolvedCredential? Resolve<T>(T? credential, Func<T, string?> project) where T : IntegrationCredentialBase
     {
-        // The IntegrationProvider query filter (soft-delete) applies through the navigation, so retired
-        // providers resolve to nothing. Disabled providers are excluded explicitly.
-        var fields = await _db.IntegrationCredentials
-            .AsNoTracking()
-            .Where(c => c.Provider!.Code == providerCode && c.Provider.IsEnabled)
-            .Select(c => new { c.Definition!.FieldCode, c.Value, c.IsSecret })
-            .ToListAsync(cancellationToken);
-
-        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var f in fields)
-            result[f.FieldCode] = f.IsSecret ? Decrypt(f.Value) : f.Value;
-
-        return result;
+        if (credential is null) return null;
+        var value = project(credential);
+        return string.IsNullOrWhiteSpace(value) ? null : new ResolvedCredential(value, credential.IsProduction);
     }
+
+    /// <summary>Colon-joined "id:secret" pair; null unless both halves are present.</summary>
+    private static string? Pair(string? left, string? right)
+        => string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right) ? null : $"{left}:{right}";
+
+    /// <summary>Serializes the projected shape (using its runtime type so its members are emitted).</summary>
+    private static string Json(object shape) => JsonSerializer.Serialize(shape, shape.GetType());
 }

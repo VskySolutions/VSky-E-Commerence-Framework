@@ -4,22 +4,6 @@ using VSky.Domain.Entities;
 
 namespace VSky.Infrastructure.Persistence.Configurations;
 
-public class TenantCredentialConfiguration : IEntityTypeConfiguration<TenantCredential>
-{
-    public void Configure(EntityTypeBuilder<TenantCredential> b)
-    {
-        b.ToTable("TenantCredentials");
-        b.HasKey(x => x.Id);
-        b.Property(x => x.ServiceType).HasMaxLength(100).IsRequired();
-        b.Property(x => x.EncryptedValue).IsRequired();
-        b.Property(x => x.LastFourChars).HasMaxLength(8);
-        b.Property(x => x.Description).HasMaxLength(500);
-
-        // One stored credential per service type per deployment.
-        b.HasIndex(x => x.ServiceType).IsUnique();
-    }
-}
-
 public class SmtpAccountConfiguration : IEntityTypeConfiguration<SmtpAccount>
 {
     public void Configure(EntityTypeBuilder<SmtpAccount> b)

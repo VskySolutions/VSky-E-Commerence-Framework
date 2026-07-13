@@ -53,6 +53,17 @@ public abstract class PaymentGatewayAdapterBase : IPaymentGatewayAdapter
     }
 
     /// <summary>
+    /// The active credential for this gateway plus whether it is a production/live credential, or
+    /// <c>null</c> when unconfigured. Environment-aware adapters use the flag to select the live vs.
+    /// sandbox endpoint.
+    /// </summary>
+    protected async Task<ResolvedCredential?> ResolveAsync(CancellationToken ct)
+    {
+        var serviceType = PaymentGatewayDefaults.CredentialServiceType(Method);
+        return serviceType is null ? null : await Vault.GetResolvedCredentialAsync(serviceType, ct);
+    }
+
+    /// <summary>
     /// Runs a gateway operation, converting any exception into a failed result. Callers keep the happy
     /// path; the guard centralizes the try/catch → <see cref="PaymentResult.Failed(string, PaymentStatus)"/>
     /// contract (adapters must never throw for a provider-side failure).

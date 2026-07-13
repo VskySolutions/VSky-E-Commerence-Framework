@@ -12,13 +12,15 @@ namespace VSky.Infrastructure.Payments.Adapters;
 
 /// <summary>
 /// Square gateway adapter (WO-33) over the Payments REST API via <see cref="IHttpClientFactory"/>. The
-/// access token is stored in the Credential Vault (service type "square"); a live/sandbox token is
-/// required. The card nonce/source id is supplied as the request's <see cref="PaymentRequest.PaymentToken"/>.
-/// <see cref="CaptureMode"/> maps to the CreatePayment <c>autocomplete</c> flag.
+/// access token is stored in Credentials_Square; the credential's <c>IsProduction</c> flag selects the
+/// live vs. sandbox endpoint. The card nonce/source id is supplied as the request's
+/// <see cref="PaymentRequest.PaymentToken"/>. <see cref="CaptureMode"/> maps to the CreatePayment
+/// <c>autocomplete</c> flag.
 /// </summary>
 public class SquareGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string BaseUrl = "https://connect.squareup.com/v2";
+    private const string LiveBaseUrl = "https://connect.squareup.com/v2";
+    private const string SandboxBaseUrl = "https://connect.squareupsandbox.com/v2";
     private const string SquareVersion = "2024-01-18";
 
     public SquareGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<SquareGatewayAdapter> logger)
@@ -29,9 +31,10 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> AuthorizeAsync(PaymentRequest req, CaptureMode mode, CancellationToken ct)
         => GuardAsync("authorize", async () =>
         {
-            var token = await ResolveCredentialAsync(ct);
-            if (string.IsNullOrWhiteSpace(token))
-                return PaymentResult.Failed("Square access token is not configured in the Credential Vault (service type 'square').");
+            var ctx = await ResolveContextAsync(ct);
+            if (ctx is null)
+                return PaymentResult.Failed("Square access token is not configured (Credentials_Square).");
+            var (baseUrl, token) = ctx.Value;
             if (string.IsNullOrWhiteSpace(req.PaymentToken))
                 return PaymentResult.Failed("Square requires a card nonce / source id (PaymentToken).");
 
@@ -43,7 +46,7 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
                 autocomplete = mode == CaptureMode.AuthorizeAndCapture,
             });
 
-            using var doc = await PostJsonAsync(token!, $"{BaseUrl}/payments", body, ct);
+            using var doc = await PostJsonAsync(token, $"{baseUrl}/payments", body, ct);
             var root = doc.RootElement;
             if (!root.TryGetProperty("payment", out var payment))
                 return PaymentResult.Failed($"Square: {DescribeError(root)}");
@@ -61,15 +64,16 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> CaptureAsync(PaymentRecord payment, decimal amount, CancellationToken ct)
         => GuardAsync("capture", async () =>
         {
-            var token = await ResolveCredentialAsync(ct);
-            if (string.IsNullOrWhiteSpace(token))
-                return PaymentResult.Failed("Square access token is not configured in the Credential Vault (service type 'square').");
+            var ctx = await ResolveContextAsync(ct);
+            if (ctx is null)
+                return PaymentResult.Failed("Square access token is not configured (Credentials_Square).");
+            var (baseUrl, token) = ctx.Value;
 
             var paymentId = payment.AuthorizationId ?? payment.GatewayReference;
             if (string.IsNullOrWhiteSpace(paymentId))
                 return PaymentResult.Failed("Square capture requires the original payment id.");
 
-            using var doc = await PostJsonAsync(token!, $"{BaseUrl}/payments/{paymentId}/complete", "{}", ct);
+            using var doc = await PostJsonAsync(token, $"{baseUrl}/payments/{paymentId}/complete", "{}", ct);
             var root = doc.RootElement;
             if (!root.TryGetProperty("payment", out var completed))
                 return PaymentResult.Failed($"Square: {DescribeError(root)}");
@@ -82,9 +86,10 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct)
         => GuardAsync("refund", async () =>
         {
-            var token = await ResolveCredentialAsync(ct);
-            if (string.IsNullOrWhiteSpace(token))
-                return PaymentResult.Failed("Square access token is not configured in the Credential Vault (service type 'square').");
+            var ctx = await ResolveContextAsync(ct);
+            if (ctx is null)
+                return PaymentResult.Failed("Square access token is not configured (Credentials_Square).");
+            var (baseUrl, token) = ctx.Value;
 
             var paymentId = payment.TransactionId ?? payment.AuthorizationId ?? payment.GatewayReference;
             if (string.IsNullOrWhiteSpace(paymentId))
@@ -97,7 +102,7 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
                 amount_money = new { amount = ToMinorUnits(amount), currency = payment.CurrencyCode },
             });
 
-            using var doc = await PostJsonAsync(token!, $"{BaseUrl}/refunds", body, ct);
+            using var doc = await PostJsonAsync(token, $"{baseUrl}/refunds", body, ct);
             var root = doc.RootElement;
             if (!root.TryGetProperty("refund", out var refund))
                 return PaymentResult.Failed($"Square: {DescribeError(root)}");
@@ -107,6 +112,16 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
                 ? new PaymentResult(true, PaymentStatus.Refunded, TransactionId: GetString(refund, "id"), GatewayReference: GetString(refund, "id"), CapturedAmount: amount)
                 : PaymentResult.Failed($"Square refund returned status '{status}'.");
         });
+
+    /// <summary>Resolves the active Square access token and picks the live/sandbox base URL from its production flag.</summary>
+    private async Task<(string BaseUrl, string Token)?> ResolveContextAsync(CancellationToken ct)
+    {
+        var resolved = await ResolveAsync(ct);
+        if (resolved is null)
+            return null;
+        var baseUrl = resolved.IsProduction ? LiveBaseUrl : SandboxBaseUrl;
+        return (baseUrl, resolved.Value);
+    }
 
     private async Task<JsonDocument> PostJsonAsync(string accessToken, string url, string json, CancellationToken ct)
     {

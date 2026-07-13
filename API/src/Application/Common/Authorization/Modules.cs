@@ -41,7 +41,7 @@ public static class Modules
         new(EmailTemplates, "Email Templates"),
         new(Branding, "Tenant Branding"),
         new(Settings, "Platform Settings"),
-        new(Credentials, "Credential Vault"),
+        new(Credentials, "Integration Credentials"),
         new(SmtpAccounts, "SMTP Accounts"),
         new(Storage, "File Storage"),
         new(BackgroundTasks, "Background Tasks"),

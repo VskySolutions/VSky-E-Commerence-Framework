@@ -12,13 +12,14 @@ namespace VSky.Infrastructure.Payments.Adapters;
 
 /// <summary>
 /// Authorize.Net gateway adapter (WO-33) using the JSON transaction API via <see cref="IHttpClientFactory"/>.
-/// Credentials are stored in the Credential Vault (service type "authorizenet") as
-/// <c>apiLoginId:transactionKey</c>; live/sandbox credentials are required. The client-side payment nonce
-/// is passed as opaque data. <see cref="CaptureMode"/> selects authCapture vs. authOnly transactions.
+/// Credentials are stored as <c>apiLoginId:transactionKey</c> (Credentials_AuthorizeNet); the credential's
+/// <c>IsProduction</c> flag selects the live vs. sandbox endpoint. The client-side payment nonce is passed
+/// as opaque data. <see cref="CaptureMode"/> selects authCapture vs. authOnly transactions.
 /// </summary>
 public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string Endpoint = "https://api.authorize.net/xml/v1/request.api";
+    private const string LiveEndpoint = "https://api.authorize.net/xml/v1/request.api";
+    private const string SandboxEndpoint = "https://apitest.authorize.net/xml/v1/request.api";
 
     public AuthorizeNetGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<AuthorizeNetGatewayAdapter> logger)
         : base(vault, httpClientFactory, logger) { }
@@ -30,7 +31,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
         {
             var auth = await ResolveAuthAsync(ct);
             if (auth is null)
-                return PaymentResult.Failed("Authorize.Net credentials are not configured in the Credential Vault (service type 'authorizenet', format 'apiLoginId:transactionKey').");
+                return PaymentResult.Failed("Authorize.Net credentials are not configured (format 'apiLoginId:transactionKey').");
 
             var type = mode == CaptureMode.AuthorizeOnly ? "authOnlyTransaction" : "authCaptureTransaction";
             var transactionRequest = new Dictionary<string, object?>
@@ -43,7 +44,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
                 },
             };
 
-            using var doc = await SendAsync(auth.Value, transactionRequest, ct);
+            using var doc = await SendAsync(auth.Value.Endpoint, (auth.Value.Name, auth.Value.Key), transactionRequest, ct);
             return Map(doc.RootElement, type, req.Amount);
         });
 
@@ -52,7 +53,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
         {
             var auth = await ResolveAuthAsync(ct);
             if (auth is null)
-                return PaymentResult.Failed("Authorize.Net credentials are not configured in the Credential Vault (service type 'authorizenet').");
+                return PaymentResult.Failed("Authorize.Net credentials are not configured.");
 
             var transId = payment.AuthorizationId ?? payment.GatewayReference;
             if (string.IsNullOrWhiteSpace(transId))
@@ -66,7 +67,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
                 ["refTransId"] = transId,
             };
 
-            using var doc = await SendAsync(auth.Value, transactionRequest, ct);
+            using var doc = await SendAsync(auth.Value.Endpoint, (auth.Value.Name, auth.Value.Key), transactionRequest, ct);
             return Map(doc.RootElement, type, amount);
         });
 
@@ -75,7 +76,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
         {
             var auth = await ResolveAuthAsync(ct);
             if (auth is null)
-                return PaymentResult.Failed("Authorize.Net credentials are not configured in the Credential Vault (service type 'authorizenet').");
+                return PaymentResult.Failed("Authorize.Net credentials are not configured.");
 
             var transId = payment.TransactionId ?? payment.AuthorizationId;
             if (string.IsNullOrWhiteSpace(transId))
@@ -91,7 +92,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
                 ["refTransId"] = transId,
             };
 
-            using var doc = await SendAsync(auth.Value, transactionRequest, ct);
+            using var doc = await SendAsync(auth.Value.Endpoint, (auth.Value.Name, auth.Value.Key), transactionRequest, ct);
             return Map(doc.RootElement, type, amount);
         });
 
@@ -114,17 +115,25 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
         };
     }
 
-    private async Task<(string Name, string Key)?> ResolveAuthAsync(CancellationToken ct)
+    /// <summary>
+    /// Resolves the active Authorize.Net credential into (apiLoginId, transactionKey) and the live/sandbox
+    /// endpoint (from its production flag). Returns null when unconfigured or malformed.
+    /// </summary>
+    private async Task<(string Name, string Key, string Endpoint)?> ResolveAuthAsync(CancellationToken ct)
     {
-        var credential = await ResolveCredentialAsync(ct);
-        if (string.IsNullOrWhiteSpace(credential))
+        var resolved = await ResolveAsync(ct);
+        if (resolved is null)
             return null;
 
-        var parts = credential!.Split(':', 2);
-        return parts.Length == 2 ? (parts[0], parts[1]) : null;
+        var parts = resolved.Value.Split(':', 2);
+        if (parts.Length != 2)
+            return null;
+
+        var endpoint = resolved.IsProduction ? LiveEndpoint : SandboxEndpoint;
+        return (parts[0], parts[1], endpoint);
     }
 
-    private async Task<JsonDocument> SendAsync((string Name, string Key) auth, IDictionary<string, object?> transactionRequest, CancellationToken ct)
+    private async Task<JsonDocument> SendAsync(string endpoint, (string Name, string Key) auth, IDictionary<string, object?> transactionRequest, CancellationToken ct)
     {
         var body = JsonSerializer.Serialize(new
         {
@@ -136,7 +145,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
         });
 
         var client = CreateClient();
-        using var request = new HttpRequestMessage(HttpMethod.Post, Endpoint)
+        using var request = new HttpRequestMessage(HttpMethod.Post, endpoint)
         {
             Content = new StringContent(body, Encoding.UTF8, "application/json"),
         };

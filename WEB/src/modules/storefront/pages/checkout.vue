@@ -25,14 +25,24 @@
         <div class="text-caption text-grey-6 q-mt-lg">
           A confirmation email with your order details is on its way.
         </div>
-        <q-btn
-          unelevated
-          color="primary"
-          no-caps
-          label="Continue shopping"
-          class="q-mt-lg"
-          :to="{ name: 'shop-home' }"
-        />
+        <div class="row justify-center q-gutter-sm q-mt-lg">
+          <q-btn
+            unelevated
+            color="primary"
+            no-caps
+            label="Continue shopping"
+            :to="{ name: 'shop-home' }"
+          />
+          <q-btn
+            v-if="isAuthed"
+            outline
+            color="primary"
+            no-caps
+            icon="o_receipt_long"
+            label="My orders"
+            :to="{ name: 'shop-account-orders' }"
+          />
+        </div>
       </q-card-section>
     </q-card>
 

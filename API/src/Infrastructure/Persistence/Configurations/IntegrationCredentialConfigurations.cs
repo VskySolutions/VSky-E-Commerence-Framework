@@ -5,83 +5,120 @@ using VSky.Domain.Entities;
 namespace VSky.Infrastructure.Persistence.Configurations;
 
 /// <summary>
-/// EF configuration for the dynamic Credential Vault (WO-7). Cascade paths are deliberately shaped to
-/// avoid SQL Server multiple-cascade-path errors: definitions and credential values are owned children of
-/// their provider (cascade), while a credential's second FK to its definition uses NoAction.
+/// Shared configuration for every per-integration credential table (<c>Credentials_*</c>): Guid key, the
+/// common Active/IsProduction/Name columns, and the soft-delete query filter. Secret columns are marked
+/// with <c>[Encrypted]</c> and encrypted at rest by a value converter applied globally in
+/// <c>AppDbContext.OnModelCreating</c>, so they are left unbounded (nvarchar(max)) here to fit ciphertext.
 /// </summary>
-public class IntegrationCategoryConfiguration : IEntityTypeConfiguration<IntegrationCategory>
+public abstract class IntegrationCredentialConfig<T> : IEntityTypeConfiguration<T>
+    where T : IntegrationCredentialBase
 {
-    public void Configure(EntityTypeBuilder<IntegrationCategory> b)
+    protected abstract string TableName { get; }
+
+    public void Configure(EntityTypeBuilder<T> b)
     {
-        b.ToTable("IntegrationCategories");
+        b.ToTable(TableName);
         b.HasKey(x => x.Id);
-        b.Property(x => x.Name).IsRequired().HasMaxLength(100);
-        b.Property(x => x.Code).IsRequired().HasMaxLength(50);
-        b.Property(x => x.Description).HasMaxLength(500);
-        b.HasIndex(x => x.Code).IsUnique();
-    }
-}
-
-public class IntegrationProviderConfiguration : IEntityTypeConfiguration<IntegrationProvider>
-{
-    public void Configure(EntityTypeBuilder<IntegrationProvider> b)
-    {
-        b.ToTable("IntegrationProviders");
-        b.HasKey(x => x.Id);
-        b.Property(x => x.Name).IsRequired().HasMaxLength(100);
-        b.Property(x => x.Code).IsRequired().HasMaxLength(50);
-        b.Property(x => x.Description).HasMaxLength(500);
-
-        b.HasOne(x => x.Category)
-            .WithMany(c => c.Providers)
-            .HasForeignKey(x => x.CategoryId)
-            .OnDelete(DeleteBehavior.Restrict); // lookup FK — no cascade from category
-
-        // Provider code is the runtime service-type key; unique among live providers (reusable after retire).
-        b.HasIndex(x => x.Code).IsUnique().HasFilter("[Deleted] = 0");
+        b.Property(x => x.Name).IsRequired().HasMaxLength(200);
         b.HasQueryFilter(x => !x.Deleted);
+        ConfigureFields(b);
+    }
+
+    /// <summary>Bounds the integration-specific non-secret columns. Encrypted columns are left unbounded.</summary>
+    protected virtual void ConfigureFields(EntityTypeBuilder<T> b) { }
+}
+
+// ---- Payment gateways ------------------------------------------------------
+
+public sealed class StripeCredentialConfig : IntegrationCredentialConfig<StripeCredential>
+{
+    protected override string TableName => "Credentials_Stripe";
+    protected override void ConfigureFields(EntityTypeBuilder<StripeCredential> b)
+        => b.Property(x => x.PublishableKey).HasMaxLength(300);
+}
+
+public sealed class PayPalCredentialConfig : IntegrationCredentialConfig<PayPalCredential>
+{
+    protected override string TableName => "Credentials_PayPal";
+    protected override void ConfigureFields(EntityTypeBuilder<PayPalCredential> b)
+        => b.Property(x => x.ClientId).HasMaxLength(300);
+}
+
+public sealed class RazorpayCredentialConfig : IntegrationCredentialConfig<RazorpayCredential>
+{
+    protected override string TableName => "Credentials_Razorpay";
+    protected override void ConfigureFields(EntityTypeBuilder<RazorpayCredential> b)
+        => b.Property(x => x.KeyId).HasMaxLength(200);
+}
+
+public sealed class SquareCredentialConfig : IntegrationCredentialConfig<SquareCredential>
+{
+    protected override string TableName => "Credentials_Square";
+    protected override void ConfigureFields(EntityTypeBuilder<SquareCredential> b)
+        => b.Property(x => x.ApplicationId).HasMaxLength(200);
+}
+
+public sealed class AuthorizeNetCredentialConfig : IntegrationCredentialConfig<AuthorizeNetCredential>
+{
+    protected override string TableName => "Credentials_AuthorizeNet";
+    protected override void ConfigureFields(EntityTypeBuilder<AuthorizeNetCredential> b)
+        => b.Property(x => x.ApplicationLoginId).HasMaxLength(200);
+}
+
+// ---- Tax providers ---------------------------------------------------------
+
+public sealed class TaxJarCredentialConfig : IntegrationCredentialConfig<TaxJarCredential>
+{
+    protected override string TableName => "Credentials_TaxJar";
+    protected override void ConfigureFields(EntityTypeBuilder<TaxJarCredential> b)
+        => b.Property(x => x.BaseUrl).HasMaxLength(500);
+}
+
+public sealed class StripeTaxCredentialConfig : IntegrationCredentialConfig<StripeTaxCredential>
+{
+    protected override string TableName => "Credentials_StripeTax";
+    protected override void ConfigureFields(EntityTypeBuilder<StripeTaxCredential> b)
+        => b.Property(x => x.PublishableKey).HasMaxLength(300);
+}
+
+// ---- Shipping carriers -----------------------------------------------------
+
+public sealed class FedExCredentialConfig : IntegrationCredentialConfig<FedExCredential>
+{
+    protected override string TableName => "Credentials_FedEx";
+    protected override void ConfigureFields(EntityTypeBuilder<FedExCredential> b)
+        => b.Property(x => x.ApiKey).HasMaxLength(300);
+}
+
+public sealed class DhlExpressCredentialConfig : IntegrationCredentialConfig<DhlExpressCredential>
+{
+    protected override string TableName => "Credentials_DHLExpress";
+    protected override void ConfigureFields(EntityTypeBuilder<DhlExpressCredential> b)
+        => b.Property(x => x.ApiKey).HasMaxLength(300);
+}
+
+public sealed class UspsCredentialConfig : IntegrationCredentialConfig<UspsCredential>
+{
+    protected override string TableName => "Credentials_USPS";
+    protected override void ConfigureFields(EntityTypeBuilder<UspsCredential> b)
+        => b.Property(x => x.ConsumerKey).HasMaxLength(300);
+}
+
+// ---- Communication ---------------------------------------------------------
+
+public sealed class TwilioCredentialConfig : IntegrationCredentialConfig<TwilioCredential>
+{
+    protected override string TableName => "Credentials_Twilio";
+    protected override void ConfigureFields(EntityTypeBuilder<TwilioCredential> b)
+    {
+        b.Property(x => x.AccountSid).HasMaxLength(200);
+        b.Property(x => x.WhatsAppNumber).HasMaxLength(40);
     }
 }
 
-public class CredentialDefinitionConfiguration : IEntityTypeConfiguration<CredentialDefinition>
+// ---- Storage ---------------------------------------------------------------
+
+public sealed class AzureBlobCredentialConfig : IntegrationCredentialConfig<AzureBlobCredential>
 {
-    public void Configure(EntityTypeBuilder<CredentialDefinition> b)
-    {
-        b.ToTable("CredentialDefinitions");
-        b.HasKey(x => x.Id);
-        b.Property(x => x.FieldName).IsRequired().HasMaxLength(100);
-        b.Property(x => x.FieldCode).IsRequired().HasMaxLength(50);
-        b.Property(x => x.Placeholder).HasMaxLength(200);
-        b.Property(x => x.HelpText).HasMaxLength(500);
-
-        b.HasOne(x => x.Provider)
-            .WithMany(p => p.Definitions)
-            .HasForeignKey(x => x.ProviderId)
-            .OnDelete(DeleteBehavior.Cascade); // owned child of its provider
-
-        b.HasIndex(x => new { x.ProviderId, x.FieldCode }).IsUnique();
-    }
-}
-
-public class IntegrationCredentialConfiguration : IEntityTypeConfiguration<IntegrationCredential>
-{
-    public void Configure(EntityTypeBuilder<IntegrationCredential> b)
-    {
-        b.ToTable("IntegrationCredentials");
-        b.HasKey(x => x.Id);
-        b.Property(x => x.Value).IsRequired();
-        b.Property(x => x.LastFourChars).HasMaxLength(4);
-
-        b.HasOne(x => x.Provider)
-            .WithMany(p => p.Credentials)
-            .HasForeignKey(x => x.ProviderId)
-            .OnDelete(DeleteBehavior.Cascade); // single cascade path — owned by provider
-
-        b.HasOne(x => x.Definition)
-            .WithMany(d => d.Values)
-            .HasForeignKey(x => x.DefinitionId)
-            .OnDelete(DeleteBehavior.NoAction); // second FK — avoid multiple cascade paths
-
-        b.HasIndex(x => new { x.ProviderId, x.DefinitionId }).IsUnique();
-    }
+    protected override string TableName => "Credentials_AzureBlob";
 }
