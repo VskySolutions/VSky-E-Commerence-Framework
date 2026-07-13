@@ -26,11 +26,14 @@ public abstract class IntegrationCredentialBase : AuditableEntity, ISoftDeletabl
 
 // ---- Payment gateways ------------------------------------------------------
 
-/// <summary>Stripe API keys (table <c>Credentials_Stripe</c>).</summary>
+/// <summary>Stripe API keys + redirect return URL (table <c>Credentials_Stripe</c>).</summary>
 public class StripeCredential : IntegrationCredentialBase
 {
     public string? PublishableKey { get; set; }
     [Encrypted] public string? SecretKey { get; set; }
+
+    /// <summary>Full storefront URL Stripe Checkout returns the buyer to (success + cancel land here).</summary>
+    public string? ReturnUrl { get; set; }
 }
 
 /// <summary>PayPal REST app credentials (table <c>Credentials_PayPal</c>).</summary>

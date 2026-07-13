@@ -38,5 +38,9 @@ public abstract class ManualPaymentAdapterBase : IPaymentGatewayAdapter
             true, PaymentStatus.Refunded, TransactionId: reference, GatewayReference: reference, CapturedAmount: amount));
     }
 
+    /// <summary>Manual methods are not redirect-based — nothing to verify on return.</summary>
+    public Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct)
+        => Task.FromResult(PaymentResult.Failed("This gateway does not use a redirect flow.", PaymentStatus.Pending));
+
     private string BuildReference(Guid orderId) => $"{ReferencePrefix}-{orderId:N}";
 }

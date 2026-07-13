@@ -49,6 +49,9 @@ public class PaymentGatewayRouter : IPaymentGatewayRouter
     public Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct = default)
         => Resolve(payment.Method).RefundAsync(payment, amount, ct);
 
+    public Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct = default)
+        => Resolve(payment.Method).VerifyRedirectAsync(payment, ct);
+
     public async Task CaptureForOrderAsync(Guid orderId, CancellationToken ct = default)
     {
         // Auto-capture the order's authorized-but-uncaptured payment when it ships/fulfils (AC-PAY-002.3).

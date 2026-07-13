@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VSky.Application.Common.Authorization;
 using VSky.API.Authorization;
+using VSky.Application.Common.Models;
 using VSky.Application.Features.AdminAlerts;
 
 namespace VSky.API.Controllers;
@@ -11,10 +12,10 @@ namespace VSky.API.Controllers;
 [RequireModule(Modules.Alerts)]
 public class AdminAlertsController : ApiControllerBase
 {
-    /// <summary>List alerts, optionally restricting to unresolved ones.</summary>
+    /// <summary>Paged alerts (newest first), filterable by search, severity and resolved state.</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<AdminAlertDto>>> List([FromQuery] bool? unresolvedOnly)
-        => Ok(await Mediator.Send(new ListAdminAlertsQuery(unresolvedOnly)));
+    public async Task<ActionResult<PaginatedList<AdminAlertDto>>> List([FromQuery] ListAdminAlertsQuery query)
+        => Ok(await Mediator.Send(query));
 
     /// <summary>Mark an alert as resolved.</summary>
     [HttpPut("{id:guid}/resolve")]

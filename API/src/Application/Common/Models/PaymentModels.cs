@@ -15,7 +15,8 @@ public record PaymentRequest(
     string CurrencyCode,
     string? PaymentToken = null,
     string? ReturnUrl = null,
-    IDictionary<string, string>? Metadata = null);
+    IDictionary<string, string>? Metadata = null,
+    string? OrderNumber = null);
 
 /// <summary>
 /// The normalized outcome of an authorize/capture/refund call, mapped from each provider's native
@@ -30,6 +31,16 @@ public record PaymentResult(
     string? ErrorMessage = null,
     decimal? CapturedAmount = null)
 {
+    /// <summary>
+    /// For redirect gateways (e.g. Stripe Checkout): the URL to send the buyer to complete payment off-site.
+    /// Null for inline gateways. When set, the checkout returns this URL instead of finalizing the order.
+    /// </summary>
+    public string? RedirectUrl { get; init; }
+
+    /// <summary>A "send the buyer to this URL" result for redirect gateways; the order stays pending until they return.</summary>
+    public static PaymentResult Redirect(string url, string? gatewayReference)
+        => new(false, PaymentStatus.Pending, GatewayReference: gatewayReference) { RedirectUrl = url };
+
     /// <summary>A failed result (default status <see cref="PaymentStatus.Failed"/>) carrying the gateway error.</summary>
     public static PaymentResult Failed(string error, PaymentStatus status = PaymentStatus.Failed)
         => new(false, status, ErrorMessage: error);

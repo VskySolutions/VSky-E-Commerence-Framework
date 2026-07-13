@@ -16,4 +16,13 @@ public interface ICheckoutOrchestrator
 
     /// <summary>Places the order: prices the cart, creates the order, and authorizes payment.</summary>
     Task<CheckoutResult> PlaceAsync(PlaceCheckoutRequest req, CancellationToken ct);
+
+    /// <summary>
+    /// Confirms a redirect payment on the buyer's return: verifies the gateway session and, when paid,
+    /// captures the payment, consumes the cart, and finalizes the order (emails/events). Idempotent.
+    /// </summary>
+    Task<CheckoutResult> ConfirmAsync(Guid orderId, CancellationToken ct);
+
+    /// <summary>Re-opens a payment session for a still-pending order (retry after a cancelled redirect payment).</summary>
+    Task<CheckoutResult> RetryPaymentAsync(Guid orderId, CancellationToken ct);
 }

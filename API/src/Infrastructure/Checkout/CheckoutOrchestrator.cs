@@ -67,7 +67,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             req.CartId, req.SessionId, req.ShipTo, req.ShippingMethodId,
             requestCouponCode: null, forPlacement: false, req.PickupInStore, req.PickupStoreId, ct);
 
-        return new CheckoutQuote
+        var quote = new CheckoutQuote
         {
             Subtotal = priced.Subtotal,
             Discounts = priced.Discounts,
@@ -81,6 +81,27 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             IsRoutable = priced.Routing.IsRouted,
             GuestOrderingAllowed = priced.GuestOrderingAllowed,
         };
+
+        // Only a routed order has a fulfilling store, and so a concrete set of payment methods to offer.
+        if (priced.Store is not null)
+            quote.AvailablePaymentMethods = (await AvailablePaymentMethodsAsync(priced.Store, ct))
+                .Select(m => m.ToString())
+                .ToList();
+
+        return quote;
+    }
+
+    /// <summary>
+    /// Payment methods offered for an order fulfilled by <paramref name="store"/>: the active/enabled +
+    /// credential-configured gateways (<see cref="IPaymentGatewayRouter.AvailableMethodsAsync"/>), with Cash
+    /// on Delivery included only when the store enables it (<see cref="Domain.Entities.Store.CashOnDeliveryEnabled"/>).
+    /// </summary>
+    private async Task<IReadOnlyList<PaymentMethodType>> AvailablePaymentMethodsAsync(Domain.Entities.Store store, CancellationToken ct)
+    {
+        var methods = await _payments.AvailableMethodsAsync(ct);
+        return store.CashOnDeliveryEnabled
+            ? methods
+            : methods.Where(m => m != PaymentMethodType.CashOnDelivery).ToList();
     }
 
     public async Task<CheckoutResult> PlaceAsync(PlaceCheckoutRequest req, CancellationToken ct)
@@ -91,6 +112,11 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         var now = _clock.UtcNow;
         var storeId = priced.Routing.AssignedStoreId!.Value; // non-null: placement short-circuits when unrouted.
+
+        // Enforce the store's payment-method availability (e.g. COD switched off, or a deactivated gateway)
+        // server-side — the storefront only ever offers these, but never trust the client.
+        if (priced.Store is not null && !(await AvailablePaymentMethodsAsync(priced.Store, ct)).Contains(req.PaymentMethod))
+            throw new ConflictException("The selected payment method is not available for this order.");
 
         // Resolve the customer only when the caller is an authenticated customer; guests place a null-customer order.
         Guid? customerId = null;
@@ -184,7 +210,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _db.PaymentRecords.Add(payment);
 
         var payResult = await _payments.AuthorizeAsync(
-            new PaymentRequest(order.Id, req.PaymentMethod, priced.Total, order.CurrencyCode, req.PaymentToken),
+            new PaymentRequest(order.Id, req.PaymentMethod, priced.Total, order.CurrencyCode, req.PaymentToken,
+                OrderNumber: order.OrderNumber),
             ct);
 
         payment.Status = payResult.Status;
@@ -206,6 +233,16 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         order.PaymentStatus = payResult.Status;
         await _db.SaveChangesAsync(ct);
 
+        // Redirect gateway (Stripe Checkout): the order is created but stays pending while the buyer pays
+        // off-site. Remember the source cart so /api/checkout/confirm can consume it once payment succeeds,
+        // and hand back the URL for the storefront to redirect to. Nothing is finalized yet.
+        if (payResult.RedirectUrl is not null)
+        {
+            order.SourceCartId = priced.Cart.Id;
+            await _db.SaveChangesAsync(ct);
+            return OrderResult(order, success: false, error: null, redirectUrl: payResult.RedirectUrl);
+        }
+
         // Payment failed: leave the order Pending/unpaid so the buyer can retry, and do NOT mark the
         // cart checked out or fire any confirmation side effects (AC-PAY-001.3).
         if (!payResult.Success)
@@ -223,67 +260,186 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             };
         }
 
-        // 8c. Payment succeeded: finalize the cart, redeem the coupon, raise events, and send the confirmation email.
+        // 8c. Payment succeeded (synchronous gateway): consume the cart and finalize the order.
         priced.Cart.IsCheckedOut = true;
         await _db.SaveChangesAsync(ct);
+        await FinalizePlacedOrderAsync(order, ct);
 
-        if (priced.CouponValid && priced.CouponCode is not null)
-            await _coupons.RedeemAsync(priced.CouponCode, ct);
+        return OrderResult(order, success: true, error: null, redirectUrl: null);
+    }
+
+    public async Task<CheckoutResult> ConfirmAsync(Guid orderId, CancellationToken ct)
+    {
+        var order = await _db.Orders
+            .Include(o => o.Lines)
+            .Include(o => o.ShippingAddress)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct)
+            ?? throw new NotFoundException(nameof(Order), orderId);
+
+        // Idempotent: already confirmed (e.g. the buyer refreshed the return page or double-confirmed).
+        if (order.PaymentStatus == PaymentStatus.Captured)
+            return OrderResult(order, success: true, error: null, redirectUrl: null);
+
+        var payment = await _db.PaymentRecords
+            .Where(p => p.OrderId == orderId)
+            .OrderByDescending(p => p.CreatedOnUtc)
+            .FirstOrDefaultAsync(ct);
+        if (payment is null)
+            return OrderResult(order, success: false, error: "No payment to confirm for this order.", redirectUrl: null);
+
+        // Ask the gateway whether the off-site payment actually completed (Stripe session paid?).
+        var result = await _payments.VerifyRedirectAsync(payment, ct);
+        if (!result.Success || result.Status != PaymentStatus.Captured)
+        {
+            payment.ErrorMessage = result.ErrorMessage;
+            await _db.SaveChangesAsync(ct);
+            return OrderResult(order, success: false,
+                error: result.ErrorMessage ?? "Payment was not completed. Please try again.", redirectUrl: null);
+        }
+
+        var now = _clock.UtcNow;
+        payment.Status = PaymentStatus.Captured;
+        payment.TransactionId = result.TransactionId ?? payment.TransactionId;
+        payment.GatewayReference = result.GatewayReference ?? payment.GatewayReference;
+        payment.AuthorizedOnUtc ??= now;
+        payment.CapturedOnUtc = now;
+        payment.ErrorMessage = null;
+        order.PaymentStatus = PaymentStatus.Captured;
+
+        // Consume the source cart now that payment succeeded — kept intact until now so a cancelled
+        // payment leaves the buyer's cart untouched for a retry.
+        if (order.SourceCartId is Guid cartId)
+        {
+            var cart = await _db.Carts.FirstOrDefaultAsync(c => c.Id == cartId && !c.IsCheckedOut, ct);
+            if (cart is not null)
+                cart.IsCheckedOut = true;
+        }
+        await _db.SaveChangesAsync(ct);
+
+        await FinalizePlacedOrderAsync(order, ct);
+
+        return OrderResult(order, success: true, error: null, redirectUrl: null);
+    }
+
+    public async Task<CheckoutResult> RetryPaymentAsync(Guid orderId, CancellationToken ct)
+    {
+        var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct)
+            ?? throw new NotFoundException(nameof(Order), orderId);
+
+        // Already paid — nothing to retry.
+        if (order.PaymentStatus == PaymentStatus.Captured)
+            return OrderResult(order, success: true, error: null, redirectUrl: null);
+
+        var payment = await _db.PaymentRecords
+            .Where(p => p.OrderId == orderId)
+            .OrderByDescending(p => p.CreatedOnUtc)
+            .FirstOrDefaultAsync(ct);
+        var method = payment?.Method ?? PaymentMethodType.Stripe;
+
+        // Re-open a payment session for the same pending order.
+        var payResult = await _payments.AuthorizeAsync(
+            new PaymentRequest(order.Id, method, order.TotalAmount, order.CurrencyCode, null,
+                OrderNumber: order.OrderNumber), ct);
+
+        if (payResult.RedirectUrl is not null)
+        {
+            if (payment is not null)
+            {
+                payment.GatewayReference = payResult.GatewayReference;
+                payment.Status = PaymentStatus.Pending;
+                payment.ErrorMessage = null;
+                await _db.SaveChangesAsync(ct);
+            }
+            return OrderResult(order, success: false, error: null, redirectUrl: payResult.RedirectUrl);
+        }
+
+        return OrderResult(order, success: false,
+            error: payResult.ErrorMessage ?? "Could not start payment. Please try again.", redirectUrl: null);
+    }
+
+    /// <summary>
+    /// The side-effects raised once an order is both placed AND paid: redeem the coupon, publish the
+    /// order-placed/routed events, and send the confirmation + store-notification emails. Reconstructed
+    /// entirely from the persisted order so it runs identically inline (synchronous gateways) or on the
+    /// buyer's return (redirect gateways). The order's <see cref="Order.ShippingAddress"/> and
+    /// <see cref="Order.Lines"/> must be loaded.
+    /// </summary>
+    private async Task FinalizePlacedOrderAsync(Order order, CancellationToken ct)
+    {
+        if (!string.IsNullOrWhiteSpace(order.AppliedCouponCode))
+            await _coupons.RedeemAsync(order.AppliedCouponCode!, ct);
 
         await _publisher.Publish(
-            new OrderPlaced(order.Id, order.OrderNumber, priced.Total, order.CustomerId, order.ContactEmail),
+            new OrderPlaced(order.Id, order.OrderNumber, order.TotalAmount, order.CustomerId, order.ContactEmail),
             ct);
-        await _publisher.Publish(
-            new OrderRouted(BuildRoutingRequest(req.ShipTo, priced.Lines), storeId),
-            ct);
+
+        if (order.AssignedStoreId is Guid routedStoreId)
+        {
+            var addr = order.ShippingAddress;
+            var routing = new RoutingRequest(
+                addr?.Latitude, addr?.Longitude, addr?.CountryCode, addr?.StateProvince, addr?.PostalCode,
+                order.Lines.Select(l => new RoutingLineItem(l.ProductId, l.ProductVariantId, l.Quantity)).ToList());
+            await _publisher.Publish(new OrderRouted(routing, routedStoreId), ct);
+        }
 
         // AC-CHK-003.8: order-confirmation email to the customer, plus a new-order notification to the
         // assigned store — both rendered from admin-editable email templates.
-        var contactName = $"{req.ShipTo.FirstName} {req.ShipTo.LastName}".Trim();
+        var shipTo = order.ShippingAddress;
+        var contactName = $"{shipTo?.FirstName} {shipTo?.LastName}".Trim();
         var displayName = string.IsNullOrWhiteSpace(contactName) ? "there" : contactName;
-        var orderTotalText = $"{order.CurrencyCode} {priced.Total:0.00}";
-        var orderDateText = now.ToString("MMM d, yyyy");
+        var orderTotalText = $"{order.CurrencyCode} {order.TotalAmount:0.00}";
+        var orderDateText = order.PlacedOnUtc.ToString("MMM d, yyyy");
+        var toEmail = order.ContactEmail;
 
-        await _templates.SendAsync(
-            "order.confirmation",
-            req.ShipTo.Email,
-            string.IsNullOrWhiteSpace(contactName) ? null : contactName,
-            new Dictionary<string, string>
-            {
-                ["customerName"] = displayName,
-                ["orderNumber"] = order.OrderNumber,
-                ["orderDate"] = orderDateText,
-                ["orderTotal"] = orderTotalText,
-            },
-            ct);
-
-        var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == storeId, ct);
-        if (store is not null)
+        if (!string.IsNullOrWhiteSpace(toEmail))
         {
-            var storeVars = new Dictionary<string, string>
-            {
-                ["orderNumber"] = order.OrderNumber,
-                ["storeName"] = store.Name,
-                ["customerName"] = displayName,
-                ["customerEmail"] = req.ShipTo.Email,
-                ["orderTotal"] = orderTotalText,
-                ["orderDate"] = orderDateText,
-            };
-            foreach (var to in ResolveStoreRecipients(store))
-                await _templates.SendAsync("order.store-notification", to, store.Name, storeVars, ct);
+            await _templates.SendAsync(
+                "order.confirmation",
+                toEmail,
+                string.IsNullOrWhiteSpace(contactName) ? null : contactName,
+                new Dictionary<string, string>
+                {
+                    ["customerName"] = displayName,
+                    ["orderNumber"] = order.OrderNumber,
+                    ["orderDate"] = orderDateText,
+                    ["orderTotal"] = orderTotalText,
+                },
+                ct);
         }
 
-        return new CheckoutResult
+        if (order.AssignedStoreId is Guid notifyStoreId)
+        {
+            var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == notifyStoreId, ct);
+            if (store is not null)
+            {
+                var storeVars = new Dictionary<string, string>
+                {
+                    ["orderNumber"] = order.OrderNumber,
+                    ["storeName"] = store.Name,
+                    ["customerName"] = displayName,
+                    ["customerEmail"] = toEmail ?? string.Empty,
+                    ["orderTotal"] = orderTotalText,
+                    ["orderDate"] = orderDateText,
+                };
+                foreach (var to in ResolveStoreRecipients(store))
+                    await _templates.SendAsync("order.store-notification", to, store.Name, storeVars, ct);
+            }
+        }
+    }
+
+    /// <summary>Projects an order into the checkout result shape (shared by place/confirm/retry).</summary>
+    private static CheckoutResult OrderResult(Order order, bool success, string? error, string? redirectUrl)
+        => new()
         {
             OrderId = order.Id,
             OrderNumber = order.OrderNumber,
             Status = order.Status.ToString(),
-            Total = priced.Total,
-            PaymentStatus = payResult.Status.ToString(),
-            Success = true,
-            Error = null,
+            Total = order.TotalAmount,
+            PaymentStatus = order.PaymentStatus.ToString(),
+            Success = success,
+            Error = error,
+            RedirectUrl = redirectUrl,
         };
-    }
 
     /// <summary>
     /// Recipients for a store's new-order alert: the store's NotificationEmail (one or more addresses

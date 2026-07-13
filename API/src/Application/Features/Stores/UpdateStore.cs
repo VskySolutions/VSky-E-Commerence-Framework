@@ -30,6 +30,7 @@ public record UpdateStoreCommand(
     string? DeliveryZoneJson = null,
     int? OrderCapacityLimit = null,
     bool GuestOrderingEnabled = true,
+    bool CashOnDeliveryEnabled = true,
     string? Landmark = null) : IRequest<StoreDto>;
 
 public class UpdateStoreCommandValidator : AbstractValidator<UpdateStoreCommand>
@@ -73,6 +74,7 @@ public class UpdateStoreCommandHandler : IRequestHandler<UpdateStoreCommand, Sto
         entity.IsEnabled = request.IsEnabled;
         entity.MaintenanceMode = request.MaintenanceMode;
         entity.GuestOrderingEnabled = request.GuestOrderingEnabled;
+        entity.CashOnDeliveryEnabled = request.CashOnDeliveryEnabled;
         entity.DeliveryZoneJson = request.DeliveryZoneJson;
         entity.OrderCapacityLimit = request.OrderCapacityLimit;
 

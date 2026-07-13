@@ -27,4 +27,16 @@ public class CheckoutController : ApiControllerBase
     public async Task<ActionResult<CheckoutResult>> Place(
         [FromBody] PlaceCheckoutRequest request, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(new PlaceCheckoutCommand(request), cancellationToken));
+
+    /// <summary>Confirm a redirect payment on return (Stripe Checkout): verify the session and finalize on success.</summary>
+    [HttpPost("confirm")]
+    public async Task<ActionResult<CheckoutResult>> Confirm(
+        [FromBody] CheckoutOrderRef request, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new ConfirmCheckoutCommand(request.OrderId), cancellationToken));
+
+    /// <summary>Re-open a payment session for a still-pending order (retry after a cancelled redirect payment).</summary>
+    [HttpPost("retry-payment")]
+    public async Task<ActionResult<CheckoutResult>> RetryPayment(
+        [FromBody] CheckoutOrderRef request, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new RetryCheckoutPaymentCommand(request.OrderId), cancellationToken));
 }

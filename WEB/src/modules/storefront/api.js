@@ -142,9 +142,18 @@ export const checkoutApi = {
     return customerApi.post(CHECKOUT + '/quote', payload).then(unwrap)
   },
   // Finalize the order + authorize payment. Returns CheckoutResult — a declined
-  // payment comes back with success=false and a retryable pending order.
+  // payment comes back with success=false and a retryable pending order. For a redirect
+  // gateway (Stripe Checkout) the result carries a redirectUrl to send the buyer to.
   place (payload) {
     return customerApi.post(CHECKOUT + '/place', payload).then(unwrap)
+  },
+  // Confirm a redirect payment on return: verifies the gateway session and finalizes on success.
+  confirm (orderId) {
+    return customerApi.post(CHECKOUT + '/confirm', { orderId }).then(unwrap)
+  },
+  // Re-open a payment session for a still-pending order (retry after a cancelled redirect payment).
+  retryPayment (orderId) {
+    return customerApi.post(CHECKOUT + '/retry-payment', { orderId }).then(unwrap)
   }
 }
 

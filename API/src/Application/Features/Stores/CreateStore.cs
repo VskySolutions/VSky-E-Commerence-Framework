@@ -27,6 +27,7 @@ public record CreateStoreCommand(
     string? DeliveryZoneJson = null,
     int? OrderCapacityLimit = null,
     bool GuestOrderingEnabled = true,
+    bool CashOnDeliveryEnabled = true,
     string? Landmark = null) : IRequest<StoreDto>;
 
 public class CreateStoreCommandValidator : AbstractValidator<CreateStoreCommand>
@@ -66,6 +67,7 @@ public class CreateStoreCommandHandler : IRequestHandler<CreateStoreCommand, Sto
             IsEnabled = request.IsEnabled,
             MaintenanceMode = request.MaintenanceMode,
             GuestOrderingEnabled = request.GuestOrderingEnabled,
+            CashOnDeliveryEnabled = request.CashOnDeliveryEnabled,
             DeliveryZoneJson = request.DeliveryZoneJson,
             OrderCapacityLimit = request.OrderCapacityLimit,
         };

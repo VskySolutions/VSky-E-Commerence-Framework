@@ -24,7 +24,9 @@ public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, Paginated
     {
         IQueryable<Order> query = _db.Orders.Include(o => o.ShippingAddress)
             .AsNoTracking()
-            .Include(o => o.Lines);
+            .Include(o => o.Lines)
+            // Hide orders still awaiting an off-site redirect payment (cancelled/abandoned Stripe attempts).
+            .ExcludeUnpaidRedirect();
 
         if (!string.IsNullOrWhiteSpace(request.Status)
             && Enum.TryParse<OrderStatus>(request.Status, ignoreCase: true, out var status))

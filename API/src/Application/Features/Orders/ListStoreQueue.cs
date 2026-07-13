@@ -33,7 +33,9 @@ public class ListStoreQueueQueryHandler : IRequestHandler<ListStoreQueueQuery, P
         IQueryable<Order> query = _db.Orders
             .AsNoTracking()
             .Include(o => o.Lines)
-            .Where(o => o.AssignedStoreId == storeId);
+            .Where(o => o.AssignedStoreId == storeId)
+            // A store shouldn't see orders whose off-site payment was never completed.
+            .ExcludeUnpaidRedirect();
 
         if (!string.IsNullOrWhiteSpace(request.Status)
             && Enum.TryParse<OrderStatus>(request.Status, ignoreCase: true, out var status))

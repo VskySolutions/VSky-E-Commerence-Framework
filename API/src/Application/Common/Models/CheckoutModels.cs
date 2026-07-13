@@ -54,6 +54,13 @@ public class CheckoutQuote
     public Guid? AssignedStoreId { get; set; }
     public bool IsRoutable { get; set; }
     public bool GuestOrderingAllowed { get; set; }
+
+    /// <summary>
+    /// Payment methods offered for this order — the active/enabled + credential-configured gateways, plus
+    /// Cash on Delivery only when the fulfilling store allows it — as <see cref="PaymentMethodType"/> names.
+    /// The storefront renders exactly these (each mapped to its own label + icon).
+    /// </summary>
+    public List<string> AvailablePaymentMethods { get; set; } = new();
 }
 
 /// <summary>
@@ -89,4 +96,10 @@ public class CheckoutResult
     public string PaymentStatus { get; set; } = string.Empty;
     public bool Success { get; set; }
     public string? Error { get; set; }
+
+    /// <summary>
+    /// For redirect gateways (Stripe Checkout): the URL to send the buyer to. When set, the storefront
+    /// redirects here to complete payment; the order stays pending until they return and confirm.
+    /// </summary>
+    public string? RedirectUrl { get; set; }
 }

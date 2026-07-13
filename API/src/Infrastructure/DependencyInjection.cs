@@ -153,6 +153,7 @@ public static class DependencyInjection
         services.AddSingleton<IScheduledTask, CurrencyRateRefreshWorker>();
         services.AddSingleton<IScheduledTask, ExpiredAuthorizationWorker>();
         services.AddSingleton<IScheduledTask, DatabaseCleanupWorker>();
+        services.AddSingleton<IScheduledTask, AbandonedOrderCleanupWorker>();
         services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.WebhookDispatchWorker>();
         services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.EmailDispatchWorker>();
         // Webhooks: domain event bus that enqueues signed deliveries (WO-5).

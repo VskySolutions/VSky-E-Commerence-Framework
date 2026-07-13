@@ -2,6 +2,7 @@ using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Features.Orders;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
 
@@ -45,7 +46,9 @@ public class StorePerformanceReportQueryHandler : IRequestHandler<StorePerforman
             .AsNoTracking()
             .Where(o => o.AssignedStoreId != null
                         && o.PlacedOnUtc >= request.FromUtc
-                        && o.PlacedOnUtc < request.ToUtc);
+                        && o.PlacedOnUtc < request.ToUtc)
+            // Exclude cancelled/abandoned redirect-payment attempts so they don't inflate performance figures.
+            .ExcludeUnpaidRedirect();
 
         if (storeFilter is Guid sid)
             query = query.Where(o => o.AssignedStoreId == sid);

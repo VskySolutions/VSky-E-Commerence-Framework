@@ -28,4 +28,10 @@ public interface IPaymentGatewayAdapter
 
     /// <summary>Refunds a captured payment, in full or part (REQ-PAY-003).</summary>
     Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct);
+
+    /// <summary>
+    /// For redirect gateways (Stripe Checkout): verifies the off-site payment on the buyer's return and
+    /// reports it Captured when paid. Non-redirect gateways return a non-captured result (base default).
+    /// </summary>
+    Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct);
 }

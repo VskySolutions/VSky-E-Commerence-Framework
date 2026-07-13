@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Features.CustomerAddresses;
+using VSky.Application.Features.Orders;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
 
@@ -89,6 +90,7 @@ public class GetCustomerDetailQueryHandler : IRequestHandler<GetCustomerDetailQu
 
         var orders = await _db.Orders.AsNoTracking()
             .Where(o => o.CustomerId == request.Id)
+            .ExcludeUnpaidRedirect()
             .OrderByDescending(o => o.PlacedOnUtc)
             .ToListAsync(cancellationToken);
 

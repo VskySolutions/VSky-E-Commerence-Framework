@@ -46,6 +46,37 @@
       </q-card-section>
     </q-card>
 
+    <!-- Verifying a redirect payment on return from the gateway -->
+    <q-card v-else-if="confirming" flat bordered class="q-mx-auto confirm-card">
+      <q-card-section class="text-center q-pa-xl">
+        <q-spinner color="primary" size="48px" />
+        <div class="text-subtitle1 text-weight-medium q-mt-md">Confirming your payment…</div>
+        <div class="text-caption text-grey-6 q-mt-sm">Please wait, this only takes a moment.</div>
+      </q-card-section>
+    </q-card>
+
+    <!-- Payment cancelled / not completed — offer a retry (AC-PAY-001.3) -->
+    <q-card v-else-if="retryState" flat bordered class="q-mx-auto confirm-card">
+      <q-card-section class="text-center q-pa-xl">
+        <q-icon name="o_error_outline" color="warning" size="64px" />
+        <div class="text-h6 text-weight-bold q-mt-md">Payment not completed</div>
+        <div class="text-body2 text-grey-8 q-mt-sm">{{ retryState.message }}</div>
+        <div class="text-caption text-grey-6 q-mt-sm">Your cart is saved — you can try again.</div>
+        <div class="row justify-center q-gutter-sm q-mt-lg">
+          <q-btn
+            unelevated
+            color="primary"
+            no-caps
+            icon="o_refresh"
+            label="Retry payment"
+            :loading="retrying"
+            @click="retryPayment"
+          />
+          <q-btn flat color="primary" no-caps label="Change payment method" @click="retryState = null" />
+        </div>
+      </q-card-section>
+    </q-card>
+
     <!-- Empty cart -->
     <q-banner
       v-else-if="cart && !items.length"
@@ -261,9 +292,39 @@
         <q-card v-if="canCollectDetails" flat bordered class="q-mb-lg">
           <q-card-section>
             <div class="text-subtitle1 text-weight-bold q-mb-sm">Payment method</div>
-            <q-option-group v-model="paymentMethod" :options="paymentMethods" color="primary" />
-            <div class="text-caption text-grey-6 q-mt-sm">
-              You'll be charged when your order is placed. No card details are stored by the storefront.
+
+            <div v-if="paymentMethods.length" class="column q-gutter-sm">
+              <q-item
+                v-for="m in paymentMethods"
+                :key="m.value"
+                tag="label"
+                clickable
+                class="sf-payment-option rounded-borders"
+                :class="{ 'sf-payment-option--active': paymentMethod === m.value }"
+              >
+                <q-item-section avatar>
+                  <q-avatar square rounded size="42px" class="sf-payment-icon">
+                    <q-icon :name="m.icon" size="24px" />
+                  </q-avatar>
+                </q-item-section>
+                <q-item-section>
+                  <q-item-label class="text-weight-medium">{{ m.label }}</q-item-label>
+                  <q-item-label caption>{{ m.hint }}</q-item-label>
+                </q-item-section>
+                <q-item-section side>
+                  <q-radio :model-value="paymentMethod" :val="m.value" color="primary" @update:model-value="paymentMethod = m.value" />
+                </q-item-section>
+              </q-item>
+            </div>
+
+            <q-banner v-else dense class="bg-red-1 text-negative rounded-borders">
+              <template #avatar><q-icon name="o_error_outline" color="negative" /></template>
+              No payment methods are available for this order.
+            </q-banner>
+
+            <div v-if="paymentMethods.length" class="row items-center text-caption text-grey-6 q-mt-sm no-wrap">
+              <q-icon name="o_lock" size="16px" class="q-mr-xs" />
+              Payments are processed securely — the storefront never stores your card details.
             </div>
           </q-card-section>
         </q-card>
@@ -698,18 +759,37 @@ function onShippingChange (methodId) {
 }
 
 // ---- Payment ----------------------------------------------------------------
-const paymentMethods = [
-  { value: 'CashOnDelivery', label: 'Cash on delivery' },
-  { value: 'Stripe', label: 'Credit / debit card (Stripe)' },
-  { value: 'PayPal', label: 'PayPal' },
-  { value: 'BankTransfer', label: 'Bank transfer' }
-]
-const paymentMethod = ref('CashOnDelivery')
+// Label + icon for every supported gateway. The checkout shows only the methods the quote reports as
+// available (active/enabled gateways + Cash on Delivery when the fulfilling store allows it).
+const PAYMENT_METHOD_META = {
+  CashOnDelivery: { label: 'Cash on delivery', icon: 'o_payments', hint: 'Pay in cash when your order is delivered' },
+  Stripe: { label: 'Stripe', icon: 'o_credit_card', hint: 'Visa, Mastercard, Amex & more — via Stripe' },
+  PayPal: { label: 'PayPal', icon: 'o_account_balance_wallet', hint: 'Pay with your PayPal account' },
+  Razorpay: { label: 'Razorpay', icon: 'o_payment', hint: 'Cards, UPI, netbanking & wallets' },
+  Square: { label: 'Square', icon: 'o_qr_code_2', hint: 'Secure card payment via Square' },
+  AuthorizeNet: { label: 'Authorize.Net', icon: 'o_credit_score', hint: 'Secure card payment' },
+  BankTransfer: { label: 'Bank transfer', icon: 'o_account_balance', hint: 'Transfer to our bank account; we confirm once received' }
+}
+const paymentMethods = computed(() =>
+  (quote.value?.availablePaymentMethods || [])
+    .filter((m) => PAYMENT_METHOD_META[m])
+    .map((m) => ({ value: m, ...PAYMENT_METHOD_META[m] }))
+)
+const paymentMethod = ref(null)
+// Keep the selection valid as availability changes — default to the first offered method.
+watch(paymentMethods, (methods) => {
+  if (!methods.length) paymentMethod.value = null
+  else if (!methods.some((m) => m.value === paymentMethod.value)) paymentMethod.value = methods[0].value
+}, { immediate: true })
 
 // ---- Place ------------------------------------------------------------------
 const placing = ref(false)
 const placeError = ref('')
 const orderResult = ref(null)
+// Redirect-payment (Stripe Checkout) return handling.
+const confirming = ref(false)
+const retrying = ref(false)
+const retryState = ref(null) // { orderId, message } while a payment is cancelled/unconfirmed
 
 const canPlace = computed(
   () =>
@@ -744,6 +824,12 @@ async function placeOrder () {
       couponCode: null,
       recaptchaToken
     })
+    if (result && result.redirectUrl) {
+      // Redirect gateway (Stripe Checkout): hand off to the hosted payment page. The buyer returns to
+      // this page with ?order=…&session_id=… (success) or ?order=…&cancelled=1, handled on mount.
+      window.location.href = result.redirectUrl
+      return
+    }
     if (result && result.success) {
       orderResult.value = result
       // Order placed — the saved checkout details are no longer needed.
@@ -763,9 +849,73 @@ async function placeOrder () {
   }
 }
 
+// Handle the buyer's return from a redirect gateway (Stripe Checkout). Success carries ?order&session_id
+// (verify the payment server-side and finalize); ?cancelled shows the retry card. The payment params are
+// stripped from the URL so a refresh doesn't re-trigger.
+async function handlePaymentReturn () {
+  const q = route.query || {}
+  const orderId = q.order
+  if (!orderId) return
+
+  const cleanQuery = { ...q }
+  delete cleanQuery.order
+  delete cleanQuery.session_id
+  delete cleanQuery.cancelled
+  router.replace({ query: cleanQuery }).catch(() => {})
+
+  if (q.cancelled) {
+    retryState.value = { orderId, message: 'Your payment was cancelled before it completed.' }
+    return
+  }
+
+  confirming.value = true
+  try {
+    const result = await checkoutApi.confirm(orderId)
+    if (result && result.success) {
+      orderResult.value = result
+      clearContact()
+      await refresh().catch(() => {})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      retryState.value = { orderId, message: (result && result.error) || 'We could not confirm your payment.' }
+    }
+  } catch (err) {
+    retryState.value = { orderId, message: getApiErrorMessage(err) }
+  } finally {
+    confirming.value = false
+  }
+}
+
+// Re-open a payment session for the pending order and send the buyer back to the gateway.
+async function retryPayment () {
+  if (!retryState.value) return
+  retrying.value = true
+  try {
+    const result = await checkoutApi.retryPayment(retryState.value.orderId)
+    if (result && result.redirectUrl) {
+      window.location.href = result.redirectUrl
+      return
+    }
+    if (result && result.success) {
+      // The order was already paid — show the confirmation instead.
+      orderResult.value = result
+      retryState.value = null
+      await refresh().catch(() => {})
+    } else {
+      notify.error((result && result.error) || 'Could not restart payment. Please try again.')
+    }
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    retrying.value = false
+  }
+}
+
 onMounted(() => {
   loadCurrencies()
   refresh().catch((err) => notify.error(getApiErrorMessage(err)))
+  // Returning from a redirect payment (Stripe Checkout)? Verify/settle it before anything else.
+  handlePaymentReturn()
   // Signed-in buyers get their profile + saved addresses (pick-or-add); guests restore any draft.
   if (isAuthed.value) loadAccountAddresses()
   else restoreContact()
@@ -791,6 +941,32 @@ body.body--dark .sf-address-option {
 }
 body.body--dark .sf-address-option--active {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.sf-payment-option {
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+.sf-payment-option:hover {
+  border-color: var(--q-primary);
+}
+.sf-payment-option--active {
+  border-color: var(--q-primary);
+  background: rgba(0, 0, 0, 0.02);
+  box-shadow: inset 0 0 0 1px var(--q-primary);
+}
+.sf-payment-icon {
+  background: rgba(0, 0, 0, 0.05);
+  color: var(--q-primary);
+}
+body.body--dark .sf-payment-option {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+body.body--dark .sf-payment-option--active {
+  background: rgba(255, 255, 255, 0.05);
+}
+body.body--dark .sf-payment-icon {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .confirm-card {

@@ -16,6 +16,10 @@ public class Order : AuditableEntity, ISoftDeletable
 
     /// <summary>Null for a guest order.</summary>
     public Guid? CustomerId { get; set; }
+
+    /// <summary>The cart this order was placed from — consumed (checked out) only once payment succeeds
+    /// (redirect gateways complete after the order is created), so a cancelled payment keeps the cart.</summary>
+    public Guid? SourceCartId { get; set; }
     public Customer? Customer { get; set; }
 
     public OrderStatus Status { get; set; } = OrderStatus.Pending;

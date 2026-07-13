@@ -34,7 +34,10 @@ public sealed class StripeCredentialConfig : IntegrationCredentialConfig<StripeC
 {
     protected override string TableName => "Credentials_Stripe";
     protected override void ConfigureFields(EntityTypeBuilder<StripeCredential> b)
-        => b.Property(x => x.PublishableKey).HasMaxLength(300);
+    {
+        b.Property(x => x.PublishableKey).HasMaxLength(300);
+        b.Property(x => x.ReturnUrl).HasMaxLength(500);
+    }
 }
 
 public sealed class PayPalCredentialConfig : IntegrationCredentialConfig<PayPalCredential>

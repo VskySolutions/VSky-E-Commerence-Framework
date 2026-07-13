@@ -21,6 +21,9 @@ public interface IPaymentGatewayRouter
     /// <summary>Refunds a captured payment (full or partial) via its originating gateway (REQ-PAY-003).</summary>
     Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct = default);
 
+    /// <summary>Verifies a redirect gateway's off-site payment on return (Stripe Checkout); Captured when paid.</summary>
+    Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct = default);
+
     /// <summary>
     /// Auto-captures the order's authorized-but-uncaptured payment, e.g. when the order ships under an
     /// authorize-only gateway (AC-PAY-002.3). No-op when there is nothing to capture.

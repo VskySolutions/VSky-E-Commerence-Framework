@@ -44,7 +44,8 @@ const sections = [
   {
     header: null,
     items: [
-      { label: 'Dashboard', icon: 'o_dashboard', to: '/dashboard', permissions: null }
+      { label: 'Dashboard', icon: 'o_dashboard', to: '/dashboard', permissions: null },
+      { label: 'Admin Alerts', icon: 'o_notification_important', to: '/alerts', permissions: [Permissions.AlertsRead] }
     ]
   },
   {

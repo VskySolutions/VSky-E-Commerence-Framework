@@ -25,6 +25,7 @@ public class StoreDto
     public bool IsEnabled { get; set; }
     public bool MaintenanceMode { get; set; }
     public bool GuestOrderingEnabled { get; set; }
+    public bool CashOnDeliveryEnabled { get; set; }
     public string? DeliveryZoneJson { get; set; }
     public int? OrderCapacityLimit { get; set; }
 
@@ -50,6 +51,7 @@ public class StoreDto
         IsEnabled = s.IsEnabled,
         MaintenanceMode = s.MaintenanceMode,
         GuestOrderingEnabled = s.GuestOrderingEnabled,
+        CashOnDeliveryEnabled = s.CashOnDeliveryEnabled,
         DeliveryZoneJson = s.DeliveryZoneJson,
         OrderCapacityLimit = s.OrderCapacityLimit,
     };

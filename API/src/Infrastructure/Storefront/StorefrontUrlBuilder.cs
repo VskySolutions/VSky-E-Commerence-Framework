@@ -18,9 +18,11 @@ public class StorefrontUrlBuilder : IStorefrontUrlBuilder
         _baseUrl = string.IsNullOrWhiteSpace(configured) ? "http://localhost:9000" : configured.TrimEnd('/');
     }
 
-    public string EmailVerificationUrl(string token) => $"{_baseUrl}/shop/verify-email?token={token}";
+    // Tokens are base64 (may contain '+', '/', '='), so they MUST be URL-encoded into the query string —
+    // a raw '+' decodes to a space and corrupts the token ("invalid or has expired" on every link).
+    public string EmailVerificationUrl(string token) => $"{_baseUrl}/shop/verify-email?token={Uri.EscapeDataString(token)}";
 
-    public string PasswordResetUrl(string token) => $"{_baseUrl}/shop/reset-password?token={token}";
+    public string PasswordResetUrl(string token) => $"{_baseUrl}/shop/reset-password?token={Uri.EscapeDataString(token)}";
 
-    public string AdminPasswordResetUrl(string token) => $"{_baseUrl}/auth/reset-password?token={token}";
+    public string AdminPasswordResetUrl(string token) => $"{_baseUrl}/auth/reset-password?token={Uri.EscapeDataString(token)}";
 }

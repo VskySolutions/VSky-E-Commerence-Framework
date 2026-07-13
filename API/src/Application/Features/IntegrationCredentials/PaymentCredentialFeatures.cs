@@ -15,13 +15,14 @@ public class StripeCredentialDto
     public bool IsProduction { get; set; }
     public string? PublishableKey { get; set; }
     public string? SecretKey { get; set; }
+    public string? ReturnUrl { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
     public static StripeCredentialDto From(StripeCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        PublishableKey = e.PublishableKey, SecretKey = e.SecretKey,
+        PublishableKey = e.PublishableKey, SecretKey = e.SecretKey, ReturnUrl = e.ReturnUrl,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -49,7 +50,7 @@ public class GetStripeCredentialQueryHandler : IRequestHandler<GetStripeCredenti
 
 public record SaveStripeCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? PublishableKey, string? SecretKey) : IRequest<StripeCredentialDto>;
+    string? PublishableKey, string? SecretKey, string? ReturnUrl) : IRequest<StripeCredentialDto>;
 
 public class SaveStripeCredentialCommandValidator : AbstractValidator<SaveStripeCredentialCommand>
 {
@@ -69,6 +70,7 @@ public class SaveStripeCredentialCommandHandler : IRequestHandler<SaveStripeCred
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.StripeCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
         e.PublishableKey = IntegrationCredentialSupport.Norm(request.PublishableKey);
         e.SecretKey = IntegrationCredentialSupport.Norm(request.SecretKey);
+        e.ReturnUrl = IntegrationCredentialSupport.Norm(request.ReturnUrl);
         await _db.SaveChangesAsync(ct);
         return StripeCredentialDto.From(e);
     }

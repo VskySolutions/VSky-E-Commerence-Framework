@@ -37,6 +37,10 @@ public abstract class PaymentGatewayAdapterBase : IPaymentGatewayAdapter
     public abstract Task<PaymentResult> CaptureAsync(PaymentRecord payment, decimal amount, CancellationToken ct);
     public abstract Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct);
 
+    /// <summary>Default: this gateway is not redirect-based, so there is nothing to verify on return.</summary>
+    public virtual Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct)
+        => Task.FromResult(PaymentResult.Failed("This gateway does not use a redirect flow.", PaymentStatus.Pending));
+
     /// <summary>A named HttpClient (pooled by the factory) with a sane timeout for gateway calls.</summary>
     protected HttpClient CreateClient()
     {

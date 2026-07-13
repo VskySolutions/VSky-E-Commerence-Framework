@@ -11,10 +11,16 @@ export const INTEGRATIONS = [
   // ---- Payments ----
   {
     key: 'stripe', kind: 'credential', label: 'Stripe', category: 'Payments', icon: 'o_credit_card',
-    description: 'Cards, wallets and more via Stripe.',
+    description: 'Cards, wallets and more via Stripe (redirect Checkout).',
     fields: [
       { key: 'publishableKey', label: 'Publishable Key', placeholder: 'pk_live_…' },
-      { key: 'secretKey', label: 'Secret Key', secret: true, required: true, placeholder: 'sk_live_…' }
+      { key: 'secretKey', label: 'Secret Key', secret: true, required: true, placeholder: 'sk_live_…' },
+      {
+        key: 'returnUrl', label: 'Return URL', required: true,
+        prefill: '{origin}/shop/checkout',
+        placeholder: 'https://your-store.com/shop/checkout',
+        hint: 'Storefront page Stripe returns buyers to after payment — the base URL is prefilled; edit the route as needed.'
+      }
     ]
   },
   {

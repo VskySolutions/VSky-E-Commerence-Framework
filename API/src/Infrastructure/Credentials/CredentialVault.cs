@@ -36,7 +36,7 @@ public class CredentialVault : ICredentialVault
         return serviceType switch
         {
             // Payment gateways
-            "stripe"       => Resolve(await ActiveAsync(_db.StripeCredentials, cancellationToken), c => c.SecretKey),
+            "stripe"       => Resolve(await ActiveAsync(_db.StripeCredentials, cancellationToken), c => Json(new { secretKey = c.SecretKey, returnUrl = c.ReturnUrl })),
             "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey)),
             "razorpay"     => Resolve(await ActiveAsync(_db.RazorpayCredentials, cancellationToken), c => Pair(c.KeyId, c.KeySecret)),
             "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), c => c.AccessToken),

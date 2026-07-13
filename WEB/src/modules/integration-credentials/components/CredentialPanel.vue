@@ -111,6 +111,7 @@
           :rules="field.required ? [requiredRule] : []"
           :type="field.secret && !reveal[field.key] ? 'password' : 'text'"
           :placeholder="field.placeholder || ''"
+          :hint="field.hint || undefined"
           autocomplete="new-password"
         >
           <template v-if="field.secret" #append>
@@ -196,7 +197,12 @@ async function load () {
 function openForm (dto) {
   editingId.value = dto ? dto.id : null
   const fields = {}
-  for (const f of props.item.fields) fields[f.key] = dto && dto[f.key] != null ? dto[f.key] : ''
+  // On a new credential, seed any field with a `prefill` (e.g. Stripe returnUrl → storefront base URL).
+  for (const f of props.item.fields) {
+    fields[f.key] = dto && dto[f.key] != null
+      ? dto[f.key]
+      : (!dto && f.prefill ? f.prefill.replace('{origin}', window.location.origin) : '')
+  }
   form.name = dto?.name || ''
   form.active = dto ? !!dto.active : false
   form.isProduction = dto ? !!dto.isProduction : false

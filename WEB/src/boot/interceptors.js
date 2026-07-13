@@ -13,6 +13,7 @@
 import { http, http3 } from 'src/boot/axios'
 import { useAuthStore } from 'stores/auth'
 import { useCustomerAuthStore } from 'stores/customerAuth'
+import { parseUtc } from 'src/utils/datetime'
 
 function isAuthEndpoint (url = '') {
   return (
@@ -30,6 +31,34 @@ function isCustomerAuthEndpoint (url = '') {
 export default ({ router }) => {
   // Ensures parallel 401s trigger only ONE refresh call.
   let refreshPromise = null
+  let proactiveRefreshPromise = null
+
+  // Proactive refresh (checkout fix): authenticated calls to [AllowAnonymous] endpoints (e.g.
+  // /api/checkout/quote|place) never receive a 401 when the access token is expired — the backend just
+  // treats the caller as a guest (CurrentUserService.UserId = null), so the reactive 401-refresh below
+  // never fires. Refresh a stale access token BEFORE sending, so a logged-in shopper is recognised at
+  // checkout. Registered after axios.js's token-attach interceptor, so it runs first (axios request
+  // interceptors execute LIFO) and the freshly-stored token is the one attached.
+  async function ensureFreshToken (config) {
+    const url = config.url || ''
+    if (isAuthEndpoint(url) || isCustomerAuthEndpoint(url)) return config
+    const auth = useAuthStore()
+    const exp = parseUtc(auth.expiresAtUtc)
+    const expired = !!exp && exp.getTime() <= Date.now()
+    if (auth.token && auth.refreshToken && expired) {
+      try {
+        if (!proactiveRefreshPromise) {
+          proactiveRefreshPromise = auth.refresh().finally(() => { proactiveRefreshPromise = null })
+        }
+        await proactiveRefreshPromise
+      } catch (e) {
+        // Session truly expired: proceed unauthenticated; a protected endpoint 401s into the reactive path.
+      }
+    }
+    return config
+  }
+  http.interceptors.request.use(ensureFreshToken)
+  http3.interceptors.request.use(ensureFreshToken)
 
   http.interceptors.response.use(
     (response) => response,
