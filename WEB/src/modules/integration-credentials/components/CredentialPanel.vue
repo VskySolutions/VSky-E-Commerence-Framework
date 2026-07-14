@@ -63,7 +63,7 @@
         >
           <q-tooltip>{{ row.active ? 'Set inactive' : 'Set active' }}</q-tooltip>
         </q-btn>
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onEdit(row)">
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onEdit(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)">

@@ -8,7 +8,7 @@
       <template #body-cell-name="cell"><q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="onManage(cell.row)">{{ cell.row.name }}</a></q-td></template>
       <template #body-cell-isEnabled="cell"><q-td :props="cell"><q-badge :color="cell.row.isEnabled ? 'positive' : 'grey'" :label="cell.row.isEnabled ? 'On' : 'Off'" /></q-td></template>
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)" /><q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)" />
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)" /><q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)" />
       </template>
     </AppDataTable>
   </div>
@@ -33,11 +33,11 @@ const notify = useNotify()
 const { has } = usePermissions()
 const canWrite = computed(() => has('Stores.Write'))
 const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left' },
-  { name: 'methodType', label: 'Type', field: 'methodType', align: 'left' },
-  { name: 'flatRate', label: 'Flat rate', field: (r) => r.flatRate ?? '—', align: 'right' },
-  { name: 'displayOrder', label: 'Order', field: 'displayOrder', align: 'right' },
-  { name: 'isEnabled', label: 'Status', field: 'isEnabled', align: 'center' }
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'methodType', label: 'Type', field: 'methodType', align: 'left', sortable: true },
+  { name: 'flatRate', label: 'Flat rate', field: (r) => r.flatRate ?? '—', align: 'right', sortable: true },
+  { name: 'displayOrder', label: 'Order', field: 'displayOrder', align: 'right', sortable: true },
+  { name: 'isEnabled', label: 'Status', field: 'isEnabled', align: 'center', sortable: true }
 ]
 const statusOptions = [
   { label: 'All', value: null },
@@ -70,7 +70,9 @@ async function fetch (req) {
       pageSize: p.rowsPerPage,
       search: props.search || undefined,
       methodType: typeFilter.value || undefined,
-      isEnabled: enabledFilter.value === null ? undefined : enabledFilter.value
+      isEnabled: enabledFilter.value === null ? undefined : enabledFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(r) ? r : r?.items || []
     rows.value = items; pagination.value = { ...p, rowsNumber: Array.isArray(r) ? items.length : r?.totalCount ?? items.length }

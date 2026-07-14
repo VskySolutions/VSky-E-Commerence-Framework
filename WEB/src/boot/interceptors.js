@@ -138,12 +138,17 @@ export default ({ router }) => {
           return http3(original)
         } catch (refreshError) {
           customer.clearSession()
-          const redirect = router.currentRoute.value.fullPath
-          // Unified login (WO-112).
-          router.push({
-            path: '/auth/login',
-            query: redirect && redirect !== '/' ? { redirect } : undefined
-          })
+          // Only bounce to login from the PROTECTED customer area (account pages). Browsing the public
+          // storefront with an expired session must silently drop to guest — never redirect to login
+          // (otherwise a stale session makes opening the shop land on /auth/login). WO-112 unified login.
+          const current = router.currentRoute.value
+          if (current.path.startsWith('/shop/account')) {
+            const redirect = current.fullPath
+            router.push({
+              path: '/auth/login',
+              query: redirect && redirect !== '/' ? { redirect } : undefined
+            })
+          }
           return Promise.reject(refreshError)
         }
       }

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -7,11 +8,19 @@ using VSky.Domain.Entities;
 namespace VSky.Application.Features.Inventory;
 
 /// <summary>Returns a page of inventory levels, optionally filtered by product and/or store.</summary>
-public record ListInventoryQuery(Guid? ProductId = null, Guid? StoreId = null, int Page = 1, int PageSize = 20)
+public record ListInventoryQuery(Guid? ProductId = null, Guid? StoreId = null, int Page = 1, int PageSize = 20, string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<InventoryLevelDto>>;
 
 public class ListInventoryQueryHandler : IRequestHandler<ListInventoryQuery, PaginatedList<InventoryLevelDto>>
 {
+    // Grid column name -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["stockQuantity"] = "StockQuantity",
+        ["lowStockThreshold"] = "LowStockThreshold",
+        ["reservedQuantity"] = "ReservedQuantity",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListInventoryQueryHandler(IApplicationDbContext db) => _db = db;
@@ -26,7 +35,7 @@ public class ListInventoryQueryHandler : IRequestHandler<ListInventoryQuery, Pag
         if (request.StoreId is Guid storeId)
             query = query.Where(l => l.StoreId == storeId);
 
-        var ordered = query.OrderBy(l => l.ProductId).ThenBy(l => l.StoreId);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<InventoryLevel>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(InventoryLevelDto.From).ToList();

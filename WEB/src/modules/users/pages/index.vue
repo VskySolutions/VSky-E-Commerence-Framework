@@ -72,7 +72,7 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_edit" @click="onManage(row)">
+        <q-btn flat round dense icon="o_tune" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
         <q-btn flat round dense icon="o_lock_reset" color="primary" :loading="sendingResetId === row.id" @click="onSendReset(row)">
@@ -105,10 +105,10 @@ const router = useRouter()
 const notify = useNotify()
 
 const columns = [
-  { name: 'email', label: 'Email', field: 'email', align: 'left' },
-  { name: 'fullName', label: 'Name', field: 'fullName', align: 'left' },
+  { name: 'email', label: 'Email', field: 'email', align: 'left', sortable: true },
+  { name: 'fullName', label: 'Name', field: 'fullName', align: 'left', sortable: true },
   { name: 'roles', label: 'Role', field: 'roles', align: 'left' },
-  { name: 'isActive', label: 'Status', field: 'isActive', align: 'center' }
+  { name: 'isActive', label: 'Status', field: 'isActive', align: 'center', sortable: true }
 ]
 
 const statusOptions = [
@@ -150,7 +150,9 @@ async function fetch (props) {
       pageSize: p.rowsPerPage,
       search: search.value || undefined,
       isActive: activeFilter.value === null ? undefined : activeFilter.value,
-      emailVerified: verifiedFilter.value === null ? undefined : verifiedFilter.value
+      emailVerified: verifiedFilter.value === null ? undefined : verifiedFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || result?.data || []
     const total = Array.isArray(result)

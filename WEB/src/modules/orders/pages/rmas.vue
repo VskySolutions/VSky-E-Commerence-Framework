@@ -74,10 +74,10 @@ const router = useRouter()
 const notify = useNotify()
 
 const columns = [
-  { name: 'rmaNumber', label: 'RMA #', field: 'rmaNumber', align: 'left' },
-  { name: 'requestedOnUtc', label: 'Requested', field: 'requestedOnUtc', align: 'left' },
-  { name: 'resolution', label: 'Resolution', field: 'resolution', align: 'left' },
-  { name: 'status', label: 'Status', field: 'status', align: 'left' }
+  { name: 'rmaNumber', label: 'RMA #', field: 'rmaNumber', align: 'left', sortable: true },
+  { name: 'requestedOnUtc', label: 'Requested', field: 'requestedOnUtc', align: 'left', sortable: true },
+  { name: 'resolution', label: 'Resolution', field: 'resolution', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'status', align: 'left', sortable: true }
 ]
 
 const rows = ref([])
@@ -99,7 +99,9 @@ async function fetch (props) {
       pageSize: p.rowsPerPage,
       status: statusFilter.value || undefined,
       resolution: resolutionFilter.value || undefined,
-      search: search.value || undefined
+      search: search.value || undefined,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     rows.value = Array.isArray(result?.items) ? result.items : []
     pagination.value = { ...p, rowsNumber: result?.totalCount ?? rows.value.length }

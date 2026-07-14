@@ -13,7 +13,7 @@
         <q-td :props="cell"><q-badge :color="cell.row.isActive ? 'positive' : 'grey'" :label="cell.row.isActive ? 'Active' : 'Off'" /></q-td>
       </template>
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
       </template>
     </AppDataTable>
@@ -40,10 +40,10 @@ const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
 
 const columns = [
-  { name: 'code', label: 'Code', field: 'code', align: 'left' },
-  { name: 'usageType', label: 'Usage', field: 'usageType', align: 'left' },
-  { name: 'redemptions', label: 'Redemptions', field: 'redemptionCount', align: 'center' },
-  { name: 'isActive', label: 'Status', field: 'isActive', align: 'center' }
+  { name: 'code', label: 'Code', field: 'code', align: 'left', sortable: true },
+  { name: 'usageType', label: 'Usage', field: 'usageType', align: 'left', sortable: true },
+  { name: 'redemptions', label: 'Redemptions', field: 'redemptionCount', align: 'center', sortable: true },
+  { name: 'isActive', label: 'Status', field: 'isActive', align: 'center', sortable: true }
 ]
 const statusOptions = [
   { label: 'All', value: null },
@@ -78,7 +78,9 @@ async function fetch (req) {
       page: p.page,
       pageSize: p.rowsPerPage,
       search: props.search || undefined,
-      isActive: activeFilter.value === null ? undefined : activeFilter.value
+      isActive: activeFilter.value === null ? undefined : activeFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || []
     rows.value = items

@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -19,10 +20,24 @@ public record GetBackorderQueueQuery(
     Guid? StoreId = null,
     DateTime? RestockBy = null,
     int Page = 1,
-    int PageSize = 50) : IRequest<PaginatedList<BackorderQueueRowDto>>;
+    int PageSize = 50,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<BackorderQueueRowDto>>;
 
 public class GetBackorderQueueQueryHandler : IRequestHandler<GetBackorderQueueQuery, PaginatedList<BackorderQueueRowDto>>
 {
+    // Backorder rows are assembled in memory (no backing entity/DbSet), so sorting is applied to the
+    // in-memory list over the DTO's own properties. The default preserves the FIFO-by-placement order.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["orderNumber"] = nameof(BackorderQueueRowDto.OrderNumber),
+        ["productName"] = nameof(BackorderQueueRowDto.ProductName),
+        ["sku"] = nameof(BackorderQueueRowDto.Sku),
+        ["quantity"] = nameof(BackorderQueueRowDto.Quantity),
+        ["placedOnUtc"] = nameof(BackorderQueueRowDto.PlacedOnUtc),
+        ["estimatedRestockDate"] = nameof(BackorderQueueRowDto.EstimatedRestockDate),
+    };
+
     private readonly IApplicationDbContext _db;
 
     public GetBackorderQueueQueryHandler(IApplicationDbContext db) => _db = db;
@@ -31,10 +46,16 @@ public class GetBackorderQueueQueryHandler : IRequestHandler<GetBackorderQueueQu
     {
         var rows = await BackorderQueueBuilder.BuildAsync(_db, request.ProductId, request.StoreId, request.RestockBy, cancellationToken);
 
+        // Sort the in-memory rows; with no SortBy this keeps the existing FIFO-by-placement order.
+        var sorted = rows.AsQueryable()
+            .ApplySort(request.SortBy, request.SortDescending, SortMap,
+                defaultProperty: nameof(BackorderQueueRowDto.PlacedOnUtc), defaultDescending: false)
+            .ToList();
+
         var page = request.Page < 1 ? 1 : request.Page;
         var size = request.PageSize < 1 ? 50 : request.PageSize;
-        var items = rows.Skip((page - 1) * size).Take(size).ToList();
-        return new PaginatedList<BackorderQueueRowDto>(items, rows.Count, page, size);
+        var items = sorted.Skip((page - 1) * size).Take(size).ToList();
+        return new PaginatedList<BackorderQueueRowDto>(items, sorted.Count, page, size);
     }
 }
 

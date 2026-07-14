@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -13,10 +14,22 @@ public record ListDiscountsQuery(
     int PageSize = 20,
     string? Search = null,
     DiscountScope? Scope = null,
-    bool? IsActive = null) : IRequest<PaginatedList<DiscountDto>>;
+    bool? IsActive = null,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<DiscountDto>>;
 
 public class ListDiscountsQueryHandler : IRequestHandler<ListDiscountsQuery, PaginatedList<DiscountDto>>
 {
+    // Column name (from the grid) -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "Name",
+        ["scope"] = "Scope",
+        ["type"] = "Type",
+        ["value"] = "Value",
+        ["isActive"] = "IsActive",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListDiscountsQueryHandler(IApplicationDbContext db) => _db = db;
@@ -37,7 +50,7 @@ public class ListDiscountsQueryHandler : IRequestHandler<ListDiscountsQuery, Pag
         if (request.IsActive.HasValue)
             query = query.Where(d => d.IsActive == request.IsActive.Value);
 
-        var ordered = query.OrderBy(d => d.Name);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<Discount>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(DiscountDto.From).ToList();

@@ -144,12 +144,12 @@ const { has } = usePermissions()
 const canWrite = computed(() => has(Permissions.AlertsWrite))
 
 const columns = [
-  { name: 'severity', label: 'Severity', field: 'severity', align: 'center' },
-  { name: 'alertType', label: 'Type', field: 'alertType', align: 'left' },
-  { name: 'title', label: 'Title', field: 'title', align: 'left' },
-  { name: 'source', label: 'Source', field: 'source', align: 'left' },
-  { name: 'createdOnUtc', label: 'Raised', field: 'createdOnUtc', align: 'left' },
-  { name: 'status', label: 'Status', field: 'isResolved', align: 'center' }
+  { name: 'severity', label: 'Severity', field: 'severity', align: 'center', sortable: true },
+  { name: 'alertType', label: 'Type', field: 'alertType', align: 'left', sortable: true },
+  { name: 'title', label: 'Title', field: 'title', align: 'left', sortable: true },
+  { name: 'source', label: 'Source', field: 'source', align: 'left', sortable: true },
+  { name: 'createdOnUtc', label: 'Raised', field: 'createdOnUtc', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'isResolved', align: 'center', sortable: true }
 ]
 
 const severityOptions = [
@@ -199,7 +199,9 @@ async function fetch (props) {
       pageSize: p.rowsPerPage,
       search: search.value || undefined,
       severity: severityFilter.value || undefined,
-      resolved: resolvedFilter.value === null ? undefined : resolvedFilter.value
+      resolved: resolvedFilter.value === null ? undefined : resolvedFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     rows.value = Array.isArray(r?.items) ? r.items : []
     pagination.value = { ...p, rowsNumber: r?.totalCount ?? rows.value.length }

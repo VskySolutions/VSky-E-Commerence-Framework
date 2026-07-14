@@ -21,7 +21,7 @@
         <q-td :props="cell"><q-badge :color="cell.row.isActive ? 'positive' : 'grey'" :label="cell.row.isActive ? 'Active' : 'Off'" /></q-td>
       </template>
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
       </template>
     </AppDataTable>
@@ -48,11 +48,11 @@ const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
 
 const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left' },
-  { name: 'scope', label: 'Scope', field: 'scope', align: 'left' },
-  { name: 'type', label: 'Type', field: 'type', align: 'left' },
-  { name: 'value', label: 'Value', field: 'value', align: 'right' },
-  { name: 'isActive', label: 'Status', field: 'isActive', align: 'center' }
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'scope', label: 'Scope', field: 'scope', align: 'left', sortable: true },
+  { name: 'type', label: 'Type', field: 'type', align: 'left', sortable: true },
+  { name: 'value', label: 'Value', field: 'value', align: 'right', sortable: true },
+  { name: 'isActive', label: 'Status', field: 'isActive', align: 'center', sortable: true }
 ]
 const statusOptions = [
   { label: 'All', value: null },
@@ -90,7 +90,9 @@ async function fetch (req) {
       pageSize: p.rowsPerPage,
       search: props.search || undefined,
       scope: scopeFilter.value || undefined,
-      isActive: activeFilter.value === null ? undefined : activeFilter.value
+      isActive: activeFilter.value === null ? undefined : activeFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || []
     rows.value = items

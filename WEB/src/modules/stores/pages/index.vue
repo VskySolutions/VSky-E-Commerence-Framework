@@ -51,7 +51,7 @@
       <template #actions="{ row }">
         <q-btn flat round dense icon="o_warehouse" @click="openInventory(row)"><q-tooltip>Inventory</q-tooltip></q-btn>
         <q-btn flat round dense icon="o_map" @click="openZones(row)"><q-tooltip>Delivery zones</q-tooltip></q-btn>
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
       </template>
     </AppDataTable>
@@ -77,9 +77,9 @@ const notify = useNotify()
 const canWrite = computed(() => has(Permissions.StoresWrite))
 
 const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left' },
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
   { name: 'location', label: 'Location', field: 'city', align: 'left' },
-  { name: 'guestOrderingEnabled', label: 'Guest', field: 'guestOrderingEnabled', align: 'center' },
+  { name: 'guestOrderingEnabled', label: 'Guest', field: 'guestOrderingEnabled', align: 'center', sortable: true },
   { name: 'status', label: 'Status', field: 'status', align: 'center' }
 ]
 
@@ -126,7 +126,9 @@ async function fetch (props) {
       search: search.value || undefined,
       isEnabled: enabledFilter.value === null ? undefined : enabledFilter.value,
       guestOrderingEnabled: guestFilter.value === null ? undefined : guestFilter.value,
-      pickupEnabled: pickupFilter.value === null ? undefined : pickupFilter.value
+      pickupEnabled: pickupFilter.value === null ? undefined : pickupFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || []
     rows.value = items

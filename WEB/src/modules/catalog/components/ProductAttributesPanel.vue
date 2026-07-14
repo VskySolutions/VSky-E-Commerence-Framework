@@ -34,7 +34,7 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
       </template>
     </AppDataTable>
@@ -67,8 +67,8 @@ const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
 
 const columns = [
-  { name: 'name', label: 'Attribute Name', field: 'name', align: 'left' },
-  { name: 'displayType', label: 'Display Type', field: 'displayType', align: 'left' },
+  { name: 'name', label: 'Attribute Name', field: 'name', align: 'left', sortable: true },
+  { name: 'displayType', label: 'Display Type', field: 'displayType', align: 'left', sortable: true },
   { name: 'valuesCount', label: 'Values', field: (r) => (r.values || []).length, align: 'center' },
   { name: 'inUseCount', label: 'In Use', field: 'inUseCount', align: 'center' }
 ]
@@ -102,7 +102,9 @@ async function fetch (req) {
       page: p.page,
       pageSize: p.rowsPerPage,
       search: props.search || undefined,
-      displayType: displayTypeFilter.value || undefined
+      displayType: displayTypeFilter.value || undefined,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || []
     const total = Array.isArray(result) ? result.length : result?.totalCount ?? items.length

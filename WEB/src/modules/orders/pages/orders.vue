@@ -86,12 +86,12 @@ const router = useRouter()
 const notify = useNotify()
 
 const columns = [
-  { name: 'orderNumber', label: 'Order #', field: 'orderNumber', align: 'left' },
+  { name: 'orderNumber', label: 'Order #', field: 'orderNumber', align: 'left', sortable: true },
   { name: 'contactName', label: 'Customer', field: 'contactName', align: 'left' },
-  { name: 'placedOnUtc', label: 'Date', field: 'placedOnUtc', align: 'left' },
+  { name: 'placedOnUtc', label: 'Date', field: 'placedOnUtc', align: 'left', sortable: true },
   { name: 'itemCount', label: 'Items', field: 'itemCount', align: 'center' },
-  { name: 'totalAmount', label: 'Total', field: 'totalAmount', align: 'right' },
-  { name: 'status', label: 'Status', field: 'status', align: 'left' }
+  { name: 'totalAmount', label: 'Total', field: 'totalAmount', align: 'right', sortable: true },
+  { name: 'status', label: 'Status', field: 'status', align: 'left', sortable: true }
 ]
 
 const statusOptions = [
@@ -114,7 +114,9 @@ async function fetch (props) {
       page: p.page,
       pageSize: p.rowsPerPage,
       status: statusFilter.value || undefined,
-      search: search.value || undefined
+      search: search.value || undefined,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     rows.value = Array.isArray(result?.items) ? result.items : []
     pagination.value = { ...p, rowsNumber: result?.totalCount ?? rows.value.length }

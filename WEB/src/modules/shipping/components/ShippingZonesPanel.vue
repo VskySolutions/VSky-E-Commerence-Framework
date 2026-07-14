@@ -8,7 +8,7 @@
       <template #body-cell-postal="cell"><q-td :props="cell">{{ cell.row.postalCodeStart ? `${cell.row.postalCodeStart}–${cell.row.postalCodeEnd || ''}` : '—' }}</q-td></template>
       <template #body-cell-isEnabled="cell"><q-td :props="cell"><q-badge :color="cell.row.isEnabled ? 'positive' : 'grey'" :label="cell.row.isEnabled ? 'On' : 'Off'" /></q-td></template>
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)" /><q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)" />
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)" /><q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)" />
       </template>
     </AppDataTable>
   </div>
@@ -33,11 +33,11 @@ const notify = useNotify()
 const { has } = usePermissions()
 const canWrite = computed(() => has('Stores.Write'))
 const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left' },
-  { name: 'countryCode', label: 'Country', field: 'countryCode', align: 'left' },
-  { name: 'region', label: 'Region', field: (r) => r.region || '—', align: 'left' },
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'countryCode', label: 'Country', field: 'countryCode', align: 'left', sortable: true },
+  { name: 'region', label: 'Region', field: (r) => r.region || '—', align: 'left', sortable: true },
   { name: 'postal', label: 'Postal range', field: 'postalCodeStart', align: 'left' },
-  { name: 'isEnabled', label: 'Status', field: 'isEnabled', align: 'center' }
+  { name: 'isEnabled', label: 'Status', field: 'isEnabled', align: 'center', sortable: true }
 ]
 const statusOptions = [
   { label: 'All', value: null },
@@ -68,7 +68,9 @@ async function fetch (req) {
       page: p.page,
       pageSize: p.rowsPerPage,
       search: props.search || undefined,
-      isEnabled: enabledFilter.value === null ? undefined : enabledFilter.value
+      isEnabled: enabledFilter.value === null ? undefined : enabledFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(r) ? r : r?.items || []
     rows.value = items; pagination.value = { ...p, rowsNumber: Array.isArray(r) ? items.length : r?.totalCount ?? items.length }

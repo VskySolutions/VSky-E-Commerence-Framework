@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -16,10 +17,25 @@ public record ListEmailLogQuery(
     int PageSize = 20,
     string? Search = null,
     EmailStatus? Status = null,
-    NotificationCategory? Category = null) : IRequest<PaginatedList<EmailLogItemDto>>;
+    NotificationCategory? Category = null,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<EmailLogItemDto>>;
 
 public class ListEmailLogQueryHandler : IRequestHandler<ListEmailLogQuery, PaginatedList<EmailLogItemDto>>
 {
+    // Grid column name -> entity property path. Note "subject" maps to the entity's RenderedSubject
+    // (the DTO exposes it as Subject). Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["recipient"] = "RecipientEmail",
+        ["subject"] = "RenderedSubject",
+        ["templateKey"] = "TemplateKey",
+        ["category"] = "Category",
+        ["attemptCount"] = "AttemptCount",
+        ["createdOnUtc"] = "CreatedOnUtc",
+        ["status"] = "Status",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListEmailLogQueryHandler(IApplicationDbContext db) => _db = db;
@@ -43,7 +59,7 @@ public class ListEmailLogQueryHandler : IRequestHandler<ListEmailLogQuery, Pagin
         if (request.Category.HasValue)
             query = query.Where(e => e.Category == request.Category.Value);
 
-        var ordered = query.OrderByDescending(e => e.CreatedOnUtc);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap, defaultProperty: "CreatedOnUtc");
         var page = await PaginatedList<EmailQueue>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(EmailLogItemDto.From).ToList();
 

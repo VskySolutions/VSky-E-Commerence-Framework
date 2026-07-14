@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -12,11 +13,21 @@ namespace VSky.Application.Features.Orders;
 /// Returns the current store manager's queue: orders assigned to their store, newest first, optionally
 /// filtered by status name (AC-STR-004.1).
 /// </summary>
-public record ListStoreQueueQuery(string? Status, int Page = 1, int PageSize = 20)
+public record ListStoreQueueQuery(string? Status, int Page = 1, int PageSize = 20,
+    string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<OrderSummaryDto>>;
 
 public class ListStoreQueueQueryHandler : IRequestHandler<ListStoreQueueQuery, PaginatedList<OrderSummaryDto>>
 {
+    // Column name (from the grid) -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["orderNumber"] = "OrderNumber",
+        ["status"] = "Status",
+        ["placedOnUtc"] = "PlacedOnUtc",
+        ["totalAmount"] = "TotalAmount",
+    };
+
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
 
@@ -43,7 +54,7 @@ public class ListStoreQueueQueryHandler : IRequestHandler<ListStoreQueueQuery, P
             query = query.Where(o => o.Status == status);
         }
 
-        var ordered = query.OrderByDescending(o => o.PlacedOnUtc);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
         var page = await PaginatedList<Order>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(OrderSummaryDto.From).ToList();
         return new PaginatedList<OrderSummaryDto>(items, page.TotalCount, page.PageNumber, page.PageSize);

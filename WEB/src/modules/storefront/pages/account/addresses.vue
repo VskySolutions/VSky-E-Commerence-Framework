@@ -29,7 +29,7 @@
             </q-card-section>
             <q-card-actions align="right">
               <q-btn v-if="!a.isDefault" flat dense no-caps size="sm" label="Set default" @click="setDefault(a)" />
-              <q-btn flat dense no-caps size="sm" icon="o_edit" label="Edit" @click="openEdit(a)" />
+              <q-btn flat dense no-caps size="sm" icon="o_tune" label="Edit" @click="openEdit(a)" />
               <q-btn flat dense no-caps size="sm" color="negative" icon="o_delete" label="Delete" @click="confirmRemove(a)" />
             </q-card-actions>
           </q-card>

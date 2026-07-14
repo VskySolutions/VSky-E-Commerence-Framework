@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -13,10 +14,20 @@ public record ListStoresQuery(
     string? Search = null,
     bool? IsEnabled = null,
     bool? GuestOrderingEnabled = null,
-    bool? PickupEnabled = null) : IRequest<PaginatedList<StoreDto>>;
+    bool? PickupEnabled = null,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<StoreDto>>;
 
 public class ListStoresQueryHandler : IRequestHandler<ListStoresQuery, PaginatedList<StoreDto>>
 {
+    // Column name (from the grid) -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    // (Location/status are computed display columns — City is a [NotMapped] read-through, so they are not sortable.)
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "Name",
+        ["guestOrderingEnabled"] = "GuestOrderingEnabled",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListStoresQueryHandler(IApplicationDbContext db) => _db = db;
@@ -40,7 +51,7 @@ public class ListStoresQueryHandler : IRequestHandler<ListStoresQuery, Paginated
         if (request.PickupEnabled.HasValue)
             query = query.Where(s => s.PickupEnabled == request.PickupEnabled.Value);
 
-        var ordered = query.OrderBy(s => s.Name);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<Store>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(StoreDto.From).ToList();

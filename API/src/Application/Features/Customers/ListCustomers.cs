@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -26,10 +27,23 @@ public record ListCustomersQuery(
     string? Search = null,
     bool? EmailVerified = null,
     bool? IsActive = null,
-    bool? IsTaxExempt = null) : IRequest<PaginatedList<CustomerListItemDto>>;
+    bool? IsTaxExempt = null,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<CustomerListItemDto>>;
 
 public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, PaginatedList<CustomerListItemDto>>
 {
+    // Grid column name -> entity property path (customer fields are read through the User nav). Anything
+    // else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "FirstName",
+        ["email"] = "User.Email",
+        ["phoneNumber"] = "PhoneNumber",
+        ["createdOnUtc"] = "CreatedOnUtc",
+        ["emailVerified"] = "User.EmailVerified",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListCustomersQueryHandler(IApplicationDbContext db) => _db = db;
@@ -62,7 +76,7 @@ public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, Pag
         if (request.IsTaxExempt.HasValue)
             query = query.Where(c => c.IsTaxExempt == request.IsTaxExempt.Value);
 
-        var ordered = query.OrderByDescending(c => c.CreatedOnUtc);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
         var page = await PaginatedList<Customer>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
 
         var items = page.Items.Select(c => new CustomerListItemDto

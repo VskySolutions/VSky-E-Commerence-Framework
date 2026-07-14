@@ -3,6 +3,7 @@ using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -156,11 +157,23 @@ public class DeleteWebhookSubscriptionCommandHandler : IRequestHandler<DeleteWeb
 // ---- Deliveries --------------------------------------------------------------
 
 /// <summary>Lists delivery history with response status + attempt count (AC-PLT-003.4).</summary>
-public record ListWebhookDeliveriesQuery(Guid? SubscriptionId = null, int Page = 1, int PageSize = 50)
+public record ListWebhookDeliveriesQuery(Guid? SubscriptionId = null, int Page = 1, int PageSize = 50, string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<WebhookDeliveryDto>>;
 
 public class ListWebhookDeliveriesQueryHandler : IRequestHandler<ListWebhookDeliveriesQuery, PaginatedList<WebhookDeliveryDto>>
 {
+    // Sortable field -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["eventType"] = "EventType",
+        ["status"] = "Status",
+        ["attemptCount"] = "AttemptCount",
+        ["lastResponseStatus"] = "LastResponseStatus",
+        ["occurredAtUtc"] = "OccurredAtUtc",
+        ["lastAttemptOnUtc"] = "LastAttemptOnUtc",
+        ["nextAttemptOnUtc"] = "NextAttemptOnUtc",
+    };
+
     private readonly IApplicationDbContext _db;
     public ListWebhookDeliveriesQueryHandler(IApplicationDbContext db) => _db = db;
 
@@ -171,7 +184,7 @@ public class ListWebhookDeliveriesQueryHandler : IRequestHandler<ListWebhookDeli
             query = query.Where(d => d.SubscriptionId == sid);
 
         var page = await PaginatedList<WebhookDelivery>.CreateAsync(
-            query.OrderByDescending(d => d.OccurredAtUtc), request.Page, request.PageSize, cancellationToken);
+            query.ApplySort(request.SortBy, request.SortDescending, SortMap), request.Page, request.PageSize, cancellationToken);
         return new PaginatedList<WebhookDeliveryDto>(page.Items.Select(WebhookDeliveryDto.From).ToList(), page.TotalCount, page.PageNumber, page.PageSize);
     }
 }

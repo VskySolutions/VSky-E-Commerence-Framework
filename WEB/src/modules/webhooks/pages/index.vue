@@ -37,7 +37,7 @@
         <q-td :props="cell">{{ formatDate(cell.row.createdOnUtc) }}</q-td>
       </template>
       <template #actions="{ row }">
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)"><q-tooltip>Edit</q-tooltip></q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)"><q-tooltip>Delete</q-tooltip></q-btn>
       </template>
     </AppDataTable>

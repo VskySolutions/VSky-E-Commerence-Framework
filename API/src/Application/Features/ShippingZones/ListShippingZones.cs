@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -7,11 +8,20 @@ using VSky.Domain.Entities;
 namespace VSky.Application.Features.ShippingZones;
 
 /// <summary>Returns a page of shipping zones ordered by name, optionally filtered by a name/country search term and/or enabled state.</summary>
-public record ListShippingZonesQuery(int Page = 1, int PageSize = 20, string? Search = null, string? CountryCode = null, bool? IsEnabled = null)
+public record ListShippingZonesQuery(int Page = 1, int PageSize = 20, string? Search = null, string? CountryCode = null, bool? IsEnabled = null, string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<ShippingZoneDto>>;
 
 public class ListShippingZonesQueryHandler : IRequestHandler<ListShippingZonesQuery, PaginatedList<ShippingZoneDto>>
 {
+    // Column name (from the grid) -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "Name",
+        ["countryCode"] = "CountryCode",
+        ["region"] = "Region",
+        ["isEnabled"] = "IsEnabled",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListShippingZonesQueryHandler(IApplicationDbContext db) => _db = db;
@@ -35,7 +45,7 @@ public class ListShippingZonesQueryHandler : IRequestHandler<ListShippingZonesQu
         if (request.IsEnabled.HasValue)
             query = query.Where(z => z.IsEnabled == request.IsEnabled.Value);
 
-        var ordered = query.OrderBy(z => z.Name);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<ShippingZone>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ShippingZoneDto.From).ToList();

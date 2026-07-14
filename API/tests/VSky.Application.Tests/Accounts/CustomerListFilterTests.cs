@@ -1,13 +1,14 @@
 using VSky.Application.Features.Customers;
 using VSky.Application.Tests.Common;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 using Xunit;
 
 namespace VSky.Application.Tests.Accounts;
 
 /// <summary>
-/// Verifies the admin customer list only returns genuine customers (a User with a Customer profile
-/// and zero admin RBAC roles) and never staff/admin accounts — which also carry a Customer profile.
+/// Verifies the admin customer list only returns genuine customers (a User carrying the Customer system
+/// role) and never staff/admin accounts — which carry admin roles and also have a Customer profile.
 /// </summary>
 public class CustomerListFilterTests : CatalogTestBase
 {
@@ -27,6 +28,19 @@ public class CustomerListFilterTests : CatalogTestBase
         {
             var role = new Role { Name = "TenantAdmin-" + Guid.NewGuid().ToString("n"), NormalizedName = "TA", IsSystemRole = true };
             user.UserRoles.Add(new UserRole { Role = role, AssignedOnUtc = DateTime.UtcNow });
+        }
+        else
+        {
+            // A customer now carries the seeded Customer system role. Find-or-create within the test
+            // transaction so multiple customers reuse one role row (NormalizedName is unique).
+            var customerRole = db.Roles.FirstOrDefault(r => r.Name == nameof(RoleType.Customer))
+                ?? new Role
+                {
+                    Name = nameof(RoleType.Customer),
+                    NormalizedName = nameof(RoleType.Customer).ToUpperInvariant(),
+                    IsSystemRole = true,
+                };
+            user.UserRoles.Add(new UserRole { Role = customerRole, AssignedOnUtc = DateTime.UtcNow });
         }
         db.Users.Add(user);
         db.SaveChanges();

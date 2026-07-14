@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Enums;
@@ -10,11 +11,21 @@ namespace VSky.Application.Features.Media;
 /// The media library (WO-122): a page of committed media, searchable by SEO file name / alt text and
 /// filterable by media type, newest first. Each row's public URL is resolved at read time.
 /// </summary>
-public record ListMediaQuery(int Page = 1, int PageSize = 24, string? Search = null, string? MediaType = null)
+public record ListMediaQuery(int Page = 1, int PageSize = 24, string? Search = null, string? MediaType = null, string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<MediaDto>>;
 
 public class ListMediaQueryHandler : IRequestHandler<ListMediaQuery, PaginatedList<MediaDto>>
 {
+    // Grid column name -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["originalFileName"] = "OriginalFileName",
+        ["seoFileName"] = "SeoFileName",
+        ["mediaType"] = "MediaType",
+        ["fileSizeBytes"] = "FileSizeBytes",
+        ["createdOnUtc"] = "CreatedOnUtc",
+    };
+
     private readonly IApplicationDbContext _db;
     private readonly IFileStorage _storage;
 
@@ -42,7 +53,7 @@ public class ListMediaQueryHandler : IRequestHandler<ListMediaQuery, PaginatedLi
             query = query.Where(m => m.MediaType == type);
         }
 
-        var ordered = query.OrderByDescending(m => m.CreatedOnUtc);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
         var page = await PaginatedList<Domain.Entities.Media>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
 
         var items = new List<MediaDto>(page.Items.Count);

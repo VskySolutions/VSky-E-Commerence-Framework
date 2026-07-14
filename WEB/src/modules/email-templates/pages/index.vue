@@ -97,7 +97,7 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_edit" @click.stop="openEditor(row)">
+        <q-btn flat round dense icon="o_tune" @click.stop="openEditor(row)">
           <q-tooltip>Open editor</q-tooltip>
         </q-btn>
       </template>

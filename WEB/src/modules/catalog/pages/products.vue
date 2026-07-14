@@ -129,13 +129,13 @@ const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
 
 const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left' },
-  { name: 'sku', label: 'SKU', field: 'sku', align: 'left' },
-  { name: 'productType', label: 'Type', field: 'productType', align: 'left' },
-  { name: 'price', label: 'Price', field: 'price', align: 'right' },
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'sku', label: 'SKU', field: 'sku', align: 'left', sortable: true },
+  { name: 'productType', label: 'Type', field: 'productType', align: 'left', sortable: true },
+  { name: 'price', label: 'Price', field: 'price', align: 'right', sortable: true },
   { name: 'stockQuantity', label: 'Stock', field: 'stockQuantity', align: 'right' },
-  { name: 'isPublished', label: 'Published', field: 'isPublished', align: 'center' },
-  { name: 'isFeatured', label: 'Featured', field: 'isFeatured', align: 'center' }
+  { name: 'isPublished', label: 'Published', field: 'isPublished', align: 'center', sortable: true },
+  { name: 'isFeatured', label: 'Featured', field: 'isFeatured', align: 'center', sortable: true }
 ]
 
 const publishedOptions = [
@@ -186,7 +186,9 @@ async function fetch (props) {
       search: search.value || undefined,
       type: typeFilter.value || undefined,
       isPublished: publishedFilter.value === null ? undefined : publishedFilter.value,
-      isFeatured: featuredFilter.value === null ? undefined : featuredFilter.value
+      isFeatured: featuredFilter.value === null ? undefined : featuredFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || []
     const total = Array.isArray(result) ? result.length : result?.totalCount ?? items.length

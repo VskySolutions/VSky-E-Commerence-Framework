@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -7,11 +8,18 @@ using VSky.Domain.Entities;
 namespace VSky.Application.Features.SpecificationAttributes;
 
 /// <summary>Returns a page of specification attributes ordered by display order then name, optionally filtered by a name search term and/or filterable state.</summary>
-public record ListSpecificationAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null, bool? IsFilterable = null)
+public record ListSpecificationAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null, bool? IsFilterable = null, string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<SpecificationAttributeDto>>;
 
 public class ListSpecificationAttributesQueryHandler : IRequestHandler<ListSpecificationAttributesQuery, PaginatedList<SpecificationAttributeDto>>
 {
+    // Grid column name -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "Name",
+        ["isFilterable"] = "IsFilterable",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListSpecificationAttributesQueryHandler(IApplicationDbContext db) => _db = db;
@@ -29,7 +37,7 @@ public class ListSpecificationAttributesQueryHandler : IRequestHandler<ListSpeci
         if (request.IsFilterable.HasValue)
             query = query.Where(a => a.IsFilterable == request.IsFilterable.Value);
 
-        var ordered = query.OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<SpecificationAttribute>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(SpecificationAttributeDto.From).ToList();

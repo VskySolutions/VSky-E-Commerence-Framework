@@ -96,7 +96,7 @@
             >
               <q-tooltip>{{ props.row.isBaseCurrency ? 'Base rate is fixed at 1' : 'Update rate' }}</q-tooltip>
             </q-btn>
-            <q-btn flat round dense icon="o_edit" :disable="!canWrite" @click="onManage(props.row)">
+            <q-btn flat round dense icon="o_tune" :disable="!canWrite" @click="onManage(props.row)">
               <q-tooltip>Edit</q-tooltip>
             </q-btn>
             <q-btn

@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -8,11 +9,19 @@ using VSky.Domain.Enums;
 namespace VSky.Application.Features.ProductAttributes;
 
 /// <summary>Returns a page of product attributes ordered by display order then name, optionally filtered by a name search term and/or display type.</summary>
-public record ListProductAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null, ProductAttributeDisplayType? DisplayType = null)
+public record ListProductAttributesQuery(int Page = 1, int PageSize = 20, string? Search = null, ProductAttributeDisplayType? DisplayType = null, string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<ProductAttributeDto>>;
 
 public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttributesQuery, PaginatedList<ProductAttributeDto>>
 {
+    // Grid column name -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    // (valuesCount/inUseCount are aggregates, not mapped columns, so they aren't sortable server-side.)
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "Name",
+        ["displayType"] = "DisplayType",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListProductAttributesQueryHandler(IApplicationDbContext db) => _db = db;
@@ -32,7 +41,7 @@ public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttr
         if (request.DisplayType.HasValue)
             query = query.Where(a => a.DisplayType == request.DisplayType.Value);
 
-        var ordered = query.OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<ProductAttribute>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ProductAttributeDto.From).ToList();

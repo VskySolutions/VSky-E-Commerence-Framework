@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -11,11 +12,21 @@ namespace VSky.Application.Features.Rma;
 // ---- Admin: list + get -------------------------------------------------------
 
 /// <summary>Lists returns for admin review, newest first, optionally filtered by status, resolution and/or an RMA-number search term (AC-ORD-004.3).</summary>
-public record ListRmasQuery(string? Status = null, int Page = 1, int PageSize = 20, string? Search = null, string? Resolution = null)
+public record ListRmasQuery(string? Status = null, int Page = 1, int PageSize = 20, string? Search = null, string? Resolution = null,
+    string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<RmaDto>>;
 
 public class ListRmasQueryHandler : IRequestHandler<ListRmasQuery, PaginatedList<RmaDto>>
 {
+    // Column name (from the grid) -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["rmaNumber"] = "RmaNumber",
+        ["requestedOnUtc"] = "RequestedOnUtc",
+        ["resolution"] = "Resolution",
+        ["status"] = "Status",
+    };
+
     private readonly IApplicationDbContext _db;
     public ListRmasQueryHandler(IApplicationDbContext db) => _db = db;
 
@@ -37,8 +48,9 @@ public class ListRmasQueryHandler : IRequestHandler<ListRmasQuery, PaginatedList
             && Enum.TryParse<RmaResolution>(request.Resolution, ignoreCase: true, out var resolution))
             query = query.Where(r => r.Resolution == resolution);
 
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
         var page = await PaginatedList<Domain.Entities.Rma>.CreateAsync(
-            query.OrderByDescending(r => r.RequestedOnUtc), request.Page, request.PageSize, cancellationToken);
+            ordered, request.Page, request.PageSize, cancellationToken);
         return new PaginatedList<RmaDto>(page.Items.Select(RmaDto.From).ToList(), page.TotalCount, page.PageNumber, page.PageSize);
     }
 }

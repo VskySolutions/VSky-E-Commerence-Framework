@@ -39,7 +39,7 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense :icon="row.isSystemRole ? 'o_visibility' : 'o_edit'" @click="onManage(row)">
+        <q-btn flat round dense :icon="row.isSystemRole ? 'o_visibility' : 'o_tune'" @click="onManage(row)">
           <q-tooltip>{{ row.isSystemRole ? 'View (read-only)' : 'Edit' }}</q-tooltip>
         </q-btn>
         <q-btn

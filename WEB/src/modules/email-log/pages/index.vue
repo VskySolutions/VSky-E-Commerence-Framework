@@ -132,13 +132,13 @@ const $q = useQuasar()
 const notify = useNotify()
 
 const columns = [
-  { name: 'recipient', label: 'Recipient', field: 'recipientEmail', align: 'left' },
-  { name: 'subject', label: 'Subject', field: 'subject', align: 'left' },
-  { name: 'templateKey', label: 'Template', field: 'templateKey', align: 'left' },
-  { name: 'category', label: 'Category', field: 'category', align: 'left' },
-  { name: 'attemptCount', label: 'Attempts', field: 'attemptCount', align: 'center' },
-  { name: 'createdOnUtc', label: 'Created', field: 'createdOnUtc', align: 'left' },
-  { name: 'status', label: 'Status', field: 'status', align: 'center' }
+  { name: 'recipient', label: 'Recipient', field: 'recipientEmail', align: 'left', sortable: true },
+  { name: 'subject', label: 'Subject', field: 'subject', align: 'left', sortable: true },
+  { name: 'templateKey', label: 'Template', field: 'templateKey', align: 'left', sortable: true },
+  { name: 'category', label: 'Category', field: 'category', align: 'left', sortable: true },
+  { name: 'attemptCount', label: 'Attempts', field: 'attemptCount', align: 'center', sortable: true },
+  { name: 'createdOnUtc', label: 'Created', field: 'createdOnUtc', align: 'left', sortable: true },
+  { name: 'status', label: 'Status', field: 'status', align: 'center', sortable: true }
 ]
 
 const statusOptions = [
@@ -196,7 +196,9 @@ async function fetch (props) {
       pageSize: p.rowsPerPage,
       search: search.value || undefined,
       status: statusFilter.value || undefined,
-      category: categoryFilter.value || undefined
+      category: categoryFilter.value || undefined,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     rows.value = Array.isArray(r?.items) ? r.items : []
     pagination.value = { ...p, rowsNumber: r?.totalCount ?? rows.value.length }

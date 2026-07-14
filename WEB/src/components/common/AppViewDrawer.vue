@@ -32,7 +32,7 @@
             v-if="showEdit"
             flat
             color="primary"
-            icon="o_edit"
+            icon="o_tune"
             :label="editLabel"
             @click="$emit('edit')"
           />

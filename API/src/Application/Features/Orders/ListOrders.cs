@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -11,11 +12,21 @@ namespace VSky.Application.Features.Orders;
 /// Admin list of all orders, newest first, optionally filtered by status name (e.g. "Unrouted" to
 /// surface orders that no store could fulfil) and/or an order-number / contact search term.
 /// </summary>
-public record ListOrdersQuery(string? Status, int Page = 1, int PageSize = 20, string? Search = null)
+public record ListOrdersQuery(string? Status, int Page = 1, int PageSize = 20, string? Search = null,
+    string? SortBy = null, bool SortDescending = false)
     : IRequest<PaginatedList<OrderSummaryDto>>;
 
 public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, PaginatedList<OrderSummaryDto>>
 {
+    // Column name (from the grid) -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["orderNumber"] = "OrderNumber",
+        ["status"] = "Status",
+        ["placedOnUtc"] = "PlacedOnUtc",
+        ["totalAmount"] = "TotalAmount",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListOrdersQueryHandler(IApplicationDbContext db) => _db = db;
@@ -42,7 +53,7 @@ public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, Paginated
                 || (o.ContactEmail != null && o.ContactEmail.Contains(term)));
         }
 
-        var ordered = query.OrderByDescending(o => o.PlacedOnUtc);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
         var page = await PaginatedList<Order>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(OrderSummaryDto.From).ToList();
         return new PaginatedList<OrderSummaryDto>(items, page.TotalCount, page.PageNumber, page.PageSize);

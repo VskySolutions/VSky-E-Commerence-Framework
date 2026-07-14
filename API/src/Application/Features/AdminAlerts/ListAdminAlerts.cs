@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -12,11 +13,24 @@ public record ListAdminAlertsQuery(
     int PageSize = 20,
     string? Search = null,
     string? Severity = null,
-    bool? Resolved = null) : IRequest<PaginatedList<AdminAlertDto>>;
+    bool? Resolved = null,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<AdminAlertDto>>;
 
 public class ListAdminAlertsQueryHandler
     : IRequestHandler<ListAdminAlertsQuery, PaginatedList<AdminAlertDto>>
 {
+    // Grid column name -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["severity"] = "Severity",
+        ["alertType"] = "AlertType",
+        ["title"] = "Title",
+        ["source"] = "Source",
+        ["createdOnUtc"] = "CreatedOnUtc",
+        ["status"] = "IsResolved",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListAdminAlertsQueryHandler(IApplicationDbContext db) => _db = db;
@@ -41,7 +55,7 @@ public class ListAdminAlertsQueryHandler
         if (request.Resolved.HasValue)
             query = query.Where(a => a.IsResolved == request.Resolved.Value);
 
-        var ordered = query.OrderByDescending(a => a.CreatedOnUtc);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap, defaultProperty: "CreatedOnUtc");
         var page = await PaginatedList<AdminAlert>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(AdminAlertDto.From).ToList();
         return new PaginatedList<AdminAlertDto>(items, page.TotalCount, page.PageNumber, page.PageSize);

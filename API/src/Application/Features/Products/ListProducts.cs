@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -16,10 +17,24 @@ public record ListProductsQuery(
     bool? IsPublished = null,
     Guid? CategoryId = null,
     Guid? ManufacturerId = null,
-    bool? IsFeatured = null) : IRequest<PaginatedList<ProductListItemDto>>;
+    bool? IsFeatured = null,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PaginatedList<ProductListItemDto>>;
 
 public class ListProductsQueryHandler : IRequestHandler<ListProductsQuery, PaginatedList<ProductListItemDto>>
 {
+    // Grid column name -> entity property path. Anything else falls back to CreatedOnUtc desc.
+    // (StockQuantity is a [NotMapped] rollup over InventoryLevels, so it isn't sortable server-side.)
+    private static readonly IReadOnlyDictionary<string, string> SortMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+    {
+        ["name"] = "Name",
+        ["sku"] = "Sku",
+        ["productType"] = "ProductType",
+        ["price"] = "Price",
+        ["isPublished"] = "IsPublished",
+        ["isFeatured"] = "IsFeatured",
+    };
+
     private readonly IApplicationDbContext _db;
 
     public ListProductsQueryHandler(IApplicationDbContext db) => _db = db;
@@ -53,9 +68,7 @@ public class ListProductsQueryHandler : IRequestHandler<ListProductsQuery, Pagin
         if (request.CategoryId.HasValue)
             query = query.Where(p => p.ProductCategories.Any(c => c.CategoryId == request.CategoryId.Value));
 
-        var ordered = query
-            .OrderBy(p => p.DisplayOrder)
-            .ThenBy(p => p.Name);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
 
         var page = await PaginatedList<Product>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ProductListItemDto.From).ToList();

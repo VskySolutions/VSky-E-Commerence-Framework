@@ -76,7 +76,7 @@
         >
           <q-tooltip>{{ row.isEnabled ? 'Disable' : 'Enable' }}</q-tooltip>
         </q-btn>
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)">
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
@@ -108,11 +108,11 @@ const { has } = usePermissions()
 const canWrite = computed(() => has('Catalog.Write'))
 
 const columns = [
-  { name: 'name', label: 'Name', field: 'name', align: 'left' },
-  { name: 'slug', label: 'Slug', field: 'slug', align: 'left' },
-  { name: 'parent', label: 'Parent', field: 'parentId', align: 'left' },
-  { name: 'displayOrder', label: 'Order', field: 'displayOrder', align: 'right' },
-  { name: 'isEnabled', label: 'Status', field: 'isEnabled', align: 'center' }
+  { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  { name: 'slug', label: 'Slug', field: 'slug', align: 'left', sortable: true },
+  { name: 'parent', label: 'Parent', field: 'parentId', align: 'left', sortable: true },
+  { name: 'displayOrder', label: 'Order', field: 'displayOrder', align: 'right', sortable: true },
+  { name: 'isEnabled', label: 'Status', field: 'isEnabled', align: 'center', sortable: true }
 ]
 
 const rows = ref([])
@@ -152,7 +152,9 @@ async function fetch (props) {
     const result = await categoryApi.list({
       page: p.page,
       pageSize: p.rowsPerPage,
-      search: search.value || undefined
+      search: search.value || undefined,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || []
     const total = Array.isArray(result) ? result.length : result?.totalCount ?? items.length

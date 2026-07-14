@@ -74,11 +74,11 @@ const router = useRouter()
 function view (row) { router.push({ name: 'admin-customer-detail', params: { id: row.id } }) }
 
 const columns = [
-  { name: 'name', label: 'Name', field: 'firstName', align: 'left' },
-  { name: 'email', label: 'Email', field: 'email', align: 'left' },
-  { name: 'phoneNumber', label: 'Phone', field: (r) => r.phoneNumber || '—', align: 'left' },
-  { name: 'createdOnUtc', label: 'Joined', field: 'createdOnUtc', align: 'left' },
-  { name: 'emailVerified', label: 'Email', field: 'emailVerified', align: 'center' }
+  { name: 'name', label: 'Name', field: 'firstName', align: 'left', sortable: true },
+  { name: 'email', label: 'Email', field: 'email', align: 'left', sortable: true },
+  { name: 'phoneNumber', label: 'Phone', field: (r) => r.phoneNumber || '—', align: 'left', sortable: true },
+  { name: 'createdOnUtc', label: 'Joined', field: 'createdOnUtc', align: 'left', sortable: true },
+  { name: 'emailVerified', label: 'Email', field: 'emailVerified', align: 'center', sortable: true }
 ]
 
 const verifiedOptions = [
@@ -131,7 +131,9 @@ async function fetch (props) {
       search: search.value || undefined,
       emailVerified: verifiedFilter.value === null ? undefined : verifiedFilter.value,
       isActive: activeFilter.value === null ? undefined : activeFilter.value,
-      isTaxExempt: taxExemptFilter.value === null ? undefined : taxExemptFilter.value
+      isTaxExempt: taxExemptFilter.value === null ? undefined : taxExemptFilter.value,
+      sortBy: p.sortBy || undefined,
+      sortDescending: !!p.descending
     })
     rows.value = Array.isArray(r?.items) ? r.items : []
     pagination.value = { ...p, rowsNumber: r?.totalCount ?? rows.value.length }

@@ -342,7 +342,7 @@ const InvCellStatus = defineComponent({
       if (st.saving) return h(QSpinner, { size: '14px', color: 'primary' })
       if (st.saved) return h(QIcon, { name: 'o_check_circle', color: 'positive', size: '14px' })
       if (isDirty(props.productId, props.variantId)) {
-        return h(QIcon, { name: 'o_edit', color: 'orange', size: '14px' }, () => h(QTooltip, () => 'Unsaved'))
+        return h(QIcon, { name: 'o_tune', color: 'orange', size: '14px' }, () => h(QTooltip, () => 'Unsaved'))
       }
       return null
     }

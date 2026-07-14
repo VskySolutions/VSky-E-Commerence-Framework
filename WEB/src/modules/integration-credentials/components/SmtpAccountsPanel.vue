@@ -55,7 +55,7 @@
         <q-btn flat round dense icon="o_send" @click="onTestSend(row)">
           <q-tooltip>Test send</q-tooltip>
         </q-btn>
-        <q-btn v-if="canWrite" flat round dense icon="o_edit" @click="onManage(row)">
+        <q-btn v-if="canWrite" flat round dense icon="o_tune" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
         </q-btn>
         <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
