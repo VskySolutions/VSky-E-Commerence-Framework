@@ -78,8 +78,11 @@
         <q-btn flat round dense icon="o_lock_reset" color="primary" :loading="sendingResetId === row.id" @click="onSendReset(row)">
           <q-tooltip>Send password-reset link</q-tooltip>
         </q-btn>
-        <q-btn flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
+        <q-btn v-if="!isSuperAdmin(row)" flat round dense icon="o_delete" color="negative" @click="onDelete(row)">
           <q-tooltip>Delete</q-tooltip>
+        </q-btn>
+        <q-btn v-else flat round dense icon="o_shield" color="grey-5">
+          <q-tooltip>SuperAdmin accounts are protected and can't be deleted</q-tooltip>
         </q-btn>
       </template>
     </AppDataTable>
@@ -174,6 +177,11 @@ function reload () {
 
 function onAdd () { router.push({ name: 'user-new' }) }
 function onManage (row) { router.push({ name: 'user-detail', params: { id: row.id } }) }
+
+// SuperAdmin accounts are protected server-side; hide the delete action for them in the UI too.
+function isSuperAdmin (row) {
+  return Array.isArray(row.roles) && row.roles.some((r) => r.name === 'SuperAdmin')
+}
 
 async function onSendReset (row) {
   sendingResetId.value = row.id

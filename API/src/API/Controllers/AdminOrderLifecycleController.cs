@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using VSky.Application.Common.Authorization;
 using VSky.API.Authorization;
 using VSky.Application.Features.Orders;
+using VSky.Application.Features.Payments;
 
 namespace VSky.API.Controllers;
 
@@ -26,4 +27,9 @@ public class AdminOrderLifecycleController : ApiControllerBase
     [HttpGet("{id:guid}/history")]
     public async Task<ActionResult<List<OrderStatusHistoryDto>>> History(Guid id)
         => Ok(await Mediator.Send(new GetOrderStatusHistoryQuery(id)));
+
+    /// <summary>Get the order's payment records (authorize → capture → refund), newest first.</summary>
+    [HttpGet("{id:guid}/payments")]
+    public async Task<ActionResult<IReadOnlyList<PaymentDto>>> Payments(Guid id)
+        => Ok(await Mediator.Send(new GetOrderPaymentsQuery(id)));
 }

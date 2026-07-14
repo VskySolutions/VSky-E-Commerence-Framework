@@ -5,6 +5,8 @@
  *   - 'storage': the file-storage provider settings panel.
  *   - 'smtp': the SMTP sending-accounts panel.
  * `key` is the API route slug for credential items (`/api/integration-credentials/{key}`).
+ * `pricing` ('free' | 'paid') and `website` (official console/developer URL for sign-up + API-credential
+ * generation) are attached below via INTEGRATION_META and drive the badge + external link in the panel title.
  */
 
 export const INTEGRATIONS = [
@@ -145,6 +147,32 @@ export const INTEGRATIONS = [
     description: 'Google reCAPTCHA bot protection for storefront forms.'
   }
 ]
+
+/*
+ * "Free"/"Paid" classification and the official console/developer URL where an admin signs up and generates
+ * the API credentials for each integration. Kept as a side table so the catalogue above stays about form
+ * structure; merged onto each entry below. Internal settings panels (SMTP, Storage Settings) are omitted —
+ * they have no external sign-up, so no badge/link renders for them.
+ */
+const INTEGRATION_META = {
+  stripe: { pricing: 'paid', website: 'https://dashboard.stripe.com/apikeys' },
+  paypal: { pricing: 'paid', website: 'https://developer.paypal.com/dashboard/applications' },
+  razorpay: { pricing: 'paid', website: 'https://dashboard.razorpay.com/app/keys' },
+  square: { pricing: 'paid', website: 'https://developer.squareup.com/apps' },
+  authorizenet: { pricing: 'paid', website: 'https://developer.authorize.net' },
+  taxjar: { pricing: 'paid', website: 'https://app.taxjar.com/account#api-access' },
+  'stripe-tax': { pricing: 'paid', website: 'https://dashboard.stripe.com/tax' },
+  fedex: { pricing: 'free', website: 'https://developer.fedex.com' },
+  dhl: { pricing: 'free', website: 'https://developer.dhl.com' },
+  usps: { pricing: 'free', website: 'https://developer.usps.com' },
+  ups: { pricing: 'free', website: 'https://developer.ups.com' },
+  twilio: { pricing: 'paid', website: 'https://console.twilio.com' },
+  'azure-blob': { pricing: 'paid', website: 'https://portal.azure.com' },
+  recaptcha: { pricing: 'free', website: 'https://www.google.com/recaptcha/admin/create' }
+}
+
+// Merge pricing/website onto each catalogue entry (missing keys are a safe no-op via Object.assign(_, undefined)).
+for (const it of INTEGRATIONS) Object.assign(it, INTEGRATION_META[it.key])
 
 /** Category display order for the grouped left-hand list. */
 const CATEGORY_ORDER = ['Payments', 'Tax', 'Shipping', 'Communication', 'Storage', 'Security']

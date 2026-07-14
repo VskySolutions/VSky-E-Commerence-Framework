@@ -91,6 +91,9 @@ export default function () {
   })
 
   Router.beforeEach((to) => {
+    // The bare site root is the public storefront front door — not the admin login.
+    if (to.path === '/') return { path: '/shop' }
+
     const auth = useAuthStore()
     const isAuthed = auth.isAuthenticated
     const requiresAuth = to.matched.some((r) => r.meta && r.meta.requiresAuth)
@@ -102,10 +105,16 @@ export default function () {
       return { path: '/auth/login', query: redirect ? { redirect } : undefined }
     }
 
-    // (2) Already signed in but visiting the auth area — send each role to its home
-    // (WO-112 unified login: staff → dashboard, customers (no role) → storefront).
+    // (1b) Non-staff (storefront customers) must NEVER reach the admin shell — whatever admin URL they
+    // open (dashboard included), send them to the storefront. Staff = any role other than Customer.
+    // change-password is excluded so a forced password change (rule 3) can't ping-pong.
+    if (isAuthed && requiresAuth && !auth.isStaff && to.name !== 'change-password') {
+      return { path: '/shop' }
+    }
+
+    // (2) Already signed in but visiting the auth area — staff → dashboard, customers → storefront.
     if (isAuthed && isAuthArea) {
-      return { path: auth.roles.length ? '/dashboard' : '/shop' }
+      return { path: auth.isStaff ? '/dashboard' : '/shop' }
     }
 
     // (3) Forced password change.

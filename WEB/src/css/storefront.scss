@@ -67,6 +67,23 @@
     margin-top: 0;
     margin-bottom: 0.4em;
   }
+  // Per-level heading colours from branding; each falls back to the general heading colour.
+  h1 { color: var(--sf-h1, var(--sf-heading)); }
+  h2 { color: var(--sf-h2, var(--sf-heading)); }
+  h3 { color: var(--sf-h3, var(--sf-heading)); }
+  h4 { color: var(--sf-h4, var(--sf-heading)); }
+  h5 { color: var(--sf-h5, var(--sf-heading)); }
+  h6 { color: var(--sf-h6, var(--sf-heading)); }
+
+  // Content/prose tags (bare, class-less — e.g. CMS product descriptions). These are no-ops until a
+  // branding colour is set (fall back to inherit / accent), so component text (prices, badges, nav
+  // links, card titles — all class-based) keeps its own intentional styling untouched.
+  p:not([class]) { color: var(--sf-p, inherit); }
+  span:not([class]) { color: var(--sf-span, inherit); }
+  a:not([class]) {
+    color: var(--sf-link, var(--sf-accent));
+    &:hover { color: var(--sf-accent-hover); }
+  }
 }
 
 .sf-container {
@@ -353,6 +370,9 @@
 .sf-card__cart {
   margin-top: 10px;
   opacity: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 @media (min-width: 1024px) {
   // Porto pattern: Add-to-Cart reveals on hover on desktop, always visible on mobile.

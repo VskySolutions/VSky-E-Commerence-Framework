@@ -91,6 +91,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="specification-attribute" :record-id="entity?.id" />
   </q-page>
 </template>
 

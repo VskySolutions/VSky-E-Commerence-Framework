@@ -90,7 +90,9 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
                 {
                     // NotifyCustomer: false — the RmaResolved email below already informs the buyer, so the
                     // refund handler must not send a second (duplicate) email for the same action.
-                    await _mediator.Send(new RefundOrderCommand(order.Id, null, amount, $"RMA {rma.RmaNumber}", NotifyCustomer: false), cancellationToken);
+                    // RestockItems: false — accepted units were already restocked above via MarkAsReceivedAsync,
+                    // so the refund must not restock them a second time.
+                    await _mediator.Send(new RefundOrderCommand(order.Id, null, amount, $"RMA {rma.RmaNumber}", NotifyCustomer: false, RestockItems: false), cancellationToken);
                     rma.RefundedAmount = amount;
                 }
                 break;

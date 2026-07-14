@@ -18,6 +18,22 @@ public class BrandingDto
     public string? PrimaryColor { get; set; }
     public string? SecondaryColor { get; set; }
     public string? AccentColor { get; set; }
+
+    /// <summary>Storefront HTML-tag palette — page background, body text, headings (general + H1–H6),
+    /// paragraph, span and link colours, applied onto the storefront <c>--sf-*</c> tokens.</summary>
+    public string? BodyBackgroundColor { get; set; }
+    public string? TextColor { get; set; }
+    public string? HeadingColor { get; set; }
+    public string? Heading1Color { get; set; }
+    public string? Heading2Color { get; set; }
+    public string? Heading3Color { get; set; }
+    public string? Heading4Color { get; set; }
+    public string? Heading5Color { get; set; }
+    public string? Heading6Color { get; set; }
+    public string? ParagraphColor { get; set; }
+    public string? SpanColor { get; set; }
+    public string? LinkColor { get; set; }
+
     public string? FontFamily { get; set; }
     public string? SupportEmail { get; set; }
     public string? SupportPhone { get; set; }
@@ -39,6 +55,18 @@ public class BrandingDto
         PrimaryColor = b.PrimaryColor,
         SecondaryColor = b.SecondaryColor,
         AccentColor = b.AccentColor,
+        BodyBackgroundColor = b.BodyBackgroundColor,
+        TextColor = b.TextColor,
+        HeadingColor = b.HeadingColor,
+        Heading1Color = b.Heading1Color,
+        Heading2Color = b.Heading2Color,
+        Heading3Color = b.Heading3Color,
+        Heading4Color = b.Heading4Color,
+        Heading5Color = b.Heading5Color,
+        Heading6Color = b.Heading6Color,
+        ParagraphColor = b.ParagraphColor,
+        SpanColor = b.SpanColor,
+        LinkColor = b.LinkColor,
         FontFamily = b.FontFamily,
         SupportEmail = b.SupportEmail,
         SupportPhone = b.SupportPhone,

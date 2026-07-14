@@ -97,6 +97,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="discount" :record-id="entity?.id" />
   </q-page>
 </template>
 

@@ -130,6 +130,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="user" :record-id="entity?.id" />
   </q-page>
 </template>
 

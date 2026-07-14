@@ -24,9 +24,37 @@ public class OrderDto
     public string? City { get; set; }
     public string? StateProvince { get; set; }
     public Guid? AssignedStoreId { get; set; }
+    /// <summary>Name of the fulfilling store — only populated when <c>AssignedStore</c> is Include()d.</summary>
+    public string? AssignedStoreName { get; set; }
+    /// <summary>True when fulfilled by pickup-in-store rather than carrier delivery.</summary>
+    public bool IsPickup { get; set; }
     public DateTime PlacedOnUtc { get; set; }
     public DateTime? RoutedOnUtc { get; set; }
+    public DateTime? ShippedOnUtc { get; set; }
+    public DateTime? DeliveredOnUtc { get; set; }
+
+    // Money breakdown, snapshotted at placement.
+    public string CurrencyCode { get; set; } = "USD";
+    public decimal Subtotal { get; set; }
+    public decimal DiscountTotal { get; set; }
+    public decimal ShippingTotal { get; set; }
+    public decimal TaxTotal { get; set; }
     public decimal TotalAmount { get; set; }
+    public string? AppliedCouponCode { get; set; }
+
+    /// <summary>Order-level payment rollup (Pending/Authorized/Captured/Refunded/…).</summary>
+    public string PaymentStatus { get; set; } = string.Empty;
+
+    // Shipping selection + fulfilment tracking.
+    public string? ShippingMethodName { get; set; }
+    public string? ShippingCarrier { get; set; }
+    public string? TrackingNumber { get; set; }
+
+    /// <summary>Set when the flat-rate tax fallback was applied and the order needs manual tax review.</summary>
+    public bool TaxFlaggedForReview { get; set; }
+    /// <summary>Provider calculation reference captured at placement (e.g. Stripe Tax calculation id).</summary>
+    public string? TaxProviderCalculationRef { get; set; }
+
     public List<OrderLineItemDto> Lines { get; set; } = new();
 
     /// <summary>The routing evaluation chain — only populated on the response immediately after (re)routing.</summary>
@@ -52,9 +80,25 @@ public class OrderDto
         City = o.City,
         StateProvince = o.StateProvince,
         AssignedStoreId = o.AssignedStoreId,
+        AssignedStoreName = o.AssignedStore?.Name,
+        IsPickup = o.IsPickup,
         PlacedOnUtc = o.PlacedOnUtc,
         RoutedOnUtc = o.RoutedOnUtc,
+        ShippedOnUtc = o.ShippedOnUtc,
+        DeliveredOnUtc = o.DeliveredOnUtc,
+        CurrencyCode = o.CurrencyCode,
+        Subtotal = o.Subtotal,
+        DiscountTotal = o.DiscountTotal,
+        ShippingTotal = o.ShippingTotal,
+        TaxTotal = o.TaxTotal,
         TotalAmount = o.TotalAmount,
+        AppliedCouponCode = o.AppliedCouponCode,
+        PaymentStatus = o.PaymentStatus.ToString(),
+        ShippingMethodName = o.ShippingMethodName,
+        ShippingCarrier = o.ShippingCarrier,
+        TrackingNumber = o.TrackingNumber,
+        TaxFlaggedForReview = o.TaxFlaggedForReview,
+        TaxProviderCalculationRef = o.TaxProviderCalculationRef,
         Lines = o.Lines.Select(OrderLineItemDto.From).ToList(),
     };
 }

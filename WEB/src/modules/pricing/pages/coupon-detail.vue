@@ -84,6 +84,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="coupon" :record-id="entity?.id" />
   </q-page>
 </template>
 

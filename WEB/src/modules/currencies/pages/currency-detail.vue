@@ -58,6 +58,8 @@
         </q-card-actions>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="currency" :record-id="entity?.id" />
   </q-page>
 </template>
 

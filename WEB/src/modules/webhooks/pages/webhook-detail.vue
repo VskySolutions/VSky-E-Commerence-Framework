@@ -128,6 +128,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="webhook" :record-id="entity?.id" />
   </q-page>
 </template>
 

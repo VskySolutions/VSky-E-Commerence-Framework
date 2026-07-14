@@ -492,6 +492,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="product" :record-id="product?.id" />
   </q-page>
 </template>
 

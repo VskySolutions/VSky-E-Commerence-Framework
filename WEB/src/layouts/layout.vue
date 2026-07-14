@@ -46,6 +46,20 @@
           </q-list>
         </q-btn-dropdown>
 
+        <q-btn
+          flat
+          no-caps
+          class="visit-store-btn q-mr-sm"
+          type="a"
+          :href="storeHref"
+          target="_blank"
+          rel="noopener"
+        >
+          <q-icon name="o_storefront" size="20px" />
+          <span class="gt-xs q-ml-xs">Visit store</span>
+          <q-tooltip>Open the storefront in a new tab</q-tooltip>
+        </q-btn>
+
         <UserInfo />
       </q-toolbar>
     </q-header>
@@ -90,6 +104,9 @@ import UserInfo from 'shared/user_info.vue'
 const tenant = useTenantStore()
 const router = useRouter()
 const notify = useNotify()
+
+// Absolute href to the public storefront (respects router base/history mode); opened in a new tab.
+const storeHref = router.resolve({ path: '/shop' }).href
 
 const leftDrawerOpen = ref(getItem(STORAGE_KEYS.LEFT_DRAWER_OPEN, true) !== false)
 watch(leftDrawerOpen, (val) => setItem(STORAGE_KEYS.LEFT_DRAWER_OPEN, val))

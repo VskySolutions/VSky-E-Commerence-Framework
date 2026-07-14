@@ -23,7 +23,20 @@ public record UpdateBrandingCommand(
     string? SocialLinksJson,
     string? LayoutOptionsJson,
     string? DefaultLanguage,
-    string? DisplayTimeZone = null) : IRequest<BrandingDto>;
+    string? DisplayTimeZone = null,
+    // ---- Storefront HTML-tag palette (all optional; bound by name from the JSON body) ----
+    string? BodyBackgroundColor = null,
+    string? TextColor = null,
+    string? HeadingColor = null,
+    string? Heading1Color = null,
+    string? Heading2Color = null,
+    string? Heading3Color = null,
+    string? Heading4Color = null,
+    string? Heading5Color = null,
+    string? Heading6Color = null,
+    string? ParagraphColor = null,
+    string? SpanColor = null,
+    string? LinkColor = null) : IRequest<BrandingDto>;
 
 public class UpdateBrandingCommandValidator : AbstractValidator<UpdateBrandingCommand>
 {
@@ -36,6 +49,18 @@ public class UpdateBrandingCommandValidator : AbstractValidator<UpdateBrandingCo
         RuleFor(x => x.PrimaryColor).MaximumLength(32);
         RuleFor(x => x.SecondaryColor).MaximumLength(32);
         RuleFor(x => x.AccentColor).MaximumLength(32);
+        RuleFor(x => x.BodyBackgroundColor).MaximumLength(32);
+        RuleFor(x => x.TextColor).MaximumLength(32);
+        RuleFor(x => x.HeadingColor).MaximumLength(32);
+        RuleFor(x => x.Heading1Color).MaximumLength(32);
+        RuleFor(x => x.Heading2Color).MaximumLength(32);
+        RuleFor(x => x.Heading3Color).MaximumLength(32);
+        RuleFor(x => x.Heading4Color).MaximumLength(32);
+        RuleFor(x => x.Heading5Color).MaximumLength(32);
+        RuleFor(x => x.Heading6Color).MaximumLength(32);
+        RuleFor(x => x.ParagraphColor).MaximumLength(32);
+        RuleFor(x => x.SpanColor).MaximumLength(32);
+        RuleFor(x => x.LinkColor).MaximumLength(32);
     }
 }
 
@@ -70,6 +95,18 @@ public class UpdateBrandingCommandHandler : IRequestHandler<UpdateBrandingComman
         entity.PrimaryColor = request.PrimaryColor;
         entity.SecondaryColor = request.SecondaryColor;
         entity.AccentColor = request.AccentColor;
+        entity.BodyBackgroundColor = request.BodyBackgroundColor;
+        entity.TextColor = request.TextColor;
+        entity.HeadingColor = request.HeadingColor;
+        entity.Heading1Color = request.Heading1Color;
+        entity.Heading2Color = request.Heading2Color;
+        entity.Heading3Color = request.Heading3Color;
+        entity.Heading4Color = request.Heading4Color;
+        entity.Heading5Color = request.Heading5Color;
+        entity.Heading6Color = request.Heading6Color;
+        entity.ParagraphColor = request.ParagraphColor;
+        entity.SpanColor = request.SpanColor;
+        entity.LinkColor = request.LinkColor;
         entity.FontFamily = request.FontFamily;
         entity.SupportEmail = request.SupportEmail;
         entity.SupportPhone = request.SupportPhone;

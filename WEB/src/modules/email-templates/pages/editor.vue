@@ -224,6 +224,8 @@
       :category="template ? template.category : ''"
       @submit="onTestSend"
     />
+
+    <AppRecordMeta entity-type="email-template" :record-id="template?.id" />
   </q-page>
 </template>
 

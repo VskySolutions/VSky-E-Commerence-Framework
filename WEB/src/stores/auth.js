@@ -18,6 +18,11 @@ import { STORAGE_KEYS, getItem, setItem, removeItem } from 'services/storage'
 // Roles that implicitly hold every permission while the backend has none.
 export const FULL_ACCESS_ROLES = Object.freeze(['SuperAdmin', 'TenantAdmin'])
 
+// The storefront-customer system role. A "staff" (admin) session is any authenticated user carrying at
+// least one role OTHER than this. Customers carry only the Customer role — and sessions issued before the
+// role existed carry none — so both resolve to isStaff === false.
+export const CUSTOMER_ROLE = 'Customer'
+
 export const useAuthStore = defineStore('auth', () => {
   // ---- State (seeded from LocalStorage) ------------------------------------
   const token = ref(getItem(STORAGE_KEYS.TOKEN, null))
@@ -32,6 +37,8 @@ export const useAuthStore = defineStore('auth', () => {
   // Backend returns a roles[] array (multi-role User/Role/UserRole model).
   const roles = computed(() => (Array.isArray(user.value?.roles) ? user.value.roles : []))
   const role = computed(() => roles.value[0] ?? null)
+  // Staff (admin) session = authenticated with any role other than the storefront Customer role.
+  const isStaff = computed(() => roles.value.some((r) => r !== CUSTOMER_ROLE))
 
   // True when we should fall back to role-based full access.
   const hasFullAccess = computed(
@@ -197,6 +204,7 @@ export const useAuthStore = defineStore('auth', () => {
     isAuthenticated,
     role,
     roles,
+    isStaff,
     hasFullAccess,
     hasPermission,
     hasAnyPermission,

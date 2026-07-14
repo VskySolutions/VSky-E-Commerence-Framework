@@ -67,6 +67,31 @@ public class InventoryService : IInventoryService
         await PublishReplenishedIfCrossedAsync(level, previous, quantity, ct);
     }
 
+    public async Task DecrementForOrderAsync(Order order, CancellationToken ct = default)
+    {
+        // The order was routed/fulfilled by exactly one store; stock is committed there. Nothing to do for
+        // an unrouted order (it never held stock).
+        if (order.AssignedStoreId is not Guid storeId)
+            return;
+
+        foreach (var line in order.Lines)
+            await DecrementStockAsync(line.ProductId, line.ProductVariantId, storeId, line.Quantity, ct);
+    }
+
+    public async Task RestoreForOrderAsync(Order order, IReadOnlyCollection<Guid>? orderLineItemIds = null, CancellationToken ct = default)
+    {
+        if (order.AssignedStoreId is not Guid storeId)
+            return;
+
+        // All lines by default; a line-item refund restores only the returned lines.
+        var lines = orderLineItemIds is { Count: > 0 }
+            ? order.Lines.Where(l => orderLineItemIds.Contains(l.Id))
+            : order.Lines;
+
+        foreach (var line in lines)
+            await RestoreStockAsync(line.ProductId, line.ProductVariantId, storeId, line.Quantity, ct);
+    }
+
     public async Task MarkAsReceivedAsync(Guid productId, Guid? variantId, Guid storeId, int quantityAccepted, CancellationToken ct = default)
     {
         var level = await FindLevelAsync(productId, variantId, storeId, ct);

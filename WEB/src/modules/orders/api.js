@@ -21,6 +21,9 @@ export const orderApi = {
   history (id) {
     return api.get(`${ORDERS}/${id}/history`).then(unwrap)
   },
+  payments (id) {
+    return api.get(`${ORDERS}/${id}/payments`).then(unwrap)
+  },
   advance (id, payload) {
     return api.put(`${ORDERS}/${id}/advance`, payload).then(unwrap)
   },
@@ -100,6 +103,32 @@ export const allowedTransitions = (status) => {
   }
 }
 
+// Payment record status → badge colour (PaymentStatus enum, PascalCase names).
+export const paymentStatusColor = (status) => {
+  const s = (status || '').toLowerCase()
+  if (s === 'failed' || s === 'voided') return 'negative'
+  if (s === 'captured') return 'positive'
+  if (s === 'refunded' || s === 'partiallyrefunded') return 'deep-orange'
+  if (s === 'authorized') return 'teal'
+  if (s === 'pending' || s === 'awaitingpayment') return 'orange'
+  return 'grey'
+}
+
+// Payment method enum name → human label.
+const PAYMENT_METHOD_LABELS = {
+  Stripe: 'Stripe',
+  PayPal: 'PayPal',
+  Razorpay: 'Razorpay',
+  Square: 'Square',
+  AuthorizeNet: 'Authorize.Net',
+  CashOnDelivery: 'Cash on Delivery',
+  BankTransfer: 'Bank Transfer'
+}
+export const paymentMethodLabel = (method) => PAYMENT_METHOD_LABELS[method] || method || '—'
+
+// Split a PascalCase enum name (e.g. PartiallyRefunded) into words for display.
+export const humanizeEnum = (value) => (value || '').replace(/([a-z])([A-Z])/g, '$1 $2')
+
 export const rmaStatusColor = (status) => {
   const s = (status || '').toLowerCase()
   if (s === 'rejected' || s === 'cancelled') return 'negative'
@@ -124,4 +153,4 @@ export function formatDate (value) {
   return formatDateTime(value)
 }
 
-export default { orderApi, rmaApi, orderStatusColor, allowedTransitions, rmaStatusColor, rmaResolutionOptions, formatMoney, formatDate }
+export default { orderApi, rmaApi, orderStatusColor, allowedTransitions, paymentStatusColor, paymentMethodLabel, humanizeEnum, rmaStatusColor, rmaResolutionOptions, formatMoney, formatDate }

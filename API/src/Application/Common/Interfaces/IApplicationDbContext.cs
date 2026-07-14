@@ -125,4 +125,11 @@ public interface IApplicationDbContext
     DbSet<ContentTranslation> ContentTranslations { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Load a tracked entity of the given CLR type by its primary key (or null if not found). Used by
+    /// cross-cutting features (e.g. the record-audit footer) that operate polymorphically over entity
+    /// types. Satisfied by <see cref="DbContext.FindAsync(Type, object?[], CancellationToken)"/>.
+    /// </summary>
+    ValueTask<object?> FindAsync(Type entityType, object?[]? keyValues, CancellationToken cancellationToken);
 }

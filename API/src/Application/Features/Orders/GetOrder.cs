@@ -19,6 +19,7 @@ public class GetOrderQueryHandler : IRequestHandler<GetOrderQuery, OrderDto>
     {
         var order = await _db.Orders
             .Include(o => o.ShippingAddress)
+            .Include(o => o.AssignedStore)
             .AsNoTracking()
             .Include(o => o.Lines)
             .FirstOrDefaultAsync(o => o.Id == request.Id, cancellationToken)

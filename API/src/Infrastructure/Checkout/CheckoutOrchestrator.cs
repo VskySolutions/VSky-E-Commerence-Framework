@@ -32,6 +32,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly IEmailTemplateSender _templates;
     private readonly IPublisher _publisher;
     private readonly ICustomerRoleService _customerRoles;
+    private readonly IInventoryService _inventory;
 
     public CheckoutOrchestrator(
         IApplicationDbContext db,
@@ -45,7 +46,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         IDateTimeProvider clock,
         IEmailTemplateSender templates,
         IPublisher publisher,
-        ICustomerRoleService customerRoles)
+        ICustomerRoleService customerRoles,
+        IInventoryService inventory)
     {
         _db = db;
         _routing = routing;
@@ -59,6 +61,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _templates = templates;
         _publisher = publisher;
         _customerRoles = customerRoles;
+        _inventory = inventory;
     }
 
     public async Task<CheckoutQuote> QuoteAsync(CheckoutQuoteRequest req, CancellationToken ct)
@@ -375,6 +378,11 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     /// </summary>
     private async Task FinalizePlacedOrderAsync(Order order, CancellationToken ct)
     {
+        // Commit stock for the placed + paid order — the single stock-out path (shared with PlaceOrder).
+        // Runs exactly once per order: inline for synchronous gateways, on the buyer's return for redirect
+        // gateways (after the already-captured guard), so stock is never decremented twice.
+        await _inventory.DecrementForOrderAsync(order, ct);
+
         if (!string.IsNullOrWhiteSpace(order.AppliedCouponCode))
             await _coupons.RedeemAsync(order.AppliedCouponCode!, ct);
 

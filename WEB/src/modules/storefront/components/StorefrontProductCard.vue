@@ -55,10 +55,15 @@
       <div v-if="restockNote" class="text-caption text-orange-9">{{ restockNote }}</div>
 
       <div class="sf-card__cart">
-        <button class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding" @click.prevent="addToCart">
+        <button class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding || buying" @click.prevent="addToCart">
           <q-icon v-if="!adding" name="o_add_shopping_cart" size="16px" />
           <q-spinner v-else size="14px" />
           Add to Cart
+        </button>
+        <button class="sf-btn sf-btn--dark sf-btn--block" :disabled="adding || buying" @click.prevent="buyNow">
+          <q-icon v-if="!buying" name="o_bolt" size="16px" />
+          <q-spinner v-else size="14px" />
+          Buy Now
         </button>
       </div>
     </div>
@@ -95,6 +100,7 @@ const { has, toggle, max } = useCompare()
 const customerAuth = useCustomerAuthStore()
 
 const adding = ref(false)
+const buying = ref(false)
 
 const detailTo = computed(() => ({ name: 'shop-product', params: { idOrSlug: productRouteParam(props.product) } }))
 const image = computed(() => productImage(props.product))
@@ -158,6 +164,21 @@ async function addToCart () {
     router.push(detailTo.value)
   } finally {
     adding.value = false
+  }
+}
+
+// Buy Now — add one to the cart and go straight to checkout. Same variant-required
+// fallback as addToCart: if the product needs options, route to the detail page instead.
+async function buyNow () {
+  buying.value = true
+  try {
+    await addItem({ productId: props.product.id, quantity: 1 })
+    router.push({ name: 'shop-checkout' })
+  } catch (e) {
+    $q.notify({ type: 'info', message: 'Please choose options for this product.' })
+    router.push(detailTo.value)
+  } finally {
+    buying.value = false
   }
 }
 

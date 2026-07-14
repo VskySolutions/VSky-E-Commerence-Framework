@@ -305,9 +305,9 @@ const { itemCount, ensureLoaded } = useCart()
 
 const year = new Date().getFullYear()
 const accountLabel = computed(() => customerAuth.displayName || 'Account')
-// WO-112 unified session: staff (SuperAdmin/TenantAdmin/…) carry roles; customers have none.
+// WO-112 unified session: staff carry an admin role; customers carry only the Customer role.
 // Show the Admin Portal shortcut only for signed-in staff.
-const isAdmin = computed(() => customerAuth.isAuthenticated && auth.roles.length > 0)
+const isAdmin = computed(() => customerAuth.isAuthenticated && auth.isStaff)
 const cartCount = computed(() => itemCount.value)
 const topCategories = computed(() => categories.value.slice(0, 12))
 

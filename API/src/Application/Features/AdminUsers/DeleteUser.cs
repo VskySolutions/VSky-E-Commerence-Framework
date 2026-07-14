@@ -7,7 +7,7 @@ using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.AdminUsers;
 
-/// <summary>Soft-deletes a user (idempotent), guarding against removing the last active SuperAdmin.</summary>
+/// <summary>Soft-deletes a user (idempotent). SuperAdmin accounts are protected and can never be deleted.</summary>
 public record DeleteUserCommand(Guid Id) : IRequest;
 
 public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
@@ -26,19 +26,11 @@ public class DeleteUserCommandHandler : IRequestHandler<DeleteUserCommand>
         if (user is null)
             return;
 
+        // SuperAdmin accounts are protected — they can never be deleted (not just the last one).
         var superAdmin = nameof(RoleType.SuperAdmin);
         var isSuperAdmin = user.UserRoles.Any(ur => ur.Role is not null && ur.Role.Name == superAdmin);
-        if (isSuperAdmin && user.IsActive)
-        {
-            var otherActiveSuperAdmins = await _db.Users.CountAsync(
-                u => u.Id != user.Id
-                     && u.IsActive
-                     && u.UserRoles.Any(ur => ur.Role!.Name == superAdmin),
-                cancellationToken);
-
-            if (otherActiveSuperAdmins == 0)
-                throw new ConflictException("Cannot delete the last active SuperAdmin.");
-        }
+        if (isSuperAdmin)
+            throw new ConflictException("SuperAdmin accounts cannot be deleted.");
 
         _db.Users.Remove(user);
         await _db.SaveChangesAsync(cancellationToken);

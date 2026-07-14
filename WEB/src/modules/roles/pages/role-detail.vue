@@ -55,6 +55,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="role" :record-id="entity?.id" />
   </q-page>
 </template>
 

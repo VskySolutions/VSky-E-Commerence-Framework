@@ -24,6 +24,19 @@ const DEFAULTS = {
   accentColor: null,
   primaryColor: null,
   secondaryColor: null,
+  // HTML-tag palette (storefront). Null → keep the Porto default tokens.
+  bodyBackgroundColor: null,
+  textColor: null,
+  headingColor: null,
+  heading1Color: null,
+  heading2Color: null,
+  heading3Color: null,
+  heading4Color: null,
+  heading5Color: null,
+  heading6Color: null,
+  paragraphColor: null,
+  spanColor: null,
+  linkColor: null,
   displayTimeZone: 'UTC'
 }
 
@@ -81,6 +94,18 @@ function toModel (dto) {
     accentColor: dto.accentColor || null,
     primaryColor: dto.primaryColor || null,
     secondaryColor: dto.secondaryColor || null,
+    bodyBackgroundColor: dto.bodyBackgroundColor || null,
+    textColor: dto.textColor || null,
+    headingColor: dto.headingColor || null,
+    heading1Color: dto.heading1Color || null,
+    heading2Color: dto.heading2Color || null,
+    heading3Color: dto.heading3Color || null,
+    heading4Color: dto.heading4Color || null,
+    heading5Color: dto.heading5Color || null,
+    heading6Color: dto.heading6Color || null,
+    paragraphColor: dto.paragraphColor || null,
+    spanColor: dto.spanColor || null,
+    linkColor: dto.linkColor || null,
     displayTimeZone: dto.displayTimeZone || DEFAULTS.displayTimeZone
   }
 }
@@ -92,18 +117,36 @@ function toModel (dto) {
 // when the admin tenant store hasn't run. No-ops for unset colours (keeps the defaults).
 function applyTheme (model) {
   const root = document.documentElement
-  if (model.accentColor) {
-    root.style.setProperty('--sf-accent', model.accentColor)
-    root.style.setProperty('--sf-badge-sale', model.accentColor)
-    root.style.setProperty('--q-accent', model.accentColor)
+  // Set the CSS var when a colour is provided, else remove our override so the :root default
+  // (Porto token) returns — this lets a cleared branding colour revert on the next load.
+  const set = (name, val) => {
+    if (val) root.style.setProperty(name, val)
+    else root.style.removeProperty(name)
   }
-  if (model.primaryColor) {
-    root.style.setProperty('--sf-primary', model.primaryColor)
-    root.style.setProperty('--q-primary', model.primaryColor)
-  }
-  if (model.secondaryColor) {
-    root.style.setProperty('--q-secondary', model.secondaryColor)
-  }
+
+  // Brand tokens: accent drives links/hover/badges + the primary CTA; primary drives the dark CTA.
+  set('--sf-accent', model.accentColor)
+  set('--sf-badge-sale', model.accentColor)
+  set('--q-accent', model.accentColor)
+  set('--sf-primary', model.primaryColor)
+  set('--q-primary', model.primaryColor)
+  set('--q-secondary', model.secondaryColor)
+
+  // HTML-tag palette → storefront tokens. Per-tag tokens (--sf-h1..h6 / --sf-p / --sf-span / --sf-link)
+  // are only present when set, so the storefront.scss fallbacks (general heading / text / accent) keep
+  // the Porto defaults for anything left blank.
+  set('--sf-body-bg', model.bodyBackgroundColor)
+  set('--sf-text', model.textColor)
+  set('--sf-heading', model.headingColor)
+  set('--sf-h1', model.heading1Color)
+  set('--sf-h2', model.heading2Color)
+  set('--sf-h3', model.heading3Color)
+  set('--sf-h4', model.heading4Color)
+  set('--sf-h5', model.heading5Color)
+  set('--sf-h6', model.heading6Color)
+  set('--sf-p', model.paragraphColor)
+  set('--sf-span', model.spanColor)
+  set('--sf-link', model.linkColor)
 }
 
 export function useStorefront () {

@@ -68,7 +68,7 @@ async function onSubmit () {
       router.push(redirect)
     } else {
       // WO-112 unified login: staff land in the Admin Portal, customers stay on the storefront.
-      router.push(auth.roles.length ? { name: 'dashboard' } : { name: 'shop-account-profile' })
+      router.push(auth.isStaff ? { name: 'dashboard' } : { name: 'shop-account-profile' })
     }
   } catch (e) {
     $q.notify({ type: 'negative', message: getApiErrorMessage(e) })

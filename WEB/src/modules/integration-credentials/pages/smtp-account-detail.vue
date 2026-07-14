@@ -68,6 +68,8 @@
         </q-card-actions>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="smtp-account" :record-id="entity?.id" />
   </q-page>
 </template>
 

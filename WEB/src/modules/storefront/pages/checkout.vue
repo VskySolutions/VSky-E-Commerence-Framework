@@ -435,6 +435,17 @@
               <div class="row items-center justify-between q-mb-xs">
                 <span class="text-grey-8">
                   Shipping<span v-if="selectedShipping"> ({{ selectedShipping.name }})</span>
+                  <q-icon
+                    v-if="shippingIntegrationName"
+                    name="o_info"
+                    size="15px"
+                    class="q-ml-xs text-grey-6 cursor-pointer"
+                    style="vertical-align: middle"
+                  >
+                    <q-tooltip anchor="top middle" self="bottom middle" class="text-body2">
+                      Shipping calculation is processed by {{ shippingIntegrationName }}
+                    </q-tooltip>
+                  </q-icon>
                 </span>
                 <span>{{ format(quote.shippingTotal) }}</span>
               </div>
@@ -442,10 +453,17 @@
               <div class="row items-center justify-between q-mb-xs">
                 <span class="text-grey-8">
                   Tax
-                  <template v-if="taxProviderInfo">
-                    <q-icon :name="taxProviderInfo.icon" size="14px" class="q-ml-xs" />
-                    <span class="text-caption text-grey-6">{{ taxProviderInfo.label }}</span>
-                  </template>
+                  <q-icon
+                    v-if="taxProviderInfo"
+                    name="o_info"
+                    size="15px"
+                    class="q-ml-xs text-grey-6 cursor-pointer"
+                    style="vertical-align: middle"
+                  >
+                    <q-tooltip anchor="top middle" self="bottom middle" class="text-body2">
+                      Tax calculation is processed by {{ taxProviderInfo.label }}
+                    </q-tooltip>
+                  </q-icon>
                 </span>
                 <span>{{ format(quote.taxTotal) }}</span>
               </div>
@@ -672,6 +690,8 @@ async function setSavedAddressDefault (a) {
     // reliably — independent of any re-fetch (a cached address-book GET could otherwise show the old
     // default). The chosen address becomes the only default; all others lose it (one default per type).
     savedAddresses.value = savedAddresses.value.map((x) => ({ ...x, isDefault: x.id === a.id }))
+    // Also make it the selected delivery address (fills the form) — setting default selects it too.
+    selectSaved(a)
     notify.success('Default delivery address updated')
   } catch (e) {
     notify.error(getApiErrorMessage(e))
@@ -785,6 +805,11 @@ const canCollectDetails = computed(() => !!quote.value && isRoutable.value && gu
 const selectedShipping = computed(
   () => shippingOptions.value.find((o) => o.methodId === selectedShippingMethodId.value) || null
 )
+// Friendly name of the integration/carrier behind the selected shipping method (summary tooltip).
+const shippingIntegrationName = computed(() => {
+  const c = selectedShipping.value?.carrier
+  return c ? (CARRIER_META[c] || { label: c }).label : null
+})
 const canQuote = computed(() => requiredComplete.value && items.value.length > 0)
 
 // ---- Guest → account (express registration) ---------------------------------

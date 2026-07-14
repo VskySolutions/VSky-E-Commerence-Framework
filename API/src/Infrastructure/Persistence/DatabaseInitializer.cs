@@ -35,6 +35,7 @@ public class DatabaseInitializer
     public async Task SeedAsync(CancellationToken cancellationToken = default)
     {
         await SeedRolesAsync(cancellationToken);
+        await SeedCustomerRoleAssignmentsAsync(cancellationToken);
         await SeedPlatformSettingsAsync(cancellationToken);
         await SeedEmailTemplatesAsync(cancellationToken);
         await SeedBaseCurrencyAsync(cancellationToken);
@@ -47,6 +48,7 @@ public class DatabaseInitializer
         {
             (nameof(RoleType.SuperAdmin), "Platform-wide access."),
             (nameof(RoleType.TenantAdmin), "Full access within the deployment."),
+            (nameof(RoleType.Customer), "Storefront customer account (assigned automatically on registration)."),
         };
 
         var existing = await _db.Roles.Select(r => r.Name).ToListAsync(ct);
@@ -67,6 +69,36 @@ public class DatabaseInitializer
             await _db.SaveChangesAsync(ct);
             _logger.LogInformation("Seeded {Count} system roles.", toAdd.Count);
         }
+    }
+
+    /// <summary>
+    /// One-time (idempotent) mapping of pre-existing storefront customers onto the Customer system role.
+    /// Historically a customer was a User with a Customer profile and no RBAC roles; assign the Customer
+    /// role to each such account. New registrations already receive the role, so after the first run this
+    /// finds nothing. Staff (who carry admin roles) are untouched.
+    /// </summary>
+    private async Task SeedCustomerRoleAssignmentsAsync(CancellationToken ct)
+    {
+        var customerRoleId = await _db.Roles
+            .Where(r => r.Name == nameof(RoleType.Customer))
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(ct);
+        if (customerRoleId is not Guid roleId)
+            return;
+
+        var userIds = await _db.Users
+            .Where(u => u.Customer != null && !u.UserRoles.Any())
+            .Select(u => u.Id)
+            .ToListAsync(ct);
+        if (userIds.Count == 0)
+            return;
+
+        var now = DateTime.UtcNow;
+        foreach (var userId in userIds)
+            _db.UserRoles.Add(new UserRole { UserId = userId, RoleId = roleId, AssignedOnUtc = now });
+
+        await _db.SaveChangesAsync(ct);
+        _logger.LogInformation("Mapped {Count} existing customers onto the Customer role.", userIds.Count);
     }
 
     private async Task SeedPlatformSettingsAsync(CancellationToken ct)

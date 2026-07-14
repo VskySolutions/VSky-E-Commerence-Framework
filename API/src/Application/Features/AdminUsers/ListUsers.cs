@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.AdminUsers;
 
@@ -27,6 +28,11 @@ public class ListUsersQueryHandler : IRequestHandler<ListUsersQuery, PaginatedLi
             .Include(u => u.Customer)
             .Include(u => u.UserRoles)
                 .ThenInclude(ur => ur.Role);
+
+        // Admin/staff accounts only — exclude storefront customers. Customers carry the Customer system
+        // role; staff carry at least one other (non-Customer) role.
+        var customerRole = nameof(RoleType.Customer);
+        query = query.Where(u => u.UserRoles.Any(ur => ur.Role!.Name != customerRole));
 
         if (!string.IsNullOrWhiteSpace(request.Search))
         {

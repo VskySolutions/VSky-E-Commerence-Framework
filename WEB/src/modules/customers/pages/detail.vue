@@ -151,6 +151,8 @@
         </q-card>
       </q-dialog>
     </template>
+
+    <AppRecordMeta entity-type="customer" :record-id="customer?.id" />
   </q-page>
 </template>
 

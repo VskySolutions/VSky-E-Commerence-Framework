@@ -106,6 +106,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="manufacturer" :record-id="entity?.id" />
   </q-page>
 </template>
 

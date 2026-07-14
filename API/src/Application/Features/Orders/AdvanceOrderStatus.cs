@@ -25,19 +25,22 @@ public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStat
     private readonly ICurrentUserService _current;
     private readonly IDateTimeProvider _clock;
     private readonly IPaymentGatewayRouter _payments;
+    private readonly IInventoryService _inventory;
 
     public AdvanceOrderStatusCommandHandler(
         IApplicationDbContext db,
         IEmailTemplateSender templates,
         ICurrentUserService current,
         IDateTimeProvider clock,
-        IPaymentGatewayRouter payments)
+        IPaymentGatewayRouter payments,
+        IInventoryService inventory)
     {
         _db = db;
         _templates = templates;
         _current = current;
         _clock = clock;
         _payments = payments;
+        _inventory = inventory;
     }
 
     public async Task<OrderDto> Handle(AdvanceOrderStatusCommand request, CancellationToken cancellationToken)
@@ -86,6 +89,15 @@ public class AdvanceOrderStatusCommandHandler : IRequestHandler<AdvanceOrderStat
         });
 
         await _db.SaveChangesAsync(cancellationToken);
+
+        // Cancelling an order whose stock was committed at placement returns that stock (AC-CAT-011.5) —
+        // the reverse of the single placement decrement. The committed states are exactly the ones that
+        // reach the checkout's finalize step: Captured/Authorized (card gateways) and AwaitingPayment
+        // (COD/bank transfer). A still-unpaid Pending redirect order never decremented, so it's excluded;
+        // a refunded order was already restocked by the refund path, so it's excluded to avoid a double.
+        if (target == OrderStatus.Cancelled &&
+            order.PaymentStatus is PaymentStatus.Authorized or PaymentStatus.Captured or PaymentStatus.AwaitingPayment)
+            await _inventory.RestoreForOrderAsync(order, ct: cancellationToken);
 
         // Auto-capture an authorize-only payment when the order ships (AC-PAY-002.3). No-op for orders
         // paid up front, COD/bank-transfer, or already captured — the router only captures an open

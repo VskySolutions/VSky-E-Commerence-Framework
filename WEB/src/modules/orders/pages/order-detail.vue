@@ -27,12 +27,29 @@
               <div class="text-caption text-grey-7">Customer</div>
               <div class="text-weight-medium">{{ order.contactName || '—' }}</div>
               <div class="text-grey-8">{{ order.contactEmail || '' }}</div>
+              <div v-if="order.contactPhone" class="text-grey-8">{{ order.contactPhone }}</div>
             </div>
             <div class="col-12 col-sm-6">
               <div class="text-caption text-grey-7">Placed</div>
-              <div>{{ formatDate(order.placedOnUtc, true) }}</div>
-              <div class="text-caption text-grey-7 q-mt-xs">Total</div>
-              <div class="text-h6">{{ formatMoney(order.totalAmount) }}</div>
+              <div>{{ formatDate(order.placedOnUtc) }}</div>
+              <div class="text-caption text-grey-7 q-mt-sm">Payment</div>
+              <q-badge :color="paymentStatusColor(order.paymentStatus)" :label="humanizeEnum(order.paymentStatus) || '—'" />
+            </div>
+            <div class="col-12 col-sm-6">
+              <div class="text-caption text-grey-7">Fulfilment</div>
+              <div>
+                {{ order.isPickup ? 'Pickup in store' : 'Delivery' }}
+                <span v-if="order.assignedStoreName" class="text-grey-8">· {{ order.assignedStoreName }}</span>
+              </div>
+            </div>
+            <div v-if="order.shippingMethodName || order.shippingCarrier || order.trackingNumber" class="col-12 col-sm-6">
+              <div class="text-caption text-grey-7">Shipping</div>
+              <div>
+                <span v-if="order.shippingMethodName">{{ order.shippingMethodName }}</span>
+                <span v-if="order.shippingCarrier" class="text-grey-8"> · {{ order.shippingCarrier }}</span>
+                <span v-if="!order.shippingMethodName && !order.shippingCarrier">—</span>
+              </div>
+              <div v-if="order.trackingNumber" class="text-grey-8">Tracking: {{ order.trackingNumber }}</div>
             </div>
             <div class="col-12">
               <div class="text-caption text-grey-7">Ship to</div>
@@ -64,6 +81,40 @@
               </tr>
             </tbody>
           </q-markup-table>
+        </AppSection>
+
+        <AppSection title="Payment" class="q-mt-md">
+          <div v-if="!payments.length" class="text-grey-9">No payment records for this order.</div>
+          <q-list v-else separator>
+            <q-item v-for="p in payments" :key="p.id">
+              <q-item-section>
+                <q-item-label class="text-weight-medium">
+                  {{ paymentMethodLabel(p.method) }}
+                  <q-badge class="q-ml-sm" :color="paymentStatusColor(p.status)" :label="humanizeEnum(p.status)" />
+                </q-item-label>
+                <q-item-label v-if="p.transactionId || p.authorizationId || p.gatewayReference" caption class="text-grey-9">
+                  <span v-if="p.transactionId" class="q-mb-xs">Txn :- {{ p.transactionId }}</span>
+                  <span v-else-if="p.authorizationId" class="q-mb-xs">Auth :- {{ p.authorizationId }}</span><br />
+                  <span v-if="p.gatewayReference" class="q-mb-xs">Ref :- {{ p.gatewayReference }}</span>
+                </q-item-label>
+                <q-item-label v-if="p.authorizedOnUtc || p.capturedOnUtc || p.refundedOnUtc" caption class="text-grey-9">
+                  <span v-if="p.authorizedOnUtc" class="q-mb-xs">Authorized :- {{ formatDate(p.authorizedOnUtc) }}</span><br />
+                  <span v-if="p.capturedOnUtc" class="q-mb-xs">Captured :- {{ formatDate(p.capturedOnUtc) }}</span><br />
+                  <span v-if="p.refundedOnUtc" class="q-mb-xs">Refunded :- {{ formatDate(p.refundedOnUtc) }}</span>
+                </q-item-label>
+                <q-item-label v-if="p.status === 'Authorized' && p.authorizationExpiresUtc" caption class="text-orange-9 q-mb-xs">
+                  Authorization expires {{ formatDate(p.authorizationExpiresUtc) }}
+                </q-item-label>
+                <q-item-label v-if="p.errorMessage" caption class="text-negative q-mb-xs">{{ p.errorMessage }}</q-item-label>
+              </q-item-section>
+              <q-item-section side top>
+                <div class="text-weight-medium">{{ p.currencyCode }} {{ formatMoney(p.amount) }}</div>
+                <div v-if="p.refundedAmount > 0" class="text-caption text-deep-orange">
+                  −{{ formatMoney(p.refundedAmount) }} refunded
+                </div>
+              </q-item-section>
+            </q-item>
+          </q-list>
         </AppSection>
 
         <AppSection title="Shipments" class="q-mt-md">
@@ -104,9 +155,33 @@
         </AppSection>
       </div>
 
-      <!-- Right: action panel -->
+      <!-- Right: totals + action panel -->
       <div class="col-12 col-md-4">
-        <AppSection title="Actions">
+        <AppSection title="Order totals">
+          <div class="text-body2">
+            <div class="row justify-between q-py-xs">
+              <span class="text-grey-7">Subtotal</span><span>{{ money(order.subtotal) }}</span>
+            </div>
+            <div v-if="order.discountTotal > 0" class="row justify-between q-py-xs">
+              <span class="text-grey-7">Discount<span v-if="order.appliedCouponCode"> ({{ order.appliedCouponCode }})</span></span>
+              <span class="text-negative">−{{ money(order.discountTotal) }}</span>
+            </div>
+            <div class="row justify-between q-py-xs">
+              <span class="text-grey-7">Shipping</span><span>{{ money(order.shippingTotal) }}</span>
+            </div>
+            <div class="row justify-between q-py-xs">
+              <span class="text-grey-7">Tax <q-badge v-if="order.taxFlaggedForReview" color="orange" label="review" class="q-ml-xs" /></span>
+              <span>{{ money(order.taxTotal) }}</span>
+            </div>
+            <q-separator class="q-my-sm" />
+            <div class="row justify-between items-center">
+              <span class="text-weight-medium">Total</span>
+              <span class="text-h6">{{ money(order.totalAmount) }}</span>
+            </div>
+          </div>
+        </AppSection>
+
+        <AppSection title="Actions" class="q-mt-md">
           <div class="column q-gutter-sm">
             <q-btn
               v-for="t in transitions"
@@ -173,23 +248,29 @@
       <q-card style="min-width: 420px">
         <q-card-section class="text-subtitle1 text-weight-medium">Refund order</q-card-section>
         <q-card-section class="q-gutter-sm">
-          <q-option-group v-model="refundDialog.mode" :options="[{ label: 'Selected line items', value: 'lines' }, { label: 'Custom amount', value: 'amount' }, { label: 'Full remaining balance', value: 'full' }]" />
-          <template v-if="refundDialog.mode === 'lines'">
+          <q-option-group v-model="refundDialog.mode" inline :options="[{ label: 'Full refund', value: 'full' }, { label: 'Partial refund', value: 'partial' }]" />
+          <div v-if="refundDialog.mode === 'full'" class="text-caption text-grey-7">
+            Refunds the full remaining balance and restocks every line item.
+          </div>
+          <template v-if="refundDialog.mode === 'partial'">
+            <div class="text-caption text-grey-7">Choose the line items to refund — their value is refunded and their stock restocked.</div>
             <q-option-group
               v-model="refundDialog.lineIds"
               type="checkbox"
               :options="order.lines.map((l) => ({ label: `${l.productName} — ${formatMoney(l.lineTotal)}`, value: l.id }))"
             />
+            <div class="text-body2 text-weight-medium">Refund total: {{ formatMoney(partialRefundTotal) }}</div>
           </template>
-          <q-input v-if="refundDialog.mode === 'amount'" v-model.number="refundDialog.amount" type="number" dense outlined label="Amount" step="0.01" />
           <q-input v-model="refundDialog.reason" dense outlined label="Reason (optional)" />
         </q-card-section>
         <q-card-actions align="right">
           <q-btn flat no-caps label="Cancel" v-close-popup />
-          <q-btn color="deep-orange" unelevated no-caps label="Process refund" :loading="busy" @click="confirmRefund" />
+          <q-btn color="deep-orange" unelevated no-caps label="Process refund" :loading="busy" :disable="refundDialog.mode === 'partial' && !refundDialog.lineIds.length" @click="confirmRefund" />
         </q-card-actions>
       </q-card>
     </q-dialog>
+
+    <AppRecordMeta entity-type="order" :record-id="order?.id" />
   </q-page>
 </template>
 
@@ -205,7 +286,8 @@ import { useQuasar } from 'quasar'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import {
-  orderApi, orderStatusColor as statusColor, allowedTransitions, formatMoney, formatDate
+  orderApi, orderStatusColor as statusColor, allowedTransitions, formatMoney, formatDate,
+  paymentStatusColor, paymentMethodLabel, humanizeEnum
 } from 'modules/orders/api'
 
 const route = useRoute()
@@ -216,13 +298,22 @@ const notify = useNotify()
 const order = ref(null)
 const history = ref([])
 const shipments = ref([])
+const payments = ref([])
 const loading = ref(false)
 const busy = ref(false)
 const labelBusy = reactive({})
 
 const trackingDialog = reactive({ open: false, carrier: '', trackingNumber: '' })
 const shipmentDialog = reactive({ open: false, lines: [], carrier: '', trackingNumber: '', serviceName: '' })
-const refundDialog = reactive({ open: false, mode: 'lines', lineIds: [], amount: null, reason: '' })
+const refundDialog = reactive({ open: false, mode: 'full', lineIds: [], reason: '' })
+
+// The value refunded/restocked by a partial refund = the sum of the chosen line items' totals.
+const partialRefundTotal = computed(() => {
+  const o = order.value
+  if (!o) return 0
+  const ids = new Set(refundDialog.lineIds)
+  return o.lines.filter((l) => ids.has(l.id)).reduce((sum, l) => sum + (l.lineTotal || 0), 0)
+})
 
 const transitions = computed(() => (order.value ? allowedTransitions(order.value.status) : []))
 const shipAddress = computed(() => {
@@ -231,6 +322,11 @@ const shipAddress = computed(() => {
   return [o.addressLine1, o.addressLine2, o.city, o.stateProvince || o.region, o.postalCode, o.countryCode].filter(Boolean).join(', ') || '—'
 })
 const canShipMore = computed(() => (order.value?.lines || []).some((l) => remainingFor(l.id) > 0))
+
+// Money with the order's currency code, e.g. "USD 42.00".
+function money (value) {
+  return `${order.value?.currencyCode || ''} ${formatMoney(value)}`.trim()
+}
 
 function shippedFor (lineId) {
   return shipments.value.reduce((sum, s) => sum + s.lines.filter((x) => x.orderLineItemId === lineId).reduce((n, x) => n + x.quantity, 0), 0)
@@ -247,14 +343,16 @@ function transitionIcon (t) {
 async function load () {
   loading.value = true
   try {
-    const [o, h, s] = await Promise.all([
+    const [o, h, s, p] = await Promise.all([
       orderApi.get(route.params.id),
       orderApi.history(route.params.id).catch(() => []),
-      orderApi.shipments(route.params.id).catch(() => [])
+      orderApi.shipments(route.params.id).catch(() => []),
+      orderApi.payments(route.params.id).catch(() => [])
     ])
     order.value = o
     history.value = Array.isArray(h) ? h : []
     shipments.value = Array.isArray(s) ? s : []
+    payments.value = Array.isArray(p) ? p : []
   } catch (err) {
     notify.error(getApiErrorMessage(err))
     order.value = null
@@ -340,18 +438,17 @@ async function generateLabel (s) {
 }
 
 function openRefundDialog () {
-  refundDialog.mode = 'lines'
+  refundDialog.mode = 'full'
   refundDialog.lineIds = []
-  refundDialog.amount = null
   refundDialog.reason = ''
   refundDialog.open = true
 }
 
 async function confirmRefund () {
   const payload = { reason: refundDialog.reason || null }
-  if (refundDialog.mode === 'amount') payload.amount = Number(refundDialog.amount) || 0
-  else if (refundDialog.mode === 'lines') payload.orderLineItemIds = refundDialog.lineIds
-  // 'full' → send neither → backend refunds the full remaining balance
+  // 'partial' → send the chosen line ids; the backend refunds their value and restocks those lines.
+  // 'full' → send neither → the backend refunds the full remaining balance and restocks every line.
+  if (refundDialog.mode === 'partial') payload.orderLineItemIds = refundDialog.lineIds
   busy.value = true
   try {
     await orderApi.refund(route.params.id, payload)

@@ -20,6 +20,7 @@ import AppFilterDrawer from 'components/common/AppFilterDrawer.vue'
 import AppViewDrawer from 'components/common/AppViewDrawer.vue'
 import AppRichText from 'components/common/AppRichText.vue'
 import AppFileUpload from 'components/common/AppFileUpload.vue'
+import AppRecordMeta from 'components/common/AppRecordMeta.vue'
 import MediaSeoDialog from 'components/common/MediaSeoDialog.vue'
 import ConfirmDialog from 'components/common/ConfirmDialog.vue'
 import { mediaUrl } from 'services/api'
@@ -45,6 +46,7 @@ const globalComponents = {
   AppViewDrawer,
   AppRichText,
   AppFileUpload,
+  AppRecordMeta,
   MediaSeoDialog,
   ConfirmDialog
 }

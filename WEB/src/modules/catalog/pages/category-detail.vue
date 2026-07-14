@@ -158,6 +158,8 @@
     </template>
 
     <MediaSeoDialog v-model="lightboxOpen" :media-id="selectedMediaId" :fallback-url="lightboxUrl" @saved="onPictureSaved" />
+
+    <AppRecordMeta entity-type="category" :record-id="entity?.id" />
   </q-page>
 </template>
 

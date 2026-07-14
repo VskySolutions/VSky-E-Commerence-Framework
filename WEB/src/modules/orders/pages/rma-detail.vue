@@ -68,6 +68,8 @@
         </AppSection>
       </div>
     </div>
+
+    <AppRecordMeta entity-type="rma" :record-id="rma?.id" />
   </q-page>
 </template>
 

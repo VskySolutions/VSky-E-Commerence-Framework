@@ -57,17 +57,20 @@ public class RegisterCustomerAtCheckoutCommandHandler : IRequestHandler<Register
     private readonly IPasswordHasher _hasher;
     private readonly IEmailEnqueuer _emails;
     private readonly IRecaptchaVerifier _recaptcha;
+    private readonly IDateTimeProvider _clock;
 
     public RegisterCustomerAtCheckoutCommandHandler(
         IApplicationDbContext db,
         IPasswordHasher hasher,
         IEmailEnqueuer emails,
-        IRecaptchaVerifier recaptcha)
+        IRecaptchaVerifier recaptcha,
+        IDateTimeProvider clock)
     {
         _db = db;
         _hasher = hasher;
         _emails = emails;
         _recaptcha = recaptcha;
+        _clock = clock;
     }
 
     public async Task<RegisterAtCheckoutResult> Handle(RegisterCustomerAtCheckoutCommand request, CancellationToken cancellationToken)
@@ -81,6 +84,12 @@ public class RegisterCustomerAtCheckoutCommandHandler : IRequestHandler<Register
         var username = await GenerateUniqueUsernameAsync(email, cancellationToken);
         var fullName = $"{request.FirstName} {request.LastName}".Trim();
         var password = GeneratePassword();
+
+        // Storefront (guest-checkout) registrations are assigned the Customer system role (seeded at startup).
+        var customerRoleId = await _db.Roles
+            .Where(r => r.Name == nameof(RoleType.Customer))
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(cancellationToken);
 
         // Created already-verified: the password is delivered only to this mailbox, so first sign-in
         // proves ownership — and CustomerLogin requires a verified email.
@@ -98,6 +107,8 @@ public class RegisterCustomerAtCheckoutCommandHandler : IRequestHandler<Register
                 PhoneNumber = request.PhoneNumber,
             },
         };
+        if (customerRoleId is Guid roleId)
+            user.UserRoles.Add(new UserRole { RoleId = roleId, AssignedOnUtc = _clock.UtcNow });
         _db.Users.Add(user);
         await _db.SaveChangesAsync(cancellationToken);
 

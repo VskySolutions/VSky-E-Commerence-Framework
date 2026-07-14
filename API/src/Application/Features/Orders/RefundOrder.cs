@@ -18,19 +18,22 @@ public record RefundOrderCommand(
     List<Guid>? OrderLineItemIds = null,
     decimal? Amount = null,
     string? Reason = null,
-    bool NotifyCustomer = true) : IRequest<PaymentDto>;
+    bool NotifyCustomer = true,
+    bool RestockItems = true) : IRequest<PaymentDto>;
 
 public class RefundOrderCommandHandler : IRequestHandler<RefundOrderCommand, PaymentDto>
 {
     private readonly IApplicationDbContext _db;
     private readonly ISender _mediator;
     private readonly IEmailTemplateSender _templates;
+    private readonly IInventoryService _inventory;
 
-    public RefundOrderCommandHandler(IApplicationDbContext db, ISender mediator, IEmailTemplateSender templates)
+    public RefundOrderCommandHandler(IApplicationDbContext db, ISender mediator, IEmailTemplateSender templates, IInventoryService inventory)
     {
         _db = db;
         _mediator = mediator;
         _templates = templates;
+        _inventory = inventory;
     }
 
     public async Task<PaymentDto> Handle(RefundOrderCommand request, CancellationToken cancellationToken)
@@ -59,6 +62,19 @@ public class RefundOrderCommandHandler : IRequestHandler<RefundOrderCommand, Pay
         // RefundPaymentCommand validates the amount against the remaining refundable balance, calls the
         // originating gateway, and records the cumulative refund + payment status.
         var result = await _mediator.Send(new RefundPaymentCommand(payment.Id, amount, request.Reason), cancellationToken);
+
+        // Return the refunded units to stock (AC-CAT-011.5), the single restock path shared with cancellation.
+        // A line-item refund restocks exactly those lines; a full refund (no amount and no line filter)
+        // restocks the whole order; an amount-only partial refund can't be mapped to units, so it doesn't
+        // restock. RMA-driven refunds pass RestockItems: false — the return flow already restocked the
+        // received units via MarkAsReceivedAsync — so stock is never restored twice.
+        if (request.RestockItems)
+        {
+            if (request.OrderLineItemIds is { Count: > 0 } restockLineIds)
+                await _inventory.RestoreForOrderAsync(order, restockLineIds, cancellationToken);
+            else if (request.Amount is null)
+                await _inventory.RestoreForOrderAsync(order, ct: cancellationToken);
+        }
 
         // Notify the customer their refund was issued, via the admin-editable template. Callers that already
         // message the customer (e.g. an RMA resolution) pass NotifyCustomer: false to avoid a duplicate.

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.Customers;
 
@@ -35,11 +36,12 @@ public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, Pag
 
     public async Task<PaginatedList<CustomerListItemDto>> Handle(ListCustomersQuery request, CancellationToken cancellationToken)
     {
-        // Only genuine customers: exclude any account that carries admin/staff RBAC roles.
-        // A customer is a User with a Customer profile and zero UserRole assignments; admins
-        // also get a Customer profile at creation, so they must be filtered out here.
+        // Only genuine customers: a customer is a User carrying the Customer system role (assigned on
+        // registration and mapped for pre-existing accounts). Staff carry admin roles instead — and they
+        // also get a Customer profile at creation, so filtering by the Customer role is what excludes them.
+        var customerRole = nameof(RoleType.Customer);
         var query = _db.Customers.AsNoTracking().Include(c => c.User)
-            .Where(c => c.User != null && !c.User.UserRoles.Any())
+            .Where(c => c.User != null && c.User.UserRoles.Any(ur => ur.Role!.Name == customerRole))
             .AsQueryable();
 
         if (!string.IsNullOrWhiteSpace(request.Search))

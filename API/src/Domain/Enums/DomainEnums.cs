@@ -4,7 +4,8 @@ namespace VSky.Domain.Enums;
 public enum RoleType
 {
     SuperAdmin = 0,
-    TenantAdmin = 1
+    TenantAdmin = 1,
+    Customer = 2
 }
 
 /// <summary>Notification category that drives SMTP account resolution and suppression checks.</summary>

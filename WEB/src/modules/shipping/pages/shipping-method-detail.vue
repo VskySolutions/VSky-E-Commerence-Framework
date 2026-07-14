@@ -107,6 +107,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="shipping-method" :record-id="entity?.id" />
   </q-page>
 </template>
 

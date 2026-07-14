@@ -146,9 +146,9 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Order
             order.AssignedStoreId = storeId;
             order.RoutedOnUtc = now;
 
-            // Best-effort reservation — routing already verified availability.
-            foreach (var line in order.Lines)
-                await _inventory.DecrementStockAsync(line.ProductId, line.ProductVariantId, storeId, line.Quantity, cancellationToken);
+            // Best-effort reservation — routing already verified availability. Single stock-out path,
+            // shared with the checkout orchestrator.
+            await _inventory.DecrementForOrderAsync(order, cancellationToken);
         }
         else
         {

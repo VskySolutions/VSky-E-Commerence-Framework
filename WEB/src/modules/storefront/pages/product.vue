@@ -69,7 +69,7 @@
             />
 
             <!-- Quantity + actions -->
-            <div class="row items-center q-gutter-md q-mb-md">
+            <div class="row items-center q-gutter-md q-mb-sm">
               <div class="sf-qty row items-center no-wrap">
                 <q-btn flat dense icon="o_remove" :disable="quantity <= 1" @click="quantity = Math.max(1, quantity - 1)" />
                 <input v-model.number="quantity" type="number" min="1" class="sf-qty__input">
@@ -77,7 +77,7 @@
               </div>
               <button
                 class="sf-btn sf-btn--primary col"
-                :disabled="addingToCart || needsSelection || availability.color === 'grey'"
+                :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
                 @click="onAddToCart"
               >
                 <q-icon v-if="!addingToCart" name="o_shopping_cart" size="18px" />
@@ -85,6 +85,17 @@
                 {{ needsSelection ? 'Select options' : 'Add to Cart' }}
               </button>
             </div>
+
+            <!-- Buy Now: add the current selection and jump straight to checkout -->
+            <button
+              class="sf-btn sf-btn--dark sf-btn--block q-mb-md"
+              :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
+              @click="onBuyNow"
+            >
+              <q-icon v-if="!buyingNow" name="o_bolt" size="18px" />
+              <q-spinner v-else size="16px" />
+              {{ needsSelection ? 'Select options' : 'Buy Now' }}
+            </button>
 
             <div class="row q-gutter-sm q-mb-lg">
               <q-btn outline color="pink-6" icon="o_favorite_border" label="Wishlist" no-caps :loading="addingToWishlist" @click="onAddToWishlist" />
@@ -220,7 +231,7 @@
  * and variant option labels are ids only (VariantSelector labels by SKU + price).
  */
 import { ref, computed, watch, onMounted } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { storefrontApi, wishlistApi, formatPrice } from 'modules/storefront/api'
 import { useRecentlyViewed, useCompare } from 'modules/storefront/composables/useStorefrontStorage'
@@ -235,6 +246,7 @@ import RecentlyViewed from 'modules/storefront/components/RecentlyViewed.vue'
 import StarRating from 'modules/storefront/components/StarRating.vue'
 
 const route = useRoute()
+const router = useRouter()
 const $q = useQuasar()
 const notify = useNotify()
 const { record } = useRecentlyViewed()
@@ -246,6 +258,7 @@ const loading = ref(false)
 const variantId = ref(null)
 const quantity = ref(1)
 const addingToCart = ref(false)
+const buyingNow = ref(false)
 const addingToWishlist = ref(false)
 const tab = ref('description')
 
@@ -361,6 +374,20 @@ async function onAddToCart () {
     notify.error(getApiErrorMessage(err))
   } finally {
     addingToCart.value = false
+  }
+}
+
+// Buy Now — add the current selection to the cart, then go straight to checkout.
+// On success the component unmounts on navigation, so the spinner is only cleared on error.
+async function onBuyNow () {
+  if (!product.value || buyingNow.value || addingToCart.value) return
+  buyingNow.value = true
+  try {
+    await addItem({ productId: product.value.id, productVariantId: variantId.value || null, quantity: Math.max(1, quantity.value || 1) })
+    router.push({ name: 'shop-checkout' })
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+    buyingNow.value = false
   }
 }
 

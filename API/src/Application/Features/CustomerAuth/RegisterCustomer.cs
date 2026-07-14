@@ -71,6 +71,12 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
         var username = await GenerateUniqueUsernameAsync(email, cancellationToken);
         var fullName = $"{request.FirstName} {request.LastName}".Trim();
 
+        // Storefront registrations are assigned the Customer system role (seeded at startup).
+        var customerRoleId = await _db.Roles
+            .Where(r => r.Name == nameof(RoleType.Customer))
+            .Select(r => (Guid?)r.Id)
+            .FirstOrDefaultAsync(cancellationToken);
+
         var user = new User
         {
             Username = username,
@@ -85,6 +91,8 @@ public class RegisterCustomerCommandHandler : IRequestHandler<RegisterCustomerCo
                 PhoneNumber = request.PhoneNumber,
             },
         };
+        if (customerRoleId is Guid roleId)
+            user.UserRoles.Add(new UserRole { RoleId = roleId, AssignedOnUtc = _clock.UtcNow });
 
         // Persist identity + profile in one transaction (AC-CUS-001.2).
         _db.Users.Add(user);

@@ -1,3 +1,5 @@
+using VSky.Domain.Entities;
+
 namespace VSky.Application.Common.Interfaces;
 
 /// <summary>
@@ -45,4 +47,19 @@ public interface IInventoryService
     /// stock meets demand or the product/variant allows backorders. Used by the order routing engine.
     /// </summary>
     Task<bool> IsAvailableAsync(Guid productId, Guid? variantId, Guid storeId, int quantity, CancellationToken ct = default);
+
+    /// <summary>
+    /// The single stock-out path for a placed order: decrements every line of <paramref name="order"/> at
+    /// its <see cref="Order.AssignedStoreId"/>, each following <see cref="DecrementStockAsync"/> semantics
+    /// (backorder-aware). No-op when the order has no assigned store. Called by the checkout orchestrator
+    /// once an order is placed and paid, and by the order-placement handler after routing.
+    /// </summary>
+    Task DecrementForOrderAsync(Order order, CancellationToken ct = default);
+
+    /// <summary>
+    /// The single restock path for an order that is cancelled or refunded: restores its lines at the
+    /// order's assigned store. Restores every line by default, or only the lines whose ids appear in
+    /// <paramref name="orderLineItemIds"/> (a line-item refund). No-op when the order has no assigned store.
+    /// </summary>
+    Task RestoreForOrderAsync(Order order, IReadOnlyCollection<Guid>? orderLineItemIds = null, CancellationToken ct = default);
 }

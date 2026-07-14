@@ -78,6 +78,8 @@
         </template>
       </q-card>
     </template>
+
+    <AppRecordMeta entity-type="shipping-zone" :record-id="entity?.id" />
   </q-page>
 </template>
 

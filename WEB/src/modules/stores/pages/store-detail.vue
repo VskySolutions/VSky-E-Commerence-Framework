@@ -149,6 +149,8 @@
     </template>
 
     <DeliveryZonesDialog v-model="zonesOpen" :store="entity" />
+
+    <AppRecordMeta entity-type="store" :record-id="entity?.id" />
   </q-page>
 </template>
 
