@@ -85,8 +85,15 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         // Only a routed order has a fulfilling store, and so a concrete set of payment methods to offer.
         if (priced.Store is not null)
             quote.AvailablePaymentMethods = (await AvailablePaymentMethodsAsync(priced.Store, ct))
-                .Select(m => m.ToString())
+                .Select(m => new PaymentMethodOption { Method = m.Method.ToString(), IsProduction = m.IsProduction })
                 .ToList();
+
+        // The active tax provider (for the storefront's "calculated via …" indicator); defaults to FlatRate
+        // when no configuration row exists, mirroring TaxCalculationService.
+        quote.TaxProvider = (await _db.TaxProviderConfigurations
+            .AsNoTracking()
+            .Select(c => (TaxProviderType?)c.ActiveProvider)
+            .FirstOrDefaultAsync(ct) ?? TaxProviderType.FlatRate).ToString();
 
         return quote;
     }
@@ -96,12 +103,12 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     /// credential-configured gateways (<see cref="IPaymentGatewayRouter.AvailableMethodsAsync"/>), with Cash
     /// on Delivery included only when the store enables it (<see cref="Domain.Entities.Store.CashOnDeliveryEnabled"/>).
     /// </summary>
-    private async Task<IReadOnlyList<PaymentMethodType>> AvailablePaymentMethodsAsync(Domain.Entities.Store store, CancellationToken ct)
+    private async Task<IReadOnlyList<PaymentMethodAvailability>> AvailablePaymentMethodsAsync(Domain.Entities.Store store, CancellationToken ct)
     {
         var methods = await _payments.AvailableMethodsAsync(ct);
         return store.CashOnDeliveryEnabled
             ? methods
-            : methods.Where(m => m != PaymentMethodType.CashOnDelivery).ToList();
+            : methods.Where(m => m.Method != PaymentMethodType.CashOnDelivery).ToList();
     }
 
     public async Task<CheckoutResult> PlaceAsync(PlaceCheckoutRequest req, CancellationToken ct)
@@ -115,7 +122,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         // Enforce the store's payment-method availability (e.g. COD switched off, or a deactivated gateway)
         // server-side — the storefront only ever offers these, but never trust the client.
-        if (priced.Store is not null && !(await AvailablePaymentMethodsAsync(priced.Store, ct)).Contains(req.PaymentMethod))
+        if (priced.Store is not null && !(await AvailablePaymentMethodsAsync(priced.Store, ct)).Any(m => m.Method == req.PaymentMethod))
             throw new ConflictException("The selected payment method is not available for this order.");
 
         // Resolve the customer only when the caller is an authenticated customer; guests place a null-customer order.
@@ -265,7 +272,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         await _db.SaveChangesAsync(ct);
         await FinalizePlacedOrderAsync(order, ct);
 
-        return OrderResult(order, success: true, error: null, redirectUrl: null);
+        return OrderResult(order, success: true, error: null, redirectUrl: null, transactionId: payment.TransactionId);
     }
 
     public async Task<CheckoutResult> ConfirmAsync(Guid orderId, CancellationToken ct)
@@ -278,7 +285,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         // Idempotent: already confirmed (e.g. the buyer refreshed the return page or double-confirmed).
         if (order.PaymentStatus == PaymentStatus.Captured)
-            return OrderResult(order, success: true, error: null, redirectUrl: null);
+            return OrderResult(order, success: true, error: null, redirectUrl: null,
+                transactionId: await CapturedTransactionIdAsync(orderId, ct));
 
         var payment = await _db.PaymentRecords
             .Where(p => p.OrderId == orderId)
@@ -318,7 +326,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         await FinalizePlacedOrderAsync(order, ct);
 
-        return OrderResult(order, success: true, error: null, redirectUrl: null);
+        return OrderResult(order, success: true, error: null, redirectUrl: null, transactionId: payment.TransactionId);
     }
 
     public async Task<CheckoutResult> RetryPaymentAsync(Guid orderId, CancellationToken ct)
@@ -328,7 +336,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         // Already paid — nothing to retry.
         if (order.PaymentStatus == PaymentStatus.Captured)
-            return OrderResult(order, success: true, error: null, redirectUrl: null);
+            return OrderResult(order, success: true, error: null, redirectUrl: null,
+                transactionId: await CapturedTransactionIdAsync(orderId, ct));
 
         var payment = await _db.PaymentRecords
             .Where(p => p.OrderId == orderId)
@@ -428,7 +437,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     }
 
     /// <summary>Projects an order into the checkout result shape (shared by place/confirm/retry).</summary>
-    private static CheckoutResult OrderResult(Order order, bool success, string? error, string? redirectUrl)
+    private static CheckoutResult OrderResult(
+        Order order, bool success, string? error, string? redirectUrl, string? transactionId = null)
         => new()
         {
             OrderId = order.Id,
@@ -438,8 +448,18 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             PaymentStatus = order.PaymentStatus.ToString(),
             Success = success,
             Error = error,
+            TransactionId = transactionId,
             RedirectUrl = redirectUrl,
         };
+
+    /// <summary>The gateway transaction id of an order's captured payment (for the confirmation screen), if any.</summary>
+    private Task<string?> CapturedTransactionIdAsync(Guid orderId, CancellationToken ct)
+        => _db.PaymentRecords
+            .AsNoTracking()
+            .Where(p => p.OrderId == orderId && p.Status == PaymentStatus.Captured)
+            .OrderByDescending(p => p.CapturedOnUtc)
+            .Select(p => p.TransactionId)
+            .FirstOrDefaultAsync(ct);
 
     /// <summary>
     /// Recipients for a store's new-order alert: the store's NotificationEmail (one or more addresses
@@ -502,8 +522,11 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         // 3. Guest-ordering policy (AC-STR-001.5 / AC-CHK-003.2): load the assigned store and, if it
         // forbids guest ordering, require an authenticated buyer. A placement is rejected with a 401;
         // a quote merely reports GuestOrderingAllowed = false so the UI can prompt login/registration.
+        // Include the linked Address: the store's origin country/state/postal/city/lat-long are
+        // [NotMapped] read-throughs over Address, and tax (from_country) + carrier rates depend on them.
         var store = await _db.Stores
             .AsNoTracking()
+            .Include(s => s.Address)
             .FirstOrDefaultAsync(s => s.Id == storeId, ct)
             ?? throw new ConflictException("The assigned fulfilment store could not be loaded.");
 
@@ -617,7 +640,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         if (pickupStoreId is not Guid storeId)
             throw new ConflictException("A pickup store is required for pickup-in-store checkout.");
 
-        var store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == storeId, ct)
+        var store = await _db.Stores.AsNoTracking().Include(s => s.Address).FirstOrDefaultAsync(s => s.Id == storeId, ct)
             ?? throw new ConflictException("The selected pickup store could not be found.");
         if (!store.IsEnabled || !store.PickupEnabled)
             throw new ConflictException("The selected store does not offer pickup-in-store.");

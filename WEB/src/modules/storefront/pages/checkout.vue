@@ -22,6 +22,10 @@
             <div class="text-subtitle1 text-weight-bold">{{ orderResult.paymentStatus }}</div>
           </div>
         </div>
+        <div v-if="orderResult.transactionId" class="q-mt-lg">
+          <div class="text-caption text-grey-6">Transaction ID</div>
+          <div class="text-body2 text-weight-medium sf-txn-id">{{ orderResult.transactionId }}</div>
+        </div>
         <div class="text-caption text-grey-6 q-mt-lg">
           A confirmation email with your order details is on its way.
         </div>
@@ -118,6 +122,20 @@
                     </q-item-label>
                     <q-item-label caption>{{ formatAddr(a) }}</q-item-label>
                     <q-item-label v-if="a.phoneNumber" caption>{{ a.phoneNumber }}</q-item-label>
+                  </q-item-section>
+                  <q-item-section side top>
+                    <q-btn
+                      v-if="!a.isDefault"
+                      flat
+                      dense
+                      no-caps
+                      size="sm"
+                      color="primary"
+                      icon="o_push_pin"
+                      label="Set as default"
+                      :loading="settingDefaultId === a.id"
+                      @click.stop.prevent="setSavedAddressDefault(a)"
+                    />
                   </q-item-section>
                 </q-item>
 
@@ -252,6 +270,18 @@
         <q-card v-if="canCollectDetails" flat bordered class="q-mb-lg">
           <q-card-section>
             <div class="text-subtitle1 text-weight-bold q-mb-sm">Shipping method</div>
+            <div v-if="shippingCarriers.length" class="row items-center q-gutter-xs q-mb-sm">
+              <span class="text-caption text-grey-6">Rates from</span>
+              <q-chip
+                v-for="c in shippingCarriers"
+                :key="c.carrier"
+                dense
+                square
+                :icon="c.icon"
+                :label="c.label"
+                class="sf-partner-chip q-my-none"
+              />
+            </div>
             <q-inner-loading :showing="quoting" color="primary" />
 
             <q-list v-if="shippingOptions.length" separator>
@@ -308,7 +338,29 @@
                   </q-avatar>
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label class="text-weight-medium">{{ m.label }}</q-item-label>
+                  <q-item-label class="text-weight-medium">
+                    {{ m.label }}
+                    <q-badge
+                      v-if="m.isProduction === false"
+                      color="warning"
+                      text-color="dark"
+                      label="Sandbox"
+                      class="q-ml-xs"
+                    />
+                    <q-badge
+                      v-else-if="m.isProduction === true"
+                      color="positive"
+                      label="Live"
+                      class="q-ml-xs"
+                    />
+                    <q-badge
+                      v-else
+                      color="grey-5"
+                      text-color="dark"
+                      label="Manual"
+                      class="q-ml-xs"
+                    />
+                  </q-item-label>
                   <q-item-label caption>{{ m.hint }}</q-item-label>
                 </q-item-section>
                 <q-item-section side>
@@ -388,11 +440,17 @@
               </div>
 
               <div class="row items-center justify-between q-mb-xs">
-                <span class="text-grey-8">Tax</span>
+                <span class="text-grey-8">
+                  Tax
+                  <template v-if="taxProviderInfo">
+                    <q-icon :name="taxProviderInfo.icon" size="14px" class="q-ml-xs" />
+                    <span class="text-caption text-grey-6">{{ taxProviderInfo.label }}</span>
+                  </template>
+                </span>
                 <span>{{ format(quote.taxTotal) }}</span>
               </div>
-              <div v-if="quote.tax && quote.tax.fallbackApplied" class="text-caption text-grey-6 q-mb-xs">
-                Estimated tax — a fallback rate was applied.
+              <div v-if="quote.tax && quote.tax.fallbackApplied" class="text-caption text-orange-8 q-mb-xs">
+                Estimated tax — {{ taxProviderInfo ? `${taxProviderInfo.label} was unavailable, so a` : 'a' }} fallback rate was applied.
               </div>
 
               <q-separator class="q-my-sm" />
@@ -500,6 +558,7 @@ const selectedAddressId = ref('new') // a saved address id, or 'new' for manual 
 const profile = ref(null)
 const profileEmail = ref('')
 const saveNewAddress = ref(true)
+const settingDefaultId = ref(null) // id of the saved address whose "Set as default" is in flight
 
 // Show the manual form for guests, signed-in users with no saved address, or when "new" is chosen.
 const showAddressForm = computed(() =>
@@ -552,10 +611,11 @@ async function loadAccountAddresses () {
   }
 }
 
-// Persist the just-entered delivery address to the signed-in buyer's address book.
-async function saveCurrentAddress () {
+// Persist the just-entered delivery address to the signed-in buyer's address book. Returns the created
+// address DTO (with its new id) so the caller can select it.
+function saveCurrentAddress () {
   const a = addr.value
-  await accountApi.createAddress({
+  return accountApi.createAddress({
     addressType: 'Shipping',
     isDefault: savedAddresses.value.length === 0,
     firstName: (a.firstName || '').trim(),
@@ -570,6 +630,54 @@ async function saveCurrentAddress () {
     countryCode: (a.countryCode || '').toUpperCase().trim(),
     phoneNumber: (a.phoneNumber || '').trim() || null
   })
+}
+
+// Persist the current NEW address to the signed-in buyer's book when they calculate shipping (this is what
+// the "Save & calculate shipping" action now does). Best-effort and guarded so recalculating never creates
+// duplicates; a no-op for guests, when the "save" toggle is off, or when a saved address is already chosen.
+async function maybeSaveNewAddress () {
+  if (!isAuthed.value || !saveNewAddress.value || selectedAddressId.value !== 'new') return
+  try {
+    const created = await saveCurrentAddress()
+    if (created && created.id) {
+      // Insert + select the saved row WITHOUT touching `addr`, so the just-priced quote stays valid.
+      // The optimistic insert survives a failed refresh; the refresh then replaces it with the
+      // authoritative DTO from the address book.
+      savedAddresses.value = [...savedAddresses.value, created]
+      selectedAddressId.value = created.id
+      await refreshSavedAddresses()
+      notify.success('Address saved to your account')
+    }
+  } catch (e) { /* non-fatal: the order can still be placed with this address */ }
+}
+
+// Reload the saved shipping addresses (refreshes the Default badges) without disturbing the current
+// selection or the entered address, so an in-progress quote is preserved.
+async function refreshSavedAddresses () {
+  try {
+    const book = await accountApi.addressBook()
+    if (Array.isArray(book && book.shipping)) savedAddresses.value = book.shipping
+  } catch (e) { /* ignore */ }
+}
+
+// Make an already-saved address the default (active) delivery address. Uses the dedicated set-default
+// endpoint (only the id) so it works even if the address is missing a field the full-update validator
+// requires — flipping the default must not depend on re-validating the whole address.
+async function setSavedAddressDefault (a) {
+  if (a.isDefault || settingDefaultId.value) return
+  settingDefaultId.value = a.id
+  try {
+    await accountApi.setDefaultAddress(a.id)
+    // Move the default flag in the local list right away so the badge/button update immediately and
+    // reliably — independent of any re-fetch (a cached address-book GET could otherwise show the old
+    // default). The chosen address becomes the only default; all others lose it (one default per type).
+    savedAddresses.value = savedAddresses.value.map((x) => ({ ...x, isDefault: x.id === a.id }))
+    notify.success('Default delivery address updated')
+  } catch (e) {
+    notify.error(getApiErrorMessage(e))
+  } finally {
+    settingDefaultId.value = null
+  }
 }
 
 // ---- Guest contact persistence ----------------------------------------------
@@ -640,6 +748,37 @@ const shippingOptions = computed(() => quote.value?.shippingOptions || [])
 // A store may have no shipping methods configured for this address; in that case checkout skips the
 // shipping-method requirement and lets the order be placed directly.
 const shippingRequired = computed(() => shippingOptions.value.length > 0)
+
+// ---- Active calculation partners (shipping carriers + tax provider), shown like the payment partners ----
+// Distinct carriers behind the current shipping options — each option already reports its carrier.
+const CARRIER_META = {
+  Custom: { label: 'Store rates', icon: 'o_store' },
+  USPS: { label: 'USPS', icon: 'o_local_post_office' },
+  UPS: { label: 'UPS', icon: 'o_local_shipping' },
+  FedEx: { label: 'FedEx', icon: 'o_local_shipping' },
+  'DHL Express': { label: 'DHL Express', icon: 'o_local_shipping' }
+}
+const shippingCarriers = computed(() => {
+  const seen = new Set()
+  const out = []
+  for (const o of shippingOptions.value) {
+    if (!o.carrier || seen.has(o.carrier)) continue
+    seen.add(o.carrier)
+    out.push({ carrier: o.carrier, ...(CARRIER_META[o.carrier] || { label: o.carrier, icon: 'o_local_shipping' }) })
+  }
+  return out
+})
+
+// The active tax provider reported by the quote, mapped to a label + icon for the summary.
+const TAX_PROVIDER_META = {
+  TaxJar: { label: 'TaxJar', icon: 'o_receipt_long' },
+  StripeTax: { label: 'Stripe Tax', icon: 'o_credit_card' },
+  FlatRate: { label: 'Flat rate', icon: 'o_percent' }
+}
+const taxProviderInfo = computed(() => {
+  const p = quote.value?.taxProvider
+  return p ? (TAX_PROVIDER_META[p] || { label: p, icon: 'o_account_balance' }) : null
+})
 const isRoutable = computed(() => !!quote.value?.isRoutable)
 const guestOrderingAllowed = computed(() => (quote.value ? quote.value.guestOrderingAllowed !== false : true))
 const canCollectDetails = computed(() => !!quote.value && isRoutable.value && guestOrderingAllowed.value)
@@ -723,6 +862,8 @@ async function runQuote () {
       const cheapest = [...opts].sort((a, b) => (a.rate ?? 0) - (b.rate ?? 0))[0]
       selectedShippingMethodId.value = cheapest ? cheapest.methodId : null
     }
+    // Shipping is calculated → persist the new address to the signed-in buyer's account (best-effort).
+    await maybeSaveNewAddress()
   } catch (err) {
     quote.value = null
     quoteError.value = getApiErrorMessage(err)
@@ -770,10 +911,12 @@ const PAYMENT_METHOD_META = {
   AuthorizeNet: { label: 'Authorize.Net', icon: 'o_credit_score', hint: 'Secure card payment' },
   BankTransfer: { label: 'Bank transfer', icon: 'o_account_balance', hint: 'Transfer to our bank account; we confirm once received' }
 }
+// The quote reports each offered method with its live/sandbox mode: { method, isProduction }
+// (isProduction is null for manual methods like COD/Bank transfer, which have no gateway environment).
 const paymentMethods = computed(() =>
   (quote.value?.availablePaymentMethods || [])
-    .filter((m) => PAYMENT_METHOD_META[m])
-    .map((m) => ({ value: m, ...PAYMENT_METHOD_META[m] }))
+    .filter((m) => PAYMENT_METHOD_META[m.method])
+    .map((m) => ({ value: m.method, isProduction: m.isProduction, ...PAYMENT_METHOD_META[m.method] }))
 )
 const paymentMethod = ref(null)
 // Keep the selection valid as availability changes — default to the first offered method.
@@ -971,6 +1114,16 @@ body.body--dark .sf-payment-icon {
 
 .confirm-card {
   max-width: 640px;
+}
+.sf-txn-id {
+  font-family: 'Roboto Mono', monospace;
+  word-break: break-all;
+}
+.sf-partner-chip {
+  background: rgba(0, 0, 0, 0.05);
+}
+body.body--dark .sf-partner-chip {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .summary-card {

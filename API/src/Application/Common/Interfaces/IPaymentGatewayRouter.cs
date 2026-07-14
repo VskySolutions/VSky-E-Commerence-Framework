@@ -32,7 +32,8 @@ public interface IPaymentGatewayRouter
 
     /// <summary>
     /// The payment methods currently offered at checkout: those that are enabled and have their
-    /// credentials configured (manual methods need no credentials) — AC-PAY-001.1.
+    /// credentials configured (manual methods need no credentials) — AC-PAY-001.1. Each carries the
+    /// active credential's live/sandbox mode (null for manual methods).
     /// </summary>
-    Task<IReadOnlyList<PaymentMethodType>> AvailableMethodsAsync(CancellationToken ct = default);
+    Task<IReadOnlyList<PaymentMethodAvailability>> AvailableMethodsAsync(CancellationToken ct = default);
 }

@@ -19,6 +19,13 @@ public record PaymentRequest(
     string? OrderNumber = null);
 
 /// <summary>
+/// A payment method currently offered at checkout: the <see cref="Method"/> plus its environment —
+/// <see cref="IsProduction"/> is <c>true</c> for a live credential, <c>false</c> for sandbox/test, and
+/// <c>null</c> for manual methods (Cash on Delivery, Bank Transfer) that have no gateway environment.
+/// </summary>
+public record PaymentMethodAvailability(PaymentMethodType Method, bool? IsProduction);
+
+/// <summary>
 /// The normalized outcome of an authorize/capture/refund call, mapped from each provider's native
 /// response so callers never depend on gateway-specific shapes (REQ-PAY-001/002/003).
 /// </summary>

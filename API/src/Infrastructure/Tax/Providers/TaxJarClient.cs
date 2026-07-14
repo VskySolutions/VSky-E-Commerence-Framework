@@ -51,11 +51,12 @@ public class TaxJarClient : ITaxProviderClient
         {
             from_country = req.Origin.CountryCode,
             from_zip = req.Origin.PostalCode,
-            from_state = req.Origin.Region,
+            // The app stores state as a display name (e.g. "Florida"); TaxJar needs the 2-letter code.
+            from_state = RegionCodeNormalizer.ToStateCode(req.Origin.CountryCode, req.Origin.Region),
             from_city = req.Origin.City,
             to_country = req.Destination.CountryCode,
             to_zip = req.Destination.PostalCode,
-            to_state = req.Destination.Region,
+            to_state = RegionCodeNormalizer.ToStateCode(req.Destination.CountryCode, req.Destination.Region),
             to_city = req.Destination.City,
             amount = req.Lines.Sum(l => l.Amount * l.Quantity),
             shipping = req.ShippingAmount,
@@ -63,13 +64,16 @@ public class TaxJarClient : ITaxProviderClient
             {
                 id = (i + 1).ToString(CultureInfo.InvariantCulture),
                 quantity = l.Quantity,
-                product_tax_code = l.TaxCategoryCode,
+                // Only a real TaxJar product tax code (numeric, e.g. "31000") is valid here; the catalog
+                // stores a human-readable Tax Category name, so forward it only when it looks like a code
+                // and otherwise omit it (null is dropped by WhenWritingNull) so the line is fully taxable.
+                product_tax_code = TaxJarProductCode(l.TaxCategoryCode),
                 unit_price = l.Amount,
             }).ToArray(),
         };
 
         using var response = await client.PostAsJsonAsync($"{BaseUrl}/v2/taxes", payload, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureTaxJarSuccessAsync(response, ct);
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -97,7 +101,7 @@ public class TaxJarClient : ITaxProviderClient
             transaction_date = order.PlacedOnUtc.ToString("O"),
             to_country = order.CountryCode,
             to_zip = order.PostalCode,
-            to_state = order.Region ?? order.StateProvince,
+            to_state = RegionCodeNormalizer.ToStateCode(order.CountryCode, order.Region ?? order.StateProvince),
             to_city = order.City,
             to_street = order.AddressLine1,
             // TaxJar `amount` is the order total incl. shipping but EXCLUDING sales tax.
@@ -115,7 +119,7 @@ public class TaxJarClient : ITaxProviderClient
         };
 
         using var response = await client.PostAsJsonAsync($"{BaseUrl}/v2/transactions/orders", payload, JsonOptions, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureTaxJarSuccessAsync(response, ct);
     }
 
     private async Task<HttpClient> CreateClientAsync(CancellationToken ct)
@@ -128,7 +132,67 @@ public class TaxJarClient : ITaxProviderClient
         var client = _httpClientFactory.CreateClient("taxjar");
         client.Timeout = TimeSpan.FromSeconds(15);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        // TaxJar performs content negotiation and returns 406 (Not Acceptable) unless the request
+        // explicitly accepts JSON — HttpClient sends no Accept header by default.
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         return client;
+    }
+
+    /// <summary>Only a real TaxJar product tax code (numeric, e.g. <c>"31000"</c>) is valid; a human-readable
+    /// Tax Category name is not, so return it only when it looks like a code and otherwise <c>null</c>.</summary>
+    private static string? TaxJarProductCode(string? code)
+        => !string.IsNullOrWhiteSpace(code) && code.All(char.IsDigit) ? code : null;
+
+    /// <summary>
+    /// Throws with TaxJar's actual error detail on a non-success response. TaxJar returns a JSON body
+    /// (<c>{ "error", "detail", "status" }</c>) describing the failure; <see cref="HttpResponseMessage.EnsureSuccessStatusCode"/>
+    /// discards it and surfaces only the bare status code. Reading it means the flat-rate fallback admin
+    /// alert names the real cause instead of an opaque status such as "406 (Not Acceptable)".
+    /// </summary>
+    private static async Task EnsureTaxJarSuccessAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        string body;
+        try
+        {
+            body = await response.Content.ReadAsStringAsync(ct);
+        }
+        catch
+        {
+            body = string.Empty;
+        }
+
+        var detail = TryExtractTaxJarError(body);
+        throw new HttpRequestException(
+            $"TaxJar request failed with {(int)response.StatusCode} ({response.StatusCode})" +
+            (detail is null ? "." : $": {detail}"));
+    }
+
+    /// <summary>Extracts <c>detail</c> / <c>error</c> from a TaxJar error body, if present.</summary>
+    private static string? TryExtractTaxJarError(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var parts = new List<string>();
+            if (doc.RootElement.TryGetProperty("detail", out var d) && d.ValueKind == JsonValueKind.String)
+                parts.Add(d.GetString()!);
+            if (doc.RootElement.TryGetProperty("error", out var e) && e.ValueKind == JsonValueKind.String)
+                parts.Add($"error: {e.GetString()}");
+            return parts.Count > 0 ? string.Join(" | ", parts) : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
     }
 
     /// <summary>

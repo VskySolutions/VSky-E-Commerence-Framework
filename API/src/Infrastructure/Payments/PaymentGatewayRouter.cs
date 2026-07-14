@@ -87,9 +87,9 @@ public class PaymentGatewayRouter : IPaymentGatewayRouter
         await _db.SaveChangesAsync(ct);
     }
 
-    public async Task<IReadOnlyList<PaymentMethodType>> AvailableMethodsAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<PaymentMethodAvailability>> AvailableMethodsAsync(CancellationToken ct = default)
     {
-        var available = new List<PaymentMethodType>();
+        var available = new List<PaymentMethodAvailability>();
 
         foreach (var adapter in _adapters)
         {
@@ -100,10 +100,10 @@ public class PaymentGatewayRouter : IPaymentGatewayRouter
             if (string.Equals(enabled, "false", StringComparison.OrdinalIgnoreCase))
                 continue;
 
-            // Manual methods need no credentials; gateways must have theirs configured in the vault.
+            // Manual methods need no credentials and have no sandbox/live environment (IsProduction = null).
             if (PaymentGatewayDefaults.IsManual(method))
             {
-                available.Add(method);
+                available.Add(new PaymentMethodAvailability(method, null));
                 continue;
             }
 
@@ -111,9 +111,11 @@ public class PaymentGatewayRouter : IPaymentGatewayRouter
             if (serviceType is null)
                 continue;
 
-            var credential = await _vault.GetCredentialAsync(serviceType, ct);
-            if (!string.IsNullOrWhiteSpace(credential))
-                available.Add(method);
+            // A gateway is offered only when its active credential is configured; that row also tells us
+            // whether it is a live or sandbox account.
+            var credential = await _vault.GetResolvedCredentialAsync(serviceType, ct);
+            if (credential is not null)
+                available.Add(new PaymentMethodAvailability(method, credential.IsProduction));
         }
 
         return available;

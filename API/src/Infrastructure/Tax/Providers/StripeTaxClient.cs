@@ -51,7 +51,7 @@ public class StripeTaxClient : ITaxProviderClient
 
         using var content = new FormUrlEncodedContent(BuildForm(req));
         using var response = await client.PostAsync(CalculationsUrl, content, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureStripeSuccessAsync(response, ct);
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
         using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -88,7 +88,7 @@ public class StripeTaxClient : ITaxProviderClient
             new("reference", order.OrderNumber),
         });
         using var response = await client.PostAsync(TransactionsUrl, content, ct);
-        response.EnsureSuccessStatusCode();
+        await EnsureStripeSuccessAsync(response, ct);
     }
 
     private static List<KeyValuePair<string, string>> BuildForm(TaxCalculationRequest req)
@@ -97,7 +97,9 @@ public class StripeTaxClient : ITaxProviderClient
         {
             new("currency", "usd"),
             new("customer_details[address][country]", req.Destination.CountryCode),
-            new("customer_details[address][state]", req.Destination.Region ?? string.Empty),
+            // The app stores state as a display name (e.g. "Florida"); Stripe needs the 2-letter code.
+            new("customer_details[address][state]",
+                RegionCodeNormalizer.ToStateCode(req.Destination.CountryCode, req.Destination.Region) ?? string.Empty),
             new("customer_details[address][postal_code]", req.Destination.PostalCode ?? string.Empty),
             new("customer_details[address][city]", req.Destination.City ?? string.Empty),
             new("customer_details[address_source]", "shipping"),
@@ -109,8 +111,13 @@ public class StripeTaxClient : ITaxProviderClient
             var line = req.Lines[i];
             form.Add(new($"line_items[{i}][amount]", ToMinorUnits(line.Amount * line.Quantity)));
             form.Add(new($"line_items[{i}][reference]", line.ProductId.ToString()));
-            if (!string.IsNullOrWhiteSpace(line.TaxCategoryCode))
-                form.Add(new($"line_items[{i}][tax_code]", line.TaxCategoryCode));
+
+            // Stripe requires a registry tax code (txcd_*); the catalog stores a human-readable Tax
+            // Category *name* here, which Stripe rejects with 400 ("Invalid tax code") and so forces the
+            // flat-rate fallback on every calculation. Forward it only when it is an actual Stripe code —
+            // otherwise omit it and let Stripe apply the account's preset (default) product tax code.
+            if (IsStripeTaxCode(line.TaxCategoryCode))
+                form.Add(new($"line_items[{i}][tax_code]", line.TaxCategoryCode!));
         }
 
         return form;
@@ -118,6 +125,67 @@ public class StripeTaxClient : ITaxProviderClient
 
     private static string ToMinorUnits(decimal amount)
         => ((long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero)).ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>True when the value is an actual Stripe tax code (e.g. <c>txcd_99999999</c>) rather than a
+    /// human-readable Tax Category name, and can therefore be forwarded as <c>line_items[][tax_code]</c>.</summary>
+    private static bool IsStripeTaxCode(string? code)
+        => !string.IsNullOrWhiteSpace(code) && code.StartsWith("txcd_", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// Throws with Stripe's actual error detail on a non-success response. Stripe returns a JSON body
+    /// (<c>{ "error": { "message", "param", "code" } }</c>) explaining exactly why a request failed;
+    /// <see cref="HttpResponseMessage.EnsureSuccessStatusCode"/> discards it and surfaces only the bare
+    /// status code. Reading it means the flat-rate fallback admin alert names the real cause (e.g. an
+    /// invalid tax code and the offending parameter) instead of an opaque "400 (Bad Request)".
+    /// </summary>
+    private static async Task EnsureStripeSuccessAsync(HttpResponseMessage response, CancellationToken ct)
+    {
+        if (response.IsSuccessStatusCode)
+            return;
+
+        string body;
+        try
+        {
+            body = await response.Content.ReadAsStringAsync(ct);
+        }
+        catch
+        {
+            body = string.Empty;
+        }
+
+        var detail = TryExtractStripeError(body);
+        throw new HttpRequestException(
+            $"Stripe Tax request failed with {(int)response.StatusCode} ({response.StatusCode})" +
+            (detail is null ? "." : $": {detail}"));
+    }
+
+    /// <summary>Extracts <c>error.message</c> / <c>param</c> / <c>code</c> from a Stripe error body, if present.</summary>
+    private static string? TryExtractStripeError(string body)
+    {
+        if (string.IsNullOrWhiteSpace(body))
+            return null;
+
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (!doc.RootElement.TryGetProperty("error", out var error) || error.ValueKind != JsonValueKind.Object)
+                return null;
+
+            var parts = new List<string>();
+            if (error.TryGetProperty("message", out var m) && m.ValueKind == JsonValueKind.String)
+                parts.Add(m.GetString()!);
+            if (error.TryGetProperty("param", out var p) && p.ValueKind == JsonValueKind.String)
+                parts.Add($"param: {p.GetString()}");
+            if (error.TryGetProperty("code", out var c) && c.ValueKind == JsonValueKind.String)
+                parts.Add($"code: {c.GetString()}");
+
+            return parts.Count > 0 ? string.Join(" | ", parts) : null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+    }
 
     /// <summary>
     /// Maps a Stripe Tax calculation response onto a <see cref="TaxBreakdown"/>. Shape (amounts in minor

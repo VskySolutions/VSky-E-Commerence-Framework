@@ -199,7 +199,9 @@ async function save () {
 async function setDefault (addr) {
   if (addr.isDefault) return
   try {
-    await accountApi.updateAddress(addr.id, { ...payload(addressToPayload(addr)), isDefault: true })
+    // Dedicated set-default endpoint (only the id) — flipping the default must not re-validate the
+    // whole address, which would 400 on an address missing an optional field.
+    await accountApi.setDefaultAddress(addr.id)
     await load()
   } catch (e) {
     $q.notify({ type: 'negative', message: getApiErrorMessage(e) })

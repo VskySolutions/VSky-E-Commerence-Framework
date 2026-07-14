@@ -50,6 +50,13 @@ public class CheckoutQuote
     public decimal ShippingTotal { get; set; }
     public TaxBreakdown Tax { get; set; } = new(0m, new(), false);
     public decimal TaxTotal { get; set; }
+
+    /// <summary>
+    /// The active tax-calculation provider (<see cref="TaxProviderType"/> name: FlatRate/TaxJar/StripeTax) so
+    /// the storefront can show which partner priced the tax — see also <see cref="TaxBreakdown.FallbackApplied"/>.
+    /// </summary>
+    public string? TaxProvider { get; set; }
+
     public decimal Total { get; set; }
     public Guid? AssignedStoreId { get; set; }
     public bool IsRoutable { get; set; }
@@ -57,10 +64,21 @@ public class CheckoutQuote
 
     /// <summary>
     /// Payment methods offered for this order — the active/enabled + credential-configured gateways, plus
-    /// Cash on Delivery only when the fulfilling store allows it — as <see cref="PaymentMethodType"/> names.
-    /// The storefront renders exactly these (each mapped to its own label + icon).
+    /// Cash on Delivery only when the fulfilling store allows it. Each carries its live/sandbox mode so the
+    /// storefront can badge it. The storefront renders exactly these (each mapped to its own label + icon).
     /// </summary>
-    public List<string> AvailablePaymentMethods { get; set; } = new();
+    public List<PaymentMethodOption> AvailablePaymentMethods { get; set; } = new();
+}
+
+/// <summary>
+/// One offered payment method as surfaced to the storefront: the <see cref="PaymentMethodType"/> name plus
+/// <see cref="IsProduction"/> — <c>true</c> for a live credential, <c>false</c> for sandbox/test, and
+/// <c>null</c> for manual methods (Cash on Delivery, Bank Transfer) that have no gateway environment.
+/// </summary>
+public class PaymentMethodOption
+{
+    public string Method { get; set; } = string.Empty;
+    public bool? IsProduction { get; set; }
 }
 
 /// <summary>
@@ -96,6 +114,12 @@ public class CheckoutResult
     public string PaymentStatus { get; set; } = string.Empty;
     public bool Success { get; set; }
     public string? Error { get; set; }
+
+    /// <summary>
+    /// The gateway transaction id for a successful (captured) payment, surfaced on the order-confirmation
+    /// screen. Null for pending/redirect/failed outcomes and for methods that produce no transaction id.
+    /// </summary>
+    public string? TransactionId { get; set; }
 
     /// <summary>
     /// For redirect gateways (Stripe Checkout): the URL to send the buyer to. When set, the storefront

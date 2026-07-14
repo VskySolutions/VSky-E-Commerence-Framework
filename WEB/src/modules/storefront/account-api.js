@@ -75,6 +75,10 @@ export const accountApi = {
   updateAddress (id, payload) {
     return customerApi.put(ADDRESSES + '/' + encodeURIComponent(id), payload).then(unwrap)
   },
+  // Make a saved address the default for its type — needs only the id (no full-address re-validation).
+  setDefaultAddress (id) {
+    return customerApi.put(ADDRESSES + '/' + encodeURIComponent(id) + '/default').then(unwrap)
+  },
   removeAddress (id) {
     return customerApi.delete(ADDRESSES + '/' + encodeURIComponent(id)).then(unwrap)
   },

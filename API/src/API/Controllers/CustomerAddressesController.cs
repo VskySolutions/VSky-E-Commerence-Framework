@@ -34,6 +34,11 @@ public class CustomerAddressesController : ApiControllerBase
     public async Task<ActionResult<AddressDto>> Update(Guid id, [FromBody] UpdateAddressCommand command)
         => Ok(await Mediator.Send(command with { Id = id }));
 
+    /// <summary>Make one of the current customer's addresses the default for its type (flips only the flag).</summary>
+    [HttpPut("{id:guid}/default")]
+    public async Task<ActionResult<AddressDto>> SetDefault(Guid id)
+        => Ok(await Mediator.Send(new SetDefaultAddressCommand(id)));
+
     /// <summary>Soft-delete one of the current customer's addresses.</summary>
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Delete(Guid id)
