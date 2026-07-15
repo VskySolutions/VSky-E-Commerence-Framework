@@ -58,7 +58,8 @@ public class ListUsersQueryHandler : IRequestHandler<ListUsersQuery, PaginatedLi
         if (request.EmailVerified.HasValue)
             query = query.Where(u => u.EmailVerified == request.EmailVerified.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(u => u.Email));
 
         var page = await PaginatedList<User>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(AdminUserDto.From).ToList();

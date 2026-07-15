@@ -55,6 +55,28 @@
   border-radius: $generic-border-radius;
 }
 
+// Tabbed list pages: the sub-tab strip and the active panel's toolbar share one bordered
+// card sitting above the table card (Attributes, Promotions).
+.app-tabs-toolbar {
+  border-radius: $generic-border-radius;
+
+  &__body {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 6px 12px;
+  }
+
+  &__actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-left: auto;
+  }
+}
+
 // Consistent vertical spacing between adjacent form fields across the whole app.
 // AppTextField / AppSelect / AppDateField all wrap their control in .app-field.
 .app-field {

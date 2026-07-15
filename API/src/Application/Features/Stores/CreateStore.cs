@@ -28,6 +28,8 @@ public record CreateStoreCommand(
     int? OrderCapacityLimit = null,
     bool GuestOrderingEnabled = true,
     bool CashOnDeliveryEnabled = true,
+    bool BankTransferEnabled = true,
+    bool PickupEnabled = false,
     string? Landmark = null) : IRequest<StoreDto>;
 
 public class CreateStoreCommandValidator : AbstractValidator<CreateStoreCommand>
@@ -68,6 +70,8 @@ public class CreateStoreCommandHandler : IRequestHandler<CreateStoreCommand, Sto
             MaintenanceMode = request.MaintenanceMode,
             GuestOrderingEnabled = request.GuestOrderingEnabled,
             CashOnDeliveryEnabled = request.CashOnDeliveryEnabled,
+            BankTransferEnabled = request.BankTransferEnabled,
+            PickupEnabled = request.PickupEnabled,
             DeliveryZoneJson = request.DeliveryZoneJson,
             OrderCapacityLimit = request.OrderCapacityLimit,
         };

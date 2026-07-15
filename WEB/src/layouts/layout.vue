@@ -106,7 +106,7 @@ const router = useRouter()
 const notify = useNotify()
 
 // Absolute href to the public storefront (respects router base/history mode); opened in a new tab.
-const storeHref = router.resolve({ path: '/shop' }).href
+const storeHref = router.resolve({ name: 'shop-home' }).href
 
 const leftDrawerOpen = ref(getItem(STORAGE_KEYS.LEFT_DRAWER_OPEN, true) !== false)
 watch(leftDrawerOpen, (val) => setItem(STORAGE_KEYS.LEFT_DRAWER_OPEN, val))

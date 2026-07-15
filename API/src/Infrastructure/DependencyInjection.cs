@@ -1,3 +1,4 @@
+using System.Net;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -72,6 +73,22 @@ public static class DependencyInjection
             .PersistKeysToFileSystem(new DirectoryInfo(dpKeysPath));
 
         services.AddHttpClient();
+
+        // Carrier clients decompress responses. FedEx returns its errors gzipped whether or not we ask,
+        // and HttpClient does not decompress by default — so the body reached the log as binary noise and
+        // a compressed success response would have failed to parse as JSON at all. The carriers are named
+        // clients, so the handler is configured per name rather than globally.
+        foreach (var carrierClient in new[] { "fedex", "dhl-express", "usps", "ups" })
+        {
+            services.AddHttpClient(carrierClient)
+                .ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+                {
+                    AutomaticDecompression = DecompressionMethods.GZip
+                        | DecompressionMethods.Deflate
+                        | DecompressionMethods.Brotli,
+                });
+        }
+
         // Column protector (singleton so the cached EF model's encrypted-column converter stays valid).
         services.AddSingleton<ICredentialProtector, CredentialProtector>();
         services.AddScoped<ICredentialVault, CredentialVault>();
@@ -114,6 +131,7 @@ public static class DependencyInjection
         services.AddScoped<ICarrierClient, FedExCarrierClient>();
         services.AddScoped<ICarrierClient, UspsCarrierClient>();
         services.AddScoped<IShippingRateService, ShippingRateService>();
+        services.AddScoped<IShippingOptionSelector, VSky.Infrastructure.Shipping.ShippingOptionSelector>();
         services.AddScoped<IShippingLabelService, VSky.Infrastructure.Shipping.ShippingLabelService>();
         // Tax: calculation service + provider clients with flat-rate fallback (WO-35/36).
         services.AddScoped<ITaxProviderClient, TaxJarClient>();

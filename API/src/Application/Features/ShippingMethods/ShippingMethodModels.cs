@@ -35,6 +35,7 @@ public class ShippingMethodDto
     public decimal? FlatRate { get; set; }
     public decimal? FreeShippingThreshold { get; set; }
     public string? TiersJson { get; set; }
+    public int? TransitDays { get; set; }
     public bool IsEnabled { get; set; }
     public int DisplayOrder { get; set; }
     public IReadOnlyList<ShippingMethodZoneRateDto> ZoneRates { get; set; } = new List<ShippingMethodZoneRateDto>();
@@ -47,6 +48,7 @@ public class ShippingMethodDto
         FlatRate = m.FlatRate,
         FreeShippingThreshold = m.FreeShippingThreshold,
         TiersJson = m.TiersJson,
+        TransitDays = m.TransitDays,
         IsEnabled = m.IsEnabled,
         DisplayOrder = m.DisplayOrder,
         ZoneRates = m.ZoneRates

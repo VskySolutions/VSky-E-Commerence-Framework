@@ -90,14 +90,20 @@ public sealed class FedExCredentialConfig : IntegrationCredentialConfig<FedExCre
 {
     protected override string TableName => "Credentials_FedEx";
     protected override void ConfigureFields(EntityTypeBuilder<FedExCredential> b)
-        => b.Property(x => x.ApiKey).HasMaxLength(300);
+    {
+        b.Property(x => x.ApiKey).HasMaxLength(300);
+        b.Property(x => x.AccountNumber).HasMaxLength(50);
+    }
 }
 
 public sealed class DhlExpressCredentialConfig : IntegrationCredentialConfig<DhlExpressCredential>
 {
     protected override string TableName => "Credentials_DHLExpress";
     protected override void ConfigureFields(EntityTypeBuilder<DhlExpressCredential> b)
-        => b.Property(x => x.ApiKey).HasMaxLength(300);
+    {
+        b.Property(x => x.ApiKey).HasMaxLength(300);
+        b.Property(x => x.AccountNumber).HasMaxLength(50);
+    }
 }
 
 public sealed class UspsCredentialConfig : IntegrationCredentialConfig<UspsCredential>

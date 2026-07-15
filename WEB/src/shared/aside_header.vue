@@ -1,6 +1,6 @@
 <template>
   <router-link
-    to="/shop"
+    :to="{ name: 'shop-home' }"
     class="aside-header row items-center no-wrap q-px-md q-py-md"
     aria-label="Go to storefront"
   >

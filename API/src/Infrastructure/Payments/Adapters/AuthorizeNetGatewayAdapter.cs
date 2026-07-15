@@ -18,8 +18,6 @@ namespace VSky.Infrastructure.Payments.Adapters;
 /// </summary>
 public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string LiveEndpoint = "https://api.authorize.net/xml/v1/request.api";
-    private const string SandboxEndpoint = "https://apitest.authorize.net/xml/v1/request.api";
 
     public AuthorizeNetGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<AuthorizeNetGatewayAdapter> logger)
         : base(vault, httpClientFactory, logger) { }
@@ -129,7 +127,7 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
         if (parts.Length != 2)
             return null;
 
-        var endpoint = resolved.IsProduction ? LiveEndpoint : SandboxEndpoint;
+        var endpoint = RequireBaseUrl(resolved);
         return (parts[0], parts[1], endpoint);
     }
 

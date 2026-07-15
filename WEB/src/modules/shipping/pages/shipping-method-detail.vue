@@ -81,8 +81,13 @@
 
             <q-separator class="q-my-md" />
             <div class="row q-col-gutter-sm items-center">
+              <div class="col-6 col-md-3"><AppTextField v-model="form.transitDays" label="Delivery time (days)" type="number" placeholder="e.g. 5" :disable="!canWrite" /></div>
               <div class="col-6 col-md-3"><AppTextField v-model="form.displayOrder" label="Display order" type="number" :disable="!canWrite" /></div>
               <div class="col-auto q-mt-md"><q-toggle v-model="form.isEnabled" label="Enabled" color="primary" :disable="!canWrite" /></div>
+            </div>
+            <div class="text-caption text-grey-7">
+              Shown to customers at checkout, and used to score this method when shipping selection is automatic.
+              Leave blank if unknown.
             </div>
           </q-tab-panel>
 
@@ -172,6 +177,7 @@ function buildPayload (f) {
     flatRate: f.methodType === 'FlatRate' ? num(f.flatRate) : null,
     freeShippingThreshold: f.methodType === 'FreeShipping' ? num(f.freeShippingThreshold) : null,
     tiersJson: f.tiersJson || null,
+    transitDays: num(f.transitDays),
     isEnabled: f.isEnabled,
     displayOrder: num(f.displayOrder) || 0,
     zoneRates: (f.zoneRates || []).filter((z) => z.rate != null && z.rate !== '').map((z) => ({ shippingZoneId: z.shippingZoneId, rate: Number(z.rate) }))
@@ -188,7 +194,7 @@ const {
   buildPayload,
   empty: {
     name: '', methodType: 'FlatRate', flatRate: null, freeShippingThreshold: null,
-    tiersJson: null, isEnabled: true, displayOrder: 0, zoneRates: []
+    tiersJson: null, transitDays: null, isEnabled: true, displayOrder: 0, zoneRates: []
   },
   rules: { name: { required, maxLength: maxLength(200) } },
   afterLoad: async (e) => {

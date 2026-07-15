@@ -57,15 +57,26 @@ public abstract class PaymentGatewayAdapterBase : IPaymentGatewayAdapter
     }
 
     /// <summary>
-    /// The active credential for this gateway plus whether it is a production/live credential, or
-    /// <c>null</c> when unconfigured. Environment-aware adapters use the flag to select the live vs.
-    /// sandbox endpoint.
+    /// The active credential for this gateway plus its environment flag and endpoint, or <c>null</c> when
+    /// unconfigured.
     /// </summary>
     protected async Task<ResolvedCredential?> ResolveAsync(CancellationToken ct)
     {
         var serviceType = PaymentGatewayDefaults.CredentialServiceType(Method);
         return serviceType is null ? null : await Vault.GetResolvedCredentialAsync(serviceType, ct);
     }
+
+    /// <summary>
+    /// The endpoint this credential authenticates against, trimmed of a trailing slash. The URL is the
+    /// admin's to set, not a constant compiled in here: sandbox and live are different hosts and only the
+    /// credential row knows which account it holds, so there is deliberately no fallback to guess with —
+    /// <see cref="GuardAsync"/> turns the throw into a failed result naming the fix.
+    /// </summary>
+    protected string RequireBaseUrl(ResolvedCredential credential)
+        => string.IsNullOrWhiteSpace(credential.BaseUrl)
+            ? throw new InvalidOperationException(
+                $"The active {Method} credential has no Base URL. Set it on the integration (Integrations → {Method}).")
+            : credential.BaseUrl.Trim().TrimEnd('/');
 
     /// <summary>
     /// Runs a gateway operation, converting any exception into a failed result. Callers keep the happy

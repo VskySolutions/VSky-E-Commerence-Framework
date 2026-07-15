@@ -20,8 +20,6 @@ namespace VSky.Infrastructure.Payments.Adapters;
 /// </summary>
 public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string LiveBaseUrl = "https://api-m.paypal.com";
-    private const string SandboxBaseUrl = "https://api-m.sandbox.paypal.com";
 
     public PaypalGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<PaypalGatewayAdapter> logger)
         : base(vault, httpClientFactory, logger) { }
@@ -141,7 +139,7 @@ public class PaypalGatewayAdapter : PaymentGatewayAdapterBase
         if (parts.Length != 2)
             return null;
 
-        var baseUrl = resolved.IsProduction ? LiveBaseUrl : SandboxBaseUrl;
+        var baseUrl = RequireBaseUrl(resolved);
         var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{parts[0]}:{parts[1]}"));
 
         var client = CreateClient();

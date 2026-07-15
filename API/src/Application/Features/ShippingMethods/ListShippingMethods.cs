@@ -50,7 +50,8 @@ public class ListShippingMethodsQueryHandler : IRequestHandler<ListShippingMetho
         if (request.IsEnabled.HasValue)
             query = query.Where(m => m.IsEnabled == request.IsEnabled.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Name));
 
         var page = await PaginatedList<ShippingMethod>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ShippingMethodDto.From).ToList();

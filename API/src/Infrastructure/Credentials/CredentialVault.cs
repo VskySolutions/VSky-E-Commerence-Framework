@@ -35,22 +35,25 @@ public class CredentialVault : ICredentialVault
     {
         return serviceType switch
         {
-            // Payment gateways
+            // Payment gateways. Stripe passes no baseUrl: the Stripe.net SDK owns the host, and the key
+            // prefix (sk_test_/sk_live_) decides the mode — there is no endpoint for an admin to choose.
             "stripe"       => Resolve(await ActiveAsync(_db.StripeCredentials, cancellationToken), c => Json(new { secretKey = c.SecretKey, returnUrl = c.ReturnUrl })),
-            "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey)),
-            "razorpay"     => Resolve(await ActiveAsync(_db.RazorpayCredentials, cancellationToken), c => Pair(c.KeyId, c.KeySecret)),
-            "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), c => c.AccessToken),
-            "authorizenet" => Resolve(await ActiveAsync(_db.AuthorizeNetCredentials, cancellationToken), c => Pair(c.ApplicationLoginId, c.TransactionKey)),
+            "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey), c => c.BaseUrl),
+            "razorpay"     => Resolve(await ActiveAsync(_db.RazorpayCredentials, cancellationToken), c => Pair(c.KeyId, c.KeySecret), c => c.BaseUrl),
+            "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), c => c.AccessToken, c => c.BaseUrl),
+            "authorizenet" => Resolve(await ActiveAsync(_db.AuthorizeNetCredentials, cancellationToken), c => Pair(c.ApplicationLoginId, c.TransactionKey), c => c.BaseUrl),
             // Tax providers
-            "taxjar"       => Resolve(await ActiveAsync(_db.TaxJarCredentials, cancellationToken), c => c.SecretKey),
-            "stripe-tax"   => Resolve(await ActiveAsync(_db.StripeTaxCredentials, cancellationToken), c => c.SecretKey),
+            "taxjar"       => Resolve(await ActiveAsync(_db.TaxJarCredentials, cancellationToken), c => c.SecretKey, c => c.BaseUrl),
+            "stripe-tax"   => Resolve(await ActiveAsync(_db.StripeTaxCredentials, cancellationToken), c => c.SecretKey, c => c.BaseUrl),
             // Storage
             "azure-blob"   => Resolve(await ActiveAsync(_db.AzureBlobCredentials, cancellationToken), c => c.ConnectionString),
-            // Shipping carriers (adapters parse a small JSON document)
-            "fedex"        => Resolve(await ActiveAsync(_db.FedExCredentials, cancellationToken), c => Json(new { apiKey = c.ApiKey, secretKey = c.ApiSecret })),
-            "dhl"          => Resolve(await ActiveAsync(_db.DhlExpressCredentials, cancellationToken), c => Json(new { apiKey = c.ApiKey, apiSecret = c.ApiSecret })),
-            "usps"         => Resolve(await ActiveAsync(_db.UspsCredentials, cancellationToken), c => Json(new { consumerKey = c.ConsumerKey, consumerSecret = c.ConsumerSecret })),
-            "ups"          => Resolve(await ActiveAsync(_db.UpsCredentials, cancellationToken), c => Json(new { clientId = c.ClientId, clientSecret = c.ClientSecret, merchantId = c.MerchantId })),
+            // Shipping carriers (adapters parse a small JSON document). baseUrl is not optional decoration:
+            // it is the only thing telling the adapter whether this account lives on the sandbox or the live
+            // host, and the adapters hold no fallback of their own.
+            "fedex"        => Resolve(await ActiveAsync(_db.FedExCredentials, cancellationToken), c => Json(new { baseUrl = c.BaseUrl, apiKey = c.ApiKey, secretKey = c.ApiSecret, accountNumber = c.AccountNumber })),
+            "dhl"          => Resolve(await ActiveAsync(_db.DhlExpressCredentials, cancellationToken), c => Json(new { baseUrl = c.BaseUrl, apiKey = c.ApiKey, apiSecret = c.ApiSecret, accountNumber = c.AccountNumber })),
+            "usps"         => Resolve(await ActiveAsync(_db.UspsCredentials, cancellationToken), c => Json(new { baseUrl = c.BaseUrl, consumerKey = c.ConsumerKey, consumerSecret = c.ConsumerSecret })),
+            "ups"          => Resolve(await ActiveAsync(_db.UpsCredentials, cancellationToken), c => Json(new { baseUrl = c.BaseUrl, clientId = c.ClientId, clientSecret = c.ClientSecret, merchantId = c.MerchantId })),
             _              => null,
         };
     }
@@ -62,12 +65,18 @@ public class CredentialVault : ICredentialVault
             .OrderByDescending(x => x.UpdatedOnUtc)
             .FirstOrDefaultAsync(ct);
 
-    /// <summary>Projects the active row's credential string and pairs it with its production flag; null when unusable.</summary>
-    private static ResolvedCredential? Resolve<T>(T? credential, Func<T, string?> project) where T : IntegrationCredentialBase
+    /// <summary>
+    /// Projects the active row's credential string and pairs it with its production flag and endpoint; null
+    /// when unusable. <paramref name="baseUrl"/> is omitted only for providers with no host to choose.
+    /// </summary>
+    private static ResolvedCredential? Resolve<T>(
+        T? credential, Func<T, string?> project, Func<T, string?>? baseUrl = null) where T : IntegrationCredentialBase
     {
         if (credential is null) return null;
         var value = project(credential);
-        return string.IsNullOrWhiteSpace(value) ? null : new ResolvedCredential(value, credential.IsProduction);
+        return string.IsNullOrWhiteSpace(value)
+            ? null
+            : new ResolvedCredential(value, credential.IsProduction, baseUrl?.Invoke(credential));
     }
 
     /// <summary>Colon-joined "id:secret" pair; null unless both halves are present.</summary>

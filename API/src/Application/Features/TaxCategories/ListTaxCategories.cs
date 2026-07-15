@@ -42,7 +42,8 @@ public class ListTaxCategoriesQueryHandler : IRequestHandler<ListTaxCategoriesQu
         if (request.ActiveOnly == true)
             query = query.Where(t => t.IsActive);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(t => t.DisplayOrder).ThenBy(t => t.Name));
 
         var page = await PaginatedList<TaxCategory>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(TaxCategoryDto.From).ToList();

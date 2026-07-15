@@ -2,8 +2,11 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
+using VSky.Domain.Enums;
+using VSky.Infrastructure.Common;
 
 namespace VSky.Infrastructure.Shipping.Carriers;
 
@@ -22,21 +25,24 @@ namespace VSky.Infrastructure.Shipping.Carriers;
 public class FedExCarrierClient : ICarrierClient
 {
     private const string CredentialKey = "fedex";
-    private const string DefaultBaseUrl = "https://apis.fedex.com";
     private const string TokenPath = "/oauth/token";
     private const string RatePath = "/rate/v1/rates/quotes";
     private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(15);
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICredentialVault _vault;
+    private readonly ILogger<FedExCarrierClient> _logger;
 
-    public FedExCarrierClient(IHttpClientFactory httpClientFactory, ICredentialVault vault)
+    public FedExCarrierClient(
+        IHttpClientFactory httpClientFactory, ICredentialVault vault, ILogger<FedExCarrierClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _vault = vault;
+        _logger = logger;
     }
 
     public string CarrierName => "FedEx";
+    public ShippingCarrierType Carrier => ShippingCarrierType.FedEx;
 
     public async Task<IReadOnlyList<ShippingRateOption>> GetRatesAsync(CarrierRateRequest request, CancellationToken ct)
     {
@@ -48,11 +54,18 @@ public class FedExCarrierClient : ICarrierClient
         if (string.IsNullOrWhiteSpace(credential.ApiKey) || string.IsNullOrWhiteSpace(credential.SecretKey))
             return Array.Empty<ShippingRateOption>();
 
+        // The endpoint is configuration, not a constant: sandbox and live are different hosts, and only the
+        // credential knows which account it belongs to. No fallback — guessing sends sandbox keys to the
+        // live host, which fails with an opaque 403.
+        if (string.IsNullOrWhiteSpace(credential.BaseUrl))
+            throw new InvalidOperationException(
+                "The active FedEx credential has no Base URL. Set it on the integration (Integrations → FedEx).");
+
         try
         {
             var client = _httpClientFactory.CreateClient("fedex");
             client.Timeout = HttpTimeout;
-            var baseUrl = string.IsNullOrWhiteSpace(credential.BaseUrl) ? DefaultBaseUrl : credential.BaseUrl!.TrimEnd('/');
+            var baseUrl = credential.BaseUrl!.TrimEnd('/');
 
             var token = await GetAccessTokenAsync(client, baseUrl, credential, ct);
             if (string.IsNullOrWhiteSpace(token))
@@ -65,19 +78,23 @@ public class FedExCarrierClient : ICarrierClient
 
             using var response = await client.SendAsync(httpRequest, ct);
             if (!response.IsSuccessStatusCode)
+            {
+                await CarrierHttpDiagnostics.LogFailedResponseAsync(_logger, CarrierName, "rate", response, ct);
                 return Array.Empty<ShippingRateOption>();
+            }
 
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             return MapResponse(document.RootElement);
         }
-        catch
+        catch (Exception ex)
         {
+            _logger.LogWarning(ex, "Shipping carrier {Carrier} rate call threw.", CarrierName);
             return Array.Empty<ShippingRateOption>();
         }
     }
 
-    private static async Task<string?> GetAccessTokenAsync(HttpClient client, string baseUrl, FedExCredential credential, CancellationToken ct)
+    private async Task<string?> GetAccessTokenAsync(HttpClient client, string baseUrl, FedExCredential credential, CancellationToken ct)
     {
         using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}{TokenPath}")
         {
@@ -91,7 +108,10 @@ public class FedExCarrierClient : ICarrierClient
 
         using var tokenResponse = await client.SendAsync(tokenRequest, ct);
         if (!tokenResponse.IsSuccessStatusCode)
+        {
+            await CarrierHttpDiagnostics.LogFailedResponseAsync(_logger, CarrierName, "OAuth token", tokenResponse, ct);
             return null;
+        }
 
         await using var stream = await tokenResponse.Content.ReadAsStreamAsync(ct);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -101,6 +121,9 @@ public class FedExCarrierClient : ICarrierClient
     private static object BuildRequestBody(CarrierRateRequest request, FedExCredential credential) => new
     {
         accountNumber = new { value = credential.AccountNumber ?? string.Empty },
+        // returnTransitTimes populates the `commit` node, which is the only source of a delivery estimate
+        // on this endpoint; without it every FedEx option would score as unknown-speed.
+        rateRequestControlParameters = new { returnTransitTimes = true },
         requestedShipment = new
         {
             shipper = new { address = BuildAddress(request.Origin) },
@@ -114,11 +137,15 @@ public class FedExCarrierClient : ICarrierClient
         },
     };
 
+    /// <summary>
+    /// FedEx rates against the 2-letter state code and rejects the display name the address form stores,
+    /// so the region is normalized here rather than sent as typed.
+    /// </summary>
     private static object BuildAddress(CarrierAddress address) => new
     {
         postalCode = address.PostalCode ?? string.Empty,
         countryCode = address.CountryCode ?? string.Empty,
-        stateOrProvinceCode = address.Region ?? string.Empty,
+        stateOrProvinceCode = RegionCodeNormalizer.ToStateCode(address.CountryCode, address.Region) ?? string.Empty,
     };
 
     private static IReadOnlyList<ShippingRateOption> MapResponse(JsonElement root)
@@ -154,11 +181,82 @@ public class FedExCarrierClient : ICarrierClient
                 MethodId: serviceType ?? "FedEx",
                 Name: serviceType is null ? "FedEx" : $"FedEx {serviceType.Replace('_', ' ')}",
                 Carrier: "FedEx",
-                EstimatedDeliveryDays: null,
+                EstimatedDeliveryDays: ReadTransitDays(detail),
                 Rate: rate.Value));
         }
 
         return options;
+    }
+
+    /// <summary>
+    /// Reads a transit estimate from a rate reply. FedEx expresses it as a word enum ("TWO_DAYS") on either
+    /// <c>commit.transitDays.minimumTransitTime</c> or <c>operationalDetail.transitTime</c>, and repeats it
+    /// as prose in <c>commit.transitDays.description</c> ("2 business days"). Returns null when absent —
+    /// some services are unrated for transit, and the caller treats null as unknown rather than instant.
+    /// </summary>
+    private static int? ReadTransitDays(JsonElement detail)
+    {
+        if (detail.TryGetProperty("commit", out var commit) &&
+            commit.TryGetProperty("transitDays", out var transitDays))
+        {
+            if (transitDays.TryGetProperty("minimumTransitTime", out var minimum) &&
+                ParseTransitWord(minimum.GetString()) is { } fromWord)
+                return fromWord;
+
+            if (transitDays.TryGetProperty("description", out var description) &&
+                ParseLeadingInt(description.GetString()) is { } fromText)
+                return fromText;
+        }
+
+        if (detail.TryGetProperty("operationalDetail", out var operational) &&
+            operational.TryGetProperty("transitTime", out var transitTime) &&
+            ParseTransitWord(transitTime.GetString()) is { } fromOperational)
+            return fromOperational;
+
+        return null;
+    }
+
+    /// <summary>Maps a FedEx transit-time enum word ("ONE_DAY", "TWO_DAYS", …) to a day count.</summary>
+    private static int? ParseTransitWord(string? word)
+    {
+        if (string.IsNullOrWhiteSpace(word))
+            return null;
+
+        var number = word.Split('_')[0].ToUpperInvariant();
+        return number switch
+        {
+            "ONE" => 1,
+            "TWO" => 2,
+            "THREE" => 3,
+            "FOUR" => 4,
+            "FIVE" => 5,
+            "SIX" => 6,
+            "SEVEN" => 7,
+            "EIGHT" => 8,
+            "NINE" => 9,
+            "TEN" => 10,
+            "ELEVEN" => 11,
+            "TWELVE" => 12,
+            "THIRTEEN" => 13,
+            "FOURTEEN" => 14,
+            "FIFTEEN" => 15,
+            "SIXTEEN" => 16,
+            "SEVENTEEN" => 17,
+            "EIGHTEEN" => 18,
+            "NINETEEN" => 19,
+            "TWENTY" => 20,
+            _ => null,
+        };
+    }
+
+    /// <summary>Pulls the leading integer out of prose like "2 business days".</summary>
+    private static int? ParseLeadingInt(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+            return null;
+
+        var digits = new string(text.TrimStart().TakeWhile(char.IsDigit).ToArray());
+        return int.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out var value) ? value : null;
     }
 
     private sealed record FedExCredential(string? ApiKey, string? SecretKey, string? AccountNumber, string? BaseUrl)

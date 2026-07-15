@@ -15,6 +15,7 @@ public record CreateShippingMethodCommand(
     decimal? FlatRate = null,
     decimal? FreeShippingThreshold = null,
     string? TiersJson = null,
+    int? TransitDays = null,
     bool IsEnabled = true,
     int DisplayOrder = 0,
     List<ShippingMethodZoneRateInput>? ZoneRates = null) : IRequest<ShippingMethodDto>;
@@ -27,6 +28,7 @@ public class CreateShippingMethodCommandValidator : AbstractValidator<CreateShip
         RuleFor(x => x.MethodType).IsInEnum();
         RuleFor(x => x.FlatRate).GreaterThanOrEqualTo(0).When(x => x.FlatRate.HasValue);
         RuleFor(x => x.FreeShippingThreshold).GreaterThanOrEqualTo(0).When(x => x.FreeShippingThreshold.HasValue);
+        RuleFor(x => x.TransitDays).InclusiveBetween(0, 365).When(x => x.TransitDays.HasValue);
         RuleForEach(x => x.ZoneRates).ChildRules(r =>
         {
             r.RuleFor(z => z.ShippingZoneId).NotEmpty();
@@ -67,6 +69,7 @@ public class CreateShippingMethodCommandHandler : IRequestHandler<CreateShipping
             FlatRate = request.FlatRate,
             FreeShippingThreshold = request.FreeShippingThreshold,
             TiersJson = request.TiersJson,
+            TransitDays = request.TransitDays,
             IsEnabled = request.IsEnabled,
             DisplayOrder = request.DisplayOrder,
         };

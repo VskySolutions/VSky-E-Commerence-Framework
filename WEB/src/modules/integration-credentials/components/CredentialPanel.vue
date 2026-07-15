@@ -102,26 +102,31 @@
 
         <q-separator class="q-my-sm" />
 
-        <AppTextField
-          v-for="field in item.fields"
-          :key="field.key"
-          v-model="form.fields[field.key]"
-          :label="field.label"
-          :required="!!field.required"
-          :rules="field.required ? [requiredRule] : []"
-          :type="field.secret && !reveal[field.key] ? 'password' : 'text'"
-          :placeholder="field.placeholder || ''"
-          :hint="field.hint || undefined"
-          autocomplete="new-password"
-        >
-          <template v-if="field.secret" #append>
-            <q-icon
-              :name="reveal[field.key] ? 'o_visibility_off' : 'o_visibility'"
-              class="cursor-pointer"
-              @click="reveal[field.key] = !reveal[field.key]"
-            />
-          </template>
-        </AppTextField>
+        <div v-for="field in item.fields" :key="field.key">
+          <AppTextField
+            v-model="form.fields[field.key]"
+            :label="field.label"
+            :required="!!field.required"
+            :rules="field.required ? [requiredRule] : []"
+            :type="field.secret && !reveal[field.key] ? 'password' : 'text'"
+            :placeholder="field.placeholder || ''"
+            autocomplete="new-password"
+          >
+            <template v-if="field.secret" #append>
+              <q-icon
+                :name="reveal[field.key] ? 'o_visibility_off' : 'o_visibility'"
+                class="cursor-pointer"
+                @click="reveal[field.key] = !reveal[field.key]"
+              />
+            </template>
+          </AppTextField>
+
+          <!-- One line per environment: these are URLs to read and copy, and a single run-on line of them
+               is neither. -->
+          <div v-if="field.hints?.length" class="text-caption text-grey-6 q-mt-xs">
+            <div v-for="hint in field.hints" :key="hint">{{ hint }}</div>
+          </div>
+        </div>
 
         <div class="text-caption text-grey-6 q-mt-sm">
           Setting a credential Active deactivates any other {{ item.label }} credential — the runtime uses the single active row.
@@ -157,12 +162,21 @@ const notify = useNotify()
 const { has } = usePermissions()
 const canWrite = computed(() => has(Permissions.CredentialsWrite))
 
-const columns = [
+// Only the integrations that actually have an endpoint to choose declare a baseUrl field — the rest would
+// show a column they can never fill.
+const hasBaseUrl = computed(() => (props.item.fields || []).some((f) => f.key === 'baseUrl'))
+
+// With a sandbox and a live row side by side, the URL is what tells them apart: Environment says which one
+// it claims to be, this says where it actually goes.
+const columns = computed(() => [
   { name: 'name', label: 'Name', field: 'name', align: 'left', sortable: true },
+  ...(hasBaseUrl.value
+    ? [{ name: 'baseUrl', label: 'URL', field: 'baseUrl', align: 'left', sortable: true }]
+    : []),
   { name: 'active', label: 'Active', field: 'active', align: 'center' },
   { name: 'isProduction', label: 'Environment', field: 'isProduction', align: 'center' },
   { name: 'updatedOnUtc', label: 'Updated', field: 'updatedOnUtc', align: 'left', sortable: true }
-]
+])
 
 const rows = ref([])
 const loading = ref(false)

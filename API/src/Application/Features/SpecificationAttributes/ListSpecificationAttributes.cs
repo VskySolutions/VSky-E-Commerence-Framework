@@ -37,7 +37,8 @@ public class ListSpecificationAttributesQueryHandler : IRequestHandler<ListSpeci
         if (request.IsFilterable.HasValue)
             query = query.Where(a => a.IsFilterable == request.IsFilterable.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name));
 
         var page = await PaginatedList<SpecificationAttribute>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(SpecificationAttributeDto.From).ToList();

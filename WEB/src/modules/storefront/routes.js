@@ -1,14 +1,18 @@
 /*
  * Storefront module routes (WO-19).
  *
- * Default-exports an ARRAY with ONE parent route: the PUBLIC storefront shell at
- * "/shop" (its own storefront_layout, not the authenticated app shell). Children
- * are public — no meta.requiresAuth and no meta.permissions.
+ * Default-exports an ARRAY with ONE parent route: the PUBLIC storefront shell mounted at
+ * "/" (its own storefront_layout, not the authenticated app shell). Children are public —
+ * no meta.requiresAuth and no meta.permissions.
  *
- * The parent router (router/index.js) should spread this into the TOP-LEVEL
- * `routes` array (alongside authRoutes / appShellRoute), NOT into
- * appShellRoute.children, because it brings its own layout and must not require
- * authentication.
+ * The storefront home is the site landing page and lives at the bare root "/"; every other
+ * storefront page keeps its "/shop/*" URL, and the legacy "/shop" root redirects to "/".
+ * Link to the landing page by NAME ({ name: 'shop-home' }), never by hardcoding a path.
+ *
+ * The parent router (router/index.js) should spread this into the TOP-LEVEL `routes` array
+ * AHEAD of appShellRoute — both are mounted at "/", so registration order decides which one
+ * owns the bare root. It must not go into appShellRoute.children, because it brings its own
+ * layout and must not require authentication.
  */
 import { getStoredToken } from 'services/storage'
 
@@ -21,53 +25,56 @@ function requireCustomer (to, from, next) {
 
 export default [
   {
-    path: '/shop',
+    path: '/',
     component: () => import('layouts/storefront_layout.vue'),
     children: [
+      // The landing page: the bare site root, NOT /shop.
       {
         path: '',
         name: 'shop-home',
         meta: { title: 'Shop' },
         component: () => import('modules/storefront/pages/home.vue')
       },
+      // Legacy storefront root — bookmarks and old links land on the real one.
+      { path: 'shop', redirect: { name: 'shop-home' } },
       {
-        path: 'category/:idOrSlug',
+        path: 'shop/category/:idOrSlug',
         name: 'shop-category',
         meta: { title: 'Category' },
         component: () => import('modules/storefront/pages/category.vue')
       },
       {
-        path: 'product/:idOrSlug',
+        path: 'shop/product/:idOrSlug',
         name: 'shop-product',
         meta: { title: 'Product' },
         component: () => import('modules/storefront/pages/product.vue')
       },
       {
-        path: 'search',
+        path: 'shop/search',
         name: 'shop-search',
         meta: { title: 'Search' },
         component: () => import('modules/storefront/pages/search.vue')
       },
       {
-        path: 'compare',
+        path: 'shop/compare',
         name: 'shop-compare',
         meta: { title: 'Compare' },
         component: () => import('modules/storefront/pages/compare.vue')
       },
       {
-        path: 'cart',
+        path: 'shop/cart',
         name: 'shop-cart',
         meta: { title: 'Cart' },
         component: () => import('modules/storefront/pages/cart.vue')
       },
       {
-        path: 'wishlist',
+        path: 'shop/wishlist',
         name: 'shop-wishlist',
         meta: { title: 'Wishlist' },
         component: () => import('modules/storefront/pages/wishlist.vue')
       },
       {
-        path: 'checkout',
+        path: 'shop/checkout',
         name: 'shop-checkout',
         meta: { title: 'Checkout' },
         component: () => import('modules/storefront/pages/checkout.vue')
@@ -77,30 +84,30 @@ export default [
       {
         // The single login lives at /auth/login (WO-112); /shop/login redirects there,
         // preserving any post-login return path.
-        path: 'login',
+        path: 'shop/login',
         name: 'shop-login',
         redirect: (to) => ({ path: '/auth/login', query: to.query })
       },
       {
-        path: 'register',
+        path: 'shop/register',
         name: 'shop-register',
         meta: { title: 'Create account' },
         component: () => import('modules/storefront/pages/account/register.vue')
       },
       {
-        path: 'verify-email',
+        path: 'shop/verify-email',
         name: 'shop-verify-email',
         meta: { title: 'Verify email' },
         component: () => import('modules/storefront/pages/account/verify-email.vue')
       },
       {
-        path: 'forgot-password',
+        path: 'shop/forgot-password',
         name: 'shop-forgot-password',
         meta: { title: 'Reset password' },
         component: () => import('modules/storefront/pages/account/forgot-password.vue')
       },
       {
-        path: 'reset-password',
+        path: 'shop/reset-password',
         name: 'shop-reset-password',
         meta: { title: 'Choose a new password' },
         component: () => import('modules/storefront/pages/account/reset-password.vue')
@@ -108,7 +115,7 @@ export default [
 
       // ---- Customer account (authenticated) — WO-21 ----------------------
       {
-        path: 'account',
+        path: 'shop/account',
         component: () => import('modules/storefront/pages/account/account.vue'),
         beforeEnter: requireCustomer,
         children: [

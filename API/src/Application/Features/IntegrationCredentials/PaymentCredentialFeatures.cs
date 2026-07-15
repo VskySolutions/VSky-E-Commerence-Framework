@@ -94,6 +94,7 @@ public class PayPalCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? ClientId { get; set; }
     public string? SecretKey { get; set; }
     public DateTime CreatedOnUtc { get; set; }
@@ -102,7 +103,7 @@ public class PayPalCredentialDto
     public static PayPalCredentialDto From(PayPalCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        ClientId = e.ClientId, SecretKey = e.SecretKey,
+        BaseUrl = e.BaseUrl, ClientId = e.ClientId, SecretKey = e.SecretKey,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -115,7 +116,7 @@ public class ListPayPalCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListPayPalCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListPayPalCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.PayPalCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.PayPalCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetPayPalCredentialQuery(Guid Id) : IRequest<PayPalCredentialDto>;
@@ -130,13 +131,16 @@ public class GetPayPalCredentialQueryHandler : IRequestHandler<GetPayPalCredenti
 
 public record SavePayPalCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? ClientId, string? SecretKey) : IRequest<PayPalCredentialDto>;
+    string? BaseUrl, string? ClientId, string? SecretKey) : IRequest<PayPalCredentialDto>;
 
 public class SavePayPalCredentialCommandValidator : AbstractValidator<SavePayPalCredentialCommand>
 {
     public SavePayPalCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://api-m.sandbox.paypal.com");
         RuleFor(x => x.ClientId).NotEmpty();
         RuleFor(x => x.SecretKey).NotEmpty();
     }
@@ -149,6 +153,7 @@ public class SavePayPalCredentialCommandHandler : IRequestHandler<SavePayPalCred
     public async Task<PayPalCredentialDto> Handle(SavePayPalCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.PayPalCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ClientId = IntegrationCredentialSupport.Norm(request.ClientId);
         e.SecretKey = IntegrationCredentialSupport.Norm(request.SecretKey);
         await _db.SaveChangesAsync(ct);
@@ -174,6 +179,7 @@ public class RazorpayCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? KeyId { get; set; }
     public string? KeySecret { get; set; }
     public DateTime CreatedOnUtc { get; set; }
@@ -182,7 +188,7 @@ public class RazorpayCredentialDto
     public static RazorpayCredentialDto From(RazorpayCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        KeyId = e.KeyId, KeySecret = e.KeySecret,
+        BaseUrl = e.BaseUrl, KeyId = e.KeyId, KeySecret = e.KeySecret,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -195,7 +201,7 @@ public class ListRazorpayCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListRazorpayCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListRazorpayCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.RazorpayCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.RazorpayCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetRazorpayCredentialQuery(Guid Id) : IRequest<RazorpayCredentialDto>;
@@ -210,13 +216,16 @@ public class GetRazorpayCredentialQueryHandler : IRequestHandler<GetRazorpayCred
 
 public record SaveRazorpayCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? KeyId, string? KeySecret) : IRequest<RazorpayCredentialDto>;
+    string? BaseUrl, string? KeyId, string? KeySecret) : IRequest<RazorpayCredentialDto>;
 
 public class SaveRazorpayCredentialCommandValidator : AbstractValidator<SaveRazorpayCredentialCommand>
 {
     public SaveRazorpayCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://api.razorpay.com/v1");
         RuleFor(x => x.KeyId).NotEmpty();
         RuleFor(x => x.KeySecret).NotEmpty();
     }
@@ -229,6 +238,7 @@ public class SaveRazorpayCredentialCommandHandler : IRequestHandler<SaveRazorpay
     public async Task<RazorpayCredentialDto> Handle(SaveRazorpayCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.RazorpayCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.KeyId = IntegrationCredentialSupport.Norm(request.KeyId);
         e.KeySecret = IntegrationCredentialSupport.Norm(request.KeySecret);
         await _db.SaveChangesAsync(ct);
@@ -254,6 +264,7 @@ public class SquareCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? ApplicationId { get; set; }
     public string? AccessToken { get; set; }
     public string? ApplicationSecret { get; set; }
@@ -263,7 +274,7 @@ public class SquareCredentialDto
     public static SquareCredentialDto From(SquareCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        ApplicationId = e.ApplicationId, AccessToken = e.AccessToken, ApplicationSecret = e.ApplicationSecret,
+        BaseUrl = e.BaseUrl, ApplicationId = e.ApplicationId, AccessToken = e.AccessToken, ApplicationSecret = e.ApplicationSecret,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -276,7 +287,7 @@ public class ListSquareCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListSquareCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListSquareCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.SquareCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.SquareCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetSquareCredentialQuery(Guid Id) : IRequest<SquareCredentialDto>;
@@ -291,13 +302,16 @@ public class GetSquareCredentialQueryHandler : IRequestHandler<GetSquareCredenti
 
 public record SaveSquareCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? ApplicationId, string? AccessToken, string? ApplicationSecret) : IRequest<SquareCredentialDto>;
+    string? BaseUrl, string? ApplicationId, string? AccessToken, string? ApplicationSecret) : IRequest<SquareCredentialDto>;
 
 public class SaveSquareCredentialCommandValidator : AbstractValidator<SaveSquareCredentialCommand>
 {
     public SaveSquareCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://connect.squareupsandbox.com/v2");
         RuleFor(x => x.AccessToken).NotEmpty();
     }
 }
@@ -309,6 +323,7 @@ public class SaveSquareCredentialCommandHandler : IRequestHandler<SaveSquareCred
     public async Task<SquareCredentialDto> Handle(SaveSquareCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.SquareCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ApplicationId = IntegrationCredentialSupport.Norm(request.ApplicationId);
         e.AccessToken = IntegrationCredentialSupport.Norm(request.AccessToken);
         e.ApplicationSecret = IntegrationCredentialSupport.Norm(request.ApplicationSecret);
@@ -335,6 +350,7 @@ public class AuthorizeNetCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? ApplicationLoginId { get; set; }
     public string? TransactionKey { get; set; }
     public string? SignatureKey { get; set; }
@@ -344,7 +360,7 @@ public class AuthorizeNetCredentialDto
     public static AuthorizeNetCredentialDto From(AuthorizeNetCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        ApplicationLoginId = e.ApplicationLoginId, TransactionKey = e.TransactionKey, SignatureKey = e.SignatureKey,
+        BaseUrl = e.BaseUrl, ApplicationLoginId = e.ApplicationLoginId, TransactionKey = e.TransactionKey, SignatureKey = e.SignatureKey,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -357,7 +373,7 @@ public class ListAuthorizeNetCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListAuthorizeNetCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListAuthorizeNetCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.AuthorizeNetCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.AuthorizeNetCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetAuthorizeNetCredentialQuery(Guid Id) : IRequest<AuthorizeNetCredentialDto>;
@@ -372,13 +388,16 @@ public class GetAuthorizeNetCredentialQueryHandler : IRequestHandler<GetAuthoriz
 
 public record SaveAuthorizeNetCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? ApplicationLoginId, string? TransactionKey, string? SignatureKey) : IRequest<AuthorizeNetCredentialDto>;
+    string? BaseUrl, string? ApplicationLoginId, string? TransactionKey, string? SignatureKey) : IRequest<AuthorizeNetCredentialDto>;
 
 public class SaveAuthorizeNetCredentialCommandValidator : AbstractValidator<SaveAuthorizeNetCredentialCommand>
 {
     public SaveAuthorizeNetCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://apitest.authorize.net/xml/v1/request.api");
         RuleFor(x => x.ApplicationLoginId).NotEmpty();
         RuleFor(x => x.TransactionKey).NotEmpty();
     }
@@ -391,6 +410,7 @@ public class SaveAuthorizeNetCredentialCommandHandler : IRequestHandler<SaveAuth
     public async Task<AuthorizeNetCredentialDto> Handle(SaveAuthorizeNetCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.AuthorizeNetCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ApplicationLoginId = IntegrationCredentialSupport.Norm(request.ApplicationLoginId);
         e.TransactionKey = IntegrationCredentialSupport.Norm(request.TransactionKey);
         e.SignatureKey = IntegrationCredentialSupport.Norm(request.SignatureKey);

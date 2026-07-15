@@ -35,7 +35,8 @@ public class ListInventoryQueryHandler : IRequestHandler<ListInventoryQuery, Pag
         if (request.StoreId is Guid storeId)
             query = query.Where(l => l.StoreId == storeId);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(l => l.ProductId).ThenBy(l => l.StoreId));
 
         var page = await PaginatedList<InventoryLevel>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(InventoryLevelDto.From).ToList();

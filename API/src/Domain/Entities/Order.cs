@@ -74,8 +74,17 @@ public class Order : AuditableEntity, ISoftDeletable
     public string? AppliedCouponCode { get; set; }
 
     // Shipping selection + fulfilment tracking (WO-45).
+    /// <summary>
+    /// The offered option's MethodId that priced this order — a ShippingMethod id for a custom
+    /// method, a carrier service code, or "pickup". Not a foreign key:
+    /// most values do not refer to a row we own. Stored so an order can be traced back to what priced it,
+    /// which name + carrier alone cannot do once a method is renamed.
+    /// </summary>
+    public string? ShippingMethodId { get; set; }
     public string? ShippingMethodName { get; set; }
     public string? ShippingCarrier { get; set; }
+    /// <summary>True when the shipping option was the automatic recommendation rather than a buyer's pick.</summary>
+    public bool ShippingWasRecommended { get; set; }
     public string? TrackingNumber { get; set; }
 
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;

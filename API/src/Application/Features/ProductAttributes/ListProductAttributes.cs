@@ -41,7 +41,8 @@ public class ListProductAttributesQueryHandler : IRequestHandler<ListProductAttr
         if (request.DisplayType.HasValue)
             query = query.Where(a => a.DisplayType == request.DisplayType.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(a => a.DisplayOrder).ThenBy(a => a.Name));
 
         var page = await PaginatedList<ProductAttribute>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ProductAttributeDto.From).ToList();

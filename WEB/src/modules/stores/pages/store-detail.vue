@@ -97,7 +97,11 @@
               <q-toggle v-model="form.isEnabled" label="Enabled" color="primary" :disable="!canWrite" />
               <q-toggle v-model="form.maintenanceMode" label="Maintenance mode" color="orange" :disable="!canWrite" />
               <q-toggle v-model="form.guestOrderingEnabled" label="Guest ordering allowed" color="primary" :disable="!canWrite" />
+              <q-toggle v-model="form.pickupEnabled" label="Pickup in store" color="primary" :disable="!canWrite">
+                <q-tooltip>Lets shoppers choose to collect their order from this store instead of having it delivered.</q-tooltip>
+              </q-toggle>
               <q-toggle v-model="form.cashOnDeliveryEnabled" label="Cash on Delivery (COD)" color="primary" :disable="!canWrite" />
+              <q-toggle v-model="form.bankTransferEnabled" label="Bank Transfer" color="primary" :disable="!canWrite" />
             </div>
           </q-tab-panel>
 
@@ -238,7 +242,9 @@ function buildPayload (f) {
     isEnabled: f.isEnabled,
     maintenanceMode: f.maintenanceMode,
     guestOrderingEnabled: f.guestOrderingEnabled,
-    cashOnDeliveryEnabled: f.cashOnDeliveryEnabled
+    cashOnDeliveryEnabled: f.cashOnDeliveryEnabled,
+    bankTransferEnabled: f.bankTransferEnabled,
+    pickupEnabled: f.pickupEnabled
   }
 }
 
@@ -253,7 +259,8 @@ const {
   empty: {
     name: '', addressLine1: '', addressLine2: '', landmark: '', city: '', stateProvince: '', postalCode: '', countryCode: '',
     latitude: null, longitude: null, contactEmail: '', contactPhone: '', notificationEmail: '', timeZone: 'UTC', currencyDisplay: '',
-    orderCapacityLimit: null, operatingHoursJson: '', isEnabled: true, maintenanceMode: false, guestOrderingEnabled: true, cashOnDeliveryEnabled: true
+    orderCapacityLimit: null, operatingHoursJson: '', isEnabled: true, maintenanceMode: false, guestOrderingEnabled: true, cashOnDeliveryEnabled: true,
+    bankTransferEnabled: true, pickupEnabled: false
   },
   rules: {
     name: { required, maxLength: maxLength(200) },

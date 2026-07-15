@@ -1,4 +1,5 @@
 using VSky.Application.Common.Models;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Common.Interfaces;
 
@@ -12,6 +13,13 @@ public interface ICarrierClient
 {
     /// <summary>Human-readable carrier name (e.g. "DHL Express", "UPS").</summary>
     string CarrierName { get; }
+
+    /// <summary>
+    /// Typed discriminator used to match this client against its
+    /// <see cref="Domain.Entities.ShippingCarrierSetting"/> row, so a carrier the admin has disabled is
+    /// never queried.
+    /// </summary>
+    ShippingCarrierType Carrier { get; }
 
     /// <summary>Requests live rate options for a shipment; returns an empty list when unavailable.</summary>
     Task<IReadOnlyList<ShippingRateOption>> GetRatesAsync(CarrierRateRequest request, CancellationToken ct);

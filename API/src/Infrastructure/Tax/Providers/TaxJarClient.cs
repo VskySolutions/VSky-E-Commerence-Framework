@@ -8,6 +8,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Enums;
+using VSky.Infrastructure.Common;
 
 namespace VSky.Infrastructure.Tax.Providers;
 
@@ -23,7 +24,6 @@ namespace VSky.Infrastructure.Tax.Providers;
 public class TaxJarClient : ITaxProviderClient
 {
     private const string CredentialKey = "taxjar";
-    private const string BaseUrl = "https://api.taxjar.com";
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -45,7 +45,7 @@ public class TaxJarClient : ITaxProviderClient
 
     public async Task<TaxBreakdown> CalculateAsync(TaxCalculationRequest req, CancellationToken ct)
     {
-        var client = await CreateClientAsync(ct);
+        var (client, baseUrl) = await CreateClientAsync(ct);
 
         var payload = new
         {
@@ -72,7 +72,7 @@ public class TaxJarClient : ITaxProviderClient
             }).ToArray(),
         };
 
-        using var response = await client.PostAsJsonAsync($"{BaseUrl}/v2/taxes", payload, JsonOptions, ct);
+        using var response = await client.PostAsJsonAsync($"{baseUrl}/v2/taxes", payload, JsonOptions, ct);
         await EnsureTaxJarSuccessAsync(response, ct);
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
@@ -93,7 +93,7 @@ public class TaxJarClient : ITaxProviderClient
         if (order is null || order.TaxFlaggedForReview || order.TaxTotal <= 0m)
             return;
 
-        var client = await CreateClientAsync(ct);
+        var (client, baseUrl) = await CreateClientAsync(ct);
 
         var payload = new
         {
@@ -118,16 +118,25 @@ public class TaxJarClient : ITaxProviderClient
             }).ToArray(),
         };
 
-        using var response = await client.PostAsJsonAsync($"{BaseUrl}/v2/transactions/orders", payload, JsonOptions, ct);
+        using var response = await client.PostAsJsonAsync($"{baseUrl}/v2/transactions/orders", payload, JsonOptions, ct);
         await EnsureTaxJarSuccessAsync(response, ct);
     }
 
-    private async Task<HttpClient> CreateClientAsync(CancellationToken ct)
+    /// <summary>
+    /// The authenticated client plus the endpoint its credential belongs to. The URL is the admin's to set:
+    /// TaxJar's sandbox is a different host from live, so a constant here would happily bill sandbox keys
+    /// against production.
+    /// </summary>
+    private async Task<(HttpClient Client, string BaseUrl)> CreateClientAsync(CancellationToken ct)
     {
         // Live TaxJar API token (Bearer), stored encrypted in the Credential Vault under "taxjar".
-        var token = await _vault.GetCredentialAsync(CredentialKey, ct);
+        var resolved = await _vault.GetResolvedCredentialAsync(CredentialKey, ct);
+        var token = resolved?.Value;
         if (string.IsNullOrWhiteSpace(token))
             throw new InvalidOperationException("TaxJar credentials are not configured (Credential Vault key 'taxjar').");
+        if (string.IsNullOrWhiteSpace(resolved!.BaseUrl))
+            throw new InvalidOperationException(
+                "The active TaxJar credential has no Base URL. Set it on the integration (Integrations → TaxJar).");
 
         var client = _httpClientFactory.CreateClient("taxjar");
         client.Timeout = TimeSpan.FromSeconds(15);
@@ -135,7 +144,7 @@ public class TaxJarClient : ITaxProviderClient
         // TaxJar performs content negotiation and returns 406 (Not Acceptable) unless the request
         // explicitly accepts JSON — HttpClient sends no Accept header by default.
         client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-        return client;
+        return (client, resolved.BaseUrl!.Trim().TrimEnd('/'));
     }
 
     /// <summary>Only a real TaxJar product tax code (numeric, e.g. <c>"31000"</c>) is valid; a human-readable

@@ -13,15 +13,17 @@ public class FedExCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? ApiKey { get; set; }
     public string? ApiSecret { get; set; }
+    public string? AccountNumber { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
     public static FedExCredentialDto From(FedExCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        ApiKey = e.ApiKey, ApiSecret = e.ApiSecret,
+        BaseUrl = e.BaseUrl, ApiKey = e.ApiKey, ApiSecret = e.ApiSecret, AccountNumber = e.AccountNumber,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -34,7 +36,7 @@ public class ListFedExCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListFedExCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListFedExCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.FedExCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.FedExCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetFedExCredentialQuery(Guid Id) : IRequest<FedExCredentialDto>;
@@ -49,15 +51,22 @@ public class GetFedExCredentialQueryHandler : IRequestHandler<GetFedExCredential
 
 public record SaveFedExCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? ApiKey, string? ApiSecret) : IRequest<FedExCredentialDto>;
+    string? BaseUrl, string? ApiKey, string? ApiSecret, string? AccountNumber) : IRequest<FedExCredentialDto>;
 
 public class SaveFedExCredentialCommandValidator : AbstractValidator<SaveFedExCredentialCommand>
 {
     public SaveFedExCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://apis-sandbox.fedex.com");
         RuleFor(x => x.ApiKey).NotEmpty();
         RuleFor(x => x.ApiSecret).NotEmpty();
+        // Required, not optional: FedEx rejects an account-less rate request with a 403 that names no
+        // field, so letting this save blank buys a credential that authenticates and never quotes.
+        RuleFor(x => x.AccountNumber).NotEmpty().MaximumLength(50)
+            .WithMessage("Account number is required — FedEx rejects rate requests that name no account.");
     }
 }
 
@@ -68,8 +77,10 @@ public class SaveFedExCredentialCommandHandler : IRequestHandler<SaveFedExCreden
     public async Task<FedExCredentialDto> Handle(SaveFedExCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.FedExCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ApiKey = IntegrationCredentialSupport.Norm(request.ApiKey);
         e.ApiSecret = IntegrationCredentialSupport.Norm(request.ApiSecret);
+        e.AccountNumber = IntegrationCredentialSupport.Norm(request.AccountNumber);
         await _db.SaveChangesAsync(ct);
         return FedExCredentialDto.From(e);
     }
@@ -93,15 +104,17 @@ public class DhlExpressCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? ApiKey { get; set; }
     public string? ApiSecret { get; set; }
+    public string? AccountNumber { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
     public static DhlExpressCredentialDto From(DhlExpressCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        ApiKey = e.ApiKey, ApiSecret = e.ApiSecret,
+        BaseUrl = e.BaseUrl, ApiKey = e.ApiKey, ApiSecret = e.ApiSecret, AccountNumber = e.AccountNumber,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -114,7 +127,7 @@ public class ListDhlExpressCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListDhlExpressCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListDhlExpressCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.DhlExpressCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.DhlExpressCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetDhlExpressCredentialQuery(Guid Id) : IRequest<DhlExpressCredentialDto>;
@@ -129,15 +142,21 @@ public class GetDhlExpressCredentialQueryHandler : IRequestHandler<GetDhlExpress
 
 public record SaveDhlExpressCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? ApiKey, string? ApiSecret) : IRequest<DhlExpressCredentialDto>;
+    string? BaseUrl, string? ApiKey, string? ApiSecret, string? AccountNumber) : IRequest<DhlExpressCredentialDto>;
 
 public class SaveDhlExpressCredentialCommandValidator : AbstractValidator<SaveDhlExpressCredentialCommand>
 {
     public SaveDhlExpressCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL including the API path, e.g. https://express.api.dhl.com/mydhlapi/test");
         RuleFor(x => x.ApiKey).NotEmpty();
         RuleFor(x => x.ApiSecret).NotEmpty();
+        // Optional, unlike FedEx's: MyDHL still answers without an account, just with generic products
+        // rather than the negotiated rates this field exists to get.
+        RuleFor(x => x.AccountNumber).MaximumLength(50);
     }
 }
 
@@ -148,8 +167,10 @@ public class SaveDhlExpressCredentialCommandHandler : IRequestHandler<SaveDhlExp
     public async Task<DhlExpressCredentialDto> Handle(SaveDhlExpressCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.DhlExpressCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ApiKey = IntegrationCredentialSupport.Norm(request.ApiKey);
         e.ApiSecret = IntegrationCredentialSupport.Norm(request.ApiSecret);
+        e.AccountNumber = IntegrationCredentialSupport.Norm(request.AccountNumber);
         await _db.SaveChangesAsync(ct);
         return DhlExpressCredentialDto.From(e);
     }
@@ -173,6 +194,7 @@ public class UspsCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? ConsumerKey { get; set; }
     public string? ConsumerSecret { get; set; }
     public DateTime CreatedOnUtc { get; set; }
@@ -181,7 +203,7 @@ public class UspsCredentialDto
     public static UspsCredentialDto From(UspsCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        ConsumerKey = e.ConsumerKey, ConsumerSecret = e.ConsumerSecret,
+        BaseUrl = e.BaseUrl, ConsumerKey = e.ConsumerKey, ConsumerSecret = e.ConsumerSecret,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -194,7 +216,7 @@ public class ListUspsCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListUspsCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListUspsCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.UspsCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.UspsCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetUspsCredentialQuery(Guid Id) : IRequest<UspsCredentialDto>;
@@ -209,13 +231,16 @@ public class GetUspsCredentialQueryHandler : IRequestHandler<GetUspsCredentialQu
 
 public record SaveUspsCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? ConsumerKey, string? ConsumerSecret) : IRequest<UspsCredentialDto>;
+    string? BaseUrl, string? ConsumerKey, string? ConsumerSecret) : IRequest<UspsCredentialDto>;
 
 public class SaveUspsCredentialCommandValidator : AbstractValidator<SaveUspsCredentialCommand>
 {
     public SaveUspsCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://apis-tem.usps.com");
         RuleFor(x => x.ConsumerKey).NotEmpty();
         RuleFor(x => x.ConsumerSecret).NotEmpty();
     }
@@ -228,6 +253,7 @@ public class SaveUspsCredentialCommandHandler : IRequestHandler<SaveUspsCredenti
     public async Task<UspsCredentialDto> Handle(SaveUspsCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.UspsCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ConsumerKey = IntegrationCredentialSupport.Norm(request.ConsumerKey);
         e.ConsumerSecret = IntegrationCredentialSupport.Norm(request.ConsumerSecret);
         await _db.SaveChangesAsync(ct);
@@ -253,6 +279,7 @@ public class UpsCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? MerchantId { get; set; }
     public string? ClientId { get; set; }
     public string? ClientSecret { get; set; }
@@ -262,7 +289,7 @@ public class UpsCredentialDto
     public static UpsCredentialDto From(UpsCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        MerchantId = e.MerchantId, ClientId = e.ClientId, ClientSecret = e.ClientSecret,
+        BaseUrl = e.BaseUrl, MerchantId = e.MerchantId, ClientId = e.ClientId, ClientSecret = e.ClientSecret,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -275,7 +302,7 @@ public class ListUpsCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListUpsCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListUpsCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.UpsCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.UpsCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetUpsCredentialQuery(Guid Id) : IRequest<UpsCredentialDto>;
@@ -290,13 +317,16 @@ public class GetUpsCredentialQueryHandler : IRequestHandler<GetUpsCredentialQuer
 
 public record SaveUpsCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? MerchantId, string? ClientId, string? ClientSecret) : IRequest<UpsCredentialDto>;
+    string? BaseUrl, string? MerchantId, string? ClientId, string? ClientSecret) : IRequest<UpsCredentialDto>;
 
 public class SaveUpsCredentialCommandValidator : AbstractValidator<SaveUpsCredentialCommand>
 {
     public SaveUpsCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://wwwcie.ups.com");
         RuleFor(x => x.ClientId).NotEmpty();
         RuleFor(x => x.ClientSecret).NotEmpty();
     }
@@ -309,6 +339,7 @@ public class SaveUpsCredentialCommandHandler : IRequestHandler<SaveUpsCredential
     public async Task<UpsCredentialDto> Handle(SaveUpsCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.UpsCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.MerchantId = IntegrationCredentialSupport.Norm(request.MerchantId);
         e.ClientId = IntegrationCredentialSupport.Norm(request.ClientId);
         e.ClientSecret = IntegrationCredentialSupport.Norm(request.ClientSecret);

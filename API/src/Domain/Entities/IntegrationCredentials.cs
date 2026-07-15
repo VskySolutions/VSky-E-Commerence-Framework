@@ -36,31 +36,39 @@ public class StripeCredential : IntegrationCredentialBase
     public string? ReturnUrl { get; set; }
 }
 
-/// <summary>PayPal REST app credentials (table <c>Credentials_PayPal</c>).</summary>
+/// <summary>PayPal REST app credentials + endpoint (table <c>Credentials_PayPal</c>).</summary>
 public class PayPalCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? ClientId { get; set; }
     [Encrypted] public string? SecretKey { get; set; }
 }
 
-/// <summary>Razorpay key id/secret (table <c>Credentials_Razorpay</c>).</summary>
+/// <summary>Razorpay key id/secret + endpoint (table <c>Credentials_Razorpay</c>).</summary>
 public class RazorpayCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? KeyId { get; set; }
     [Encrypted] public string? KeySecret { get; set; }
 }
 
-/// <summary>Square application credentials (table <c>Credentials_Square</c>).</summary>
+/// <summary>Square application credentials + endpoint (table <c>Credentials_Square</c>).</summary>
 public class SquareCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? ApplicationId { get; set; }
     [Encrypted] public string? AccessToken { get; set; }
     [Encrypted] public string? ApplicationSecret { get; set; }
 }
 
-/// <summary>Authorize.Net merchant credentials (table <c>Credentials_AuthorizeNet</c>).</summary>
+/// <summary>Authorize.Net merchant credentials + endpoint (table <c>Credentials_AuthorizeNet</c>).</summary>
 public class AuthorizeNetCredential : IntegrationCredentialBase
 {
+    /// <summary>API endpoint this credential belongs to — sandbox and live differ. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? ApplicationLoginId { get; set; }
     [Encrypted] public string? TransactionKey { get; set; }
     [Encrypted] public string? SignatureKey { get; set; }
@@ -75,39 +83,62 @@ public class TaxJarCredential : IntegrationCredentialBase
     [Encrypted] public string? SecretKey { get; set; }
 }
 
-/// <summary>Stripe Tax secret key (table <c>Credentials_StripeTax</c>).</summary>
+/// <summary>Stripe Tax secret key + endpoint (table <c>Credentials_StripeTax</c>).</summary>
 public class StripeTaxCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? PublishableKey { get; set; }
     [Encrypted] public string? SecretKey { get; set; }
 }
 
 // ---- Shipping carriers -----------------------------------------------------
 
-/// <summary>FedEx API credentials (table <c>Credentials_FedEx</c>).</summary>
+/// <summary>FedEx API credentials + account + endpoint (table <c>Credentials_FedEx</c>).</summary>
 public class FedExCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? ApiKey { get; set; }
     [Encrypted] public string? ApiSecret { get; set; }
+
+    /// <summary>
+    /// The FedEx account the shipment rates against. Required to quote: the key/secret only authenticate
+    /// the caller, and a rate request that names no account is rejected with 403 — which reads exactly
+    /// like bad credentials, so an absent account number is worth ruling out first.
+    /// </summary>
+    public string? AccountNumber { get; set; }
 }
 
-/// <summary>DHL Express API credentials (table <c>Credentials_DHLExpress</c>).</summary>
+/// <summary>DHL Express API credentials + account + endpoint (table <c>Credentials_DHLExpress</c>).</summary>
 public class DhlExpressCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? ApiKey { get; set; }
     [Encrypted] public string? ApiSecret { get; set; }
+
+    /// <summary>
+    /// The DHL Express account number quoted against, sent as the shipper account on a rate request.
+    /// Without it MyDHL returns only generic products, if anything at all.
+    /// </summary>
+    public string? AccountNumber { get; set; }
 }
 
-/// <summary>USPS consumer key/secret (table <c>Credentials_USPS</c>).</summary>
+/// <summary>USPS consumer key/secret + endpoint (table <c>Credentials_USPS</c>).</summary>
 public class UspsCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? ConsumerKey { get; set; }
     [Encrypted] public string? ConsumerSecret { get; set; }
 }
 
-/// <summary>UPS OAuth2 client credentials + merchant/account number (table <c>Credentials_UPS</c>).</summary>
+/// <summary>UPS OAuth2 client credentials + merchant/account number + endpoint (table <c>Credentials_UPS</c>).</summary>
 public class UpsCredential : IntegrationCredentialBase
 {
+    /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
+    public string? BaseUrl { get; set; }
     public string? MerchantId { get; set; }
     public string? ClientId { get; set; }
     [Encrypted] public string? ClientSecret { get; set; }

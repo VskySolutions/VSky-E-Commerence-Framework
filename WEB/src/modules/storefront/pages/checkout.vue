@@ -100,10 +100,54 @@
           <!-- Contact + delivery address -->
           <q-card flat bordered class="q-mb-lg">
             <q-card-section>
-              <div class="text-subtitle1 text-weight-bold q-mb-md">Contact &amp; delivery address</div>
+              <div class="text-subtitle1 text-weight-bold q-mb-md">
+                {{ isPickup ? 'Contact &amp; pickup store' : 'Contact &amp; delivery address' }}
+              </div>
 
-              <!-- Signed-in: pick a saved address or add a new one -->
-              <div v-if="isAuthed && savedAddresses.length" class="column q-gutter-sm q-mb-md">
+              <!-- Deliver vs collect — only offered when a store actually opts in to pickup -->
+              <q-btn-toggle
+                v-if="pickupOffered"
+                v-model="fulfilment"
+                class="q-mb-md sf-fulfilment-toggle"
+                no-caps
+                unelevated
+                spread
+                toggle-color="primary"
+                color="grey-2"
+                text-color="grey-8"
+                :options="fulfilmentOptions"
+              />
+
+              <!-- Pickup: choose the store to collect from; the info icon carries its address -->
+              <div v-if="isPickup" class="column q-gutter-sm q-mb-md">
+                <q-item
+                  v-for="s in pickupStores"
+                  :key="s.id"
+                  tag="label"
+                  clickable
+                  class="sf-address-option rounded-borders"
+                  :class="{ 'sf-address-option--active': pickupStoreId === s.id }"
+                >
+                  <q-item-section avatar>
+                    <q-radio v-model="pickupStoreId" :val="s.id" color="primary" />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label class="text-weight-medium row items-center no-wrap">
+                      {{ s.name }}
+                      <q-icon name="o_info" size="18px" color="primary" class="q-ml-xs cursor-pointer">
+                        <q-tooltip anchor="top middle" self="bottom middle" class="sf-store-tooltip text-body2">
+                          <div class="text-weight-medium">{{ s.name }}</div>
+                          <div>{{ formatAddr(s) || 'Address not available' }}</div>
+                        </q-tooltip>
+                      </q-icon>
+                    </q-item-label>
+                    <q-item-label caption>{{ formatAddr(s) }}</q-item-label>
+                  </q-item-section>
+                </q-item>
+              </div>
+
+              <!-- Signed-in: pick a saved address or add a new one (delivery only) -->
+              <div v-if="!isPickup && isAuthed && savedAddresses.length" class="column q-gutter-sm q-mb-md">
                 <q-item
                   v-for="a in savedAddresses"
                   :key="a.id"
@@ -157,12 +201,12 @@
               </div>
 
               <!-- Contact recap when a saved address is in use -->
-              <div v-if="isAuthed && !showAddressForm" class="text-caption text-grey-7 q-mb-sm">
+              <div v-if="!isPickup && isAuthed && !showAddressForm" class="text-caption text-grey-7 q-mb-sm">
                 Order updates go to <strong>{{ profileEmail }}</strong>
               </div>
 
-              <!-- Manual entry: guest, no saved addresses, or "new address" chosen -->
-              <template v-if="showAddressForm">
+              <!-- Manual entry: guest, no saved addresses, "new address" chosen — or any pickup order -->
+              <template v-if="showContactForm">
                 <div class="row q-col-gutter-x-md q-mb-sm">
                   <div class="col-12 col-sm-6">
                     <AppTextField
@@ -185,9 +229,28 @@
                     />
                   </div>
                 </div>
-                <AppAddressForm v-model="addr" required :show-company="false" :show-phone="false" />
+                <!-- Pickup needs only who is collecting; delivery takes the names from the address form. -->
+                <div v-if="isPickup" class="row q-col-gutter-x-md">
+                  <div class="col-12 col-sm-6">
+                    <AppTextField
+                      label="First name"
+                      required
+                      :model-value="addr.firstName"
+                      @update:model-value="addr.firstName = $event"
+                    />
+                  </div>
+                  <div class="col-12 col-sm-6">
+                    <AppTextField
+                      label="Last name"
+                      required
+                      :model-value="addr.lastName"
+                      @update:model-value="addr.lastName = $event"
+                    />
+                  </div>
+                </div>
+                <AppAddressForm v-else v-model="addr" required :show-company="false" :show-phone="false" />
                 <q-toggle
-                  v-if="isAuthed"
+                  v-if="!isPickup && isAuthed"
                   v-model="saveNewAddress"
                   label="Save this address to my account"
                   dense
@@ -200,8 +263,8 @@
                   unelevated
                   color="primary"
                   no-caps
-                  :label="quote ? 'Recalculate shipping' : 'Save & calculate shipping'"
-                  icon="o_local_shipping"
+                  :label="quoteLabel"
+                  :icon="isPickup ? 'o_storefront' : 'o_local_shipping'"
                   :loading="quoting"
                   :disable="!canQuote || quoting"
                   @click="runQuote"
@@ -214,7 +277,12 @@
         <!-- Address hint before a quote is available -->
         <q-banner v-if="!quote && !quoting && !quoteError" dense class="bg-blue-1 text-blue-9 rounded-borders q-mb-lg">
           <template #avatar><q-icon name="o_info" color="blue-9" /></template>
-          Complete your delivery address, then <strong>Save &amp; calculate shipping</strong> to see options and live totals.
+          <template v-if="isPickup">
+            Choose a store and confirm your contact details, then <strong>Calculate total</strong> to see live totals.
+          </template>
+          <template v-else>
+            Complete your delivery address, then <strong>Save &amp; calculate shipping</strong> to see options and live totals.
+          </template>
         </q-banner>
 
         <q-banner v-if="quoteError" dense class="bg-red-1 text-red-9 rounded-borders q-mb-lg">
@@ -269,7 +337,7 @@
         <!-- Shipping method -->
         <q-card v-if="canCollectDetails" flat bordered class="q-mb-lg">
           <q-card-section>
-            <div class="text-subtitle1 text-weight-bold q-mb-sm">Shipping method</div>
+            <div class="text-subtitle1 text-weight-bold q-mb-sm">{{ isPickup ? 'Collection' : 'Shipping method' }}</div>
             <div v-if="shippingCarriers.length" class="row items-center q-gutter-xs q-mb-sm">
               <span class="text-caption text-grey-6">Rates from</span>
               <q-chip
@@ -286,7 +354,7 @@
 
             <q-list v-if="shippingOptions.length" separator>
               <q-item
-                v-for="opt in shippingOptions"
+                v-for="opt in primaryShippingOptions"
                 :key="opt.methodId"
                 tag="label"
                 clickable
@@ -300,10 +368,13 @@
                   />
                 </q-item-section>
                 <q-item-section>
-                  <q-item-label>{{ opt.name }}</q-item-label>
+                  <q-item-label>
+                    {{ opt.name }}
+                    <q-badge v-if="opt.isRecommended" color="primary" class="q-ml-sm" label="Recommended" />
+                  </q-item-label>
                   <q-item-label caption>
                     {{ opt.carrier }}
-                    <span v-if="opt.estimatedDeliveryDays"> · {{ opt.estimatedDeliveryDays }} day(s)</span>
+                    <span v-if="opt.estimatedDeliveryDays != null"> · {{ deliveryText(opt) }}</span>
                   </q-item-label>
                 </q-item-section>
                 <q-item-section side>
@@ -312,8 +383,51 @@
               </q-item>
             </q-list>
 
-            <div v-else-if="!quoting" class="text-body2 text-grey-7">
-              No shipping is required for this order — you can place it directly.
+            <!-- Under automatic selection the recommendation is shown alone; the rest stay one click away
+                 so the customer keeps the choice rather than being locked into the scored pick. -->
+            <q-expansion-item
+              v-if="otherShippingOptions.length"
+              v-model="showOtherShipping"
+              dense
+              class="q-mt-sm"
+              :label="`Other delivery options (${otherShippingOptions.length})`"
+              header-class="text-primary text-body2"
+            >
+              <q-list separator>
+                <q-item
+                  v-for="opt in otherShippingOptions"
+                  :key="opt.methodId"
+                  tag="label"
+                  clickable
+                >
+                  <q-item-section avatar>
+                    <q-radio
+                      :model-value="selectedShippingMethodId"
+                      :val="opt.methodId"
+                      color="primary"
+                      @update:model-value="onShippingChange"
+                    />
+                  </q-item-section>
+                  <q-item-section>
+                    <q-item-label>{{ opt.name }}</q-item-label>
+                    <q-item-label caption>
+                      {{ opt.carrier }}
+                      <span v-if="opt.estimatedDeliveryDays != null"> · {{ deliveryText(opt) }}</span>
+                    </q-item-label>
+                  </q-item-section>
+                  <q-item-section side>
+                    <span class="text-weight-medium text-dark">{{ format(opt.rate) }}</span>
+                  </q-item-section>
+                </q-item>
+              </q-list>
+            </q-expansion-item>
+
+            <div v-else-if="shippingUnavailable" class="text-body2 text-negative row items-start no-wrap">
+              <q-icon name="o_error_outline" size="20px" class="q-mr-sm q-mt-xs" />
+              <span>
+                No delivery options are available for this address. Try a different address<span v-if="pickupOffered">, pick up in store</span>,
+                or contact us and we'll help.
+              </span>
             </div>
           </q-card-section>
         </q-card>
@@ -569,6 +683,32 @@ const formRef = ref(null)
 const email = ref('')
 const addr = ref(emptyAddress())
 
+// ---- Fulfilment: deliver, or collect from a store (AC-SHP-004.1) --------------------------------
+// Pickup skips routing and carrier rates entirely: the server fulfils at the chosen store and prices a
+// single zero-cost "Pickup in store" option, so there is no delivery address to collect — only who is
+// collecting. The choice is only offered when at least one store actually opts in to pickup.
+const pickupStores = ref([])
+const fulfilment = ref('deliver')
+const pickupStoreId = ref(null)
+const isPickup = computed(() => fulfilment.value === 'pickup')
+const pickupOffered = computed(() => pickupStores.value.length > 0)
+const fulfilmentOptions = [
+  { label: 'Deliver to me', value: 'deliver', icon: 'o_local_shipping' },
+  { label: 'Pick up in store', value: 'pickup', icon: 'o_storefront' }
+]
+
+async function loadPickupStores () {
+  try {
+    const stores = await checkoutApi.pickupStores()
+    pickupStores.value = Array.isArray(stores) ? stores : []
+    // Pre-select the only store rather than making the buyer click the one choice available.
+    if (pickupStores.value.length === 1) pickupStoreId.value = pickupStores.value[0].id
+  } catch (e) {
+    // No pickup stores reachable → the option simply isn't offered; delivery is unaffected.
+    pickupStores.value = []
+  }
+}
+
 // ---- Signed-in address book (Amazon-style: pick a saved address or add a new one) ---------------
 const isAuthed = computed(() => customerAuth.isAuthenticated)
 const savedAddresses = ref([])
@@ -582,6 +722,9 @@ const settingDefaultId = ref(null) // id of the saved address whose "Set as defa
 const showAddressForm = computed(() =>
   !isAuthed.value || !savedAddresses.value.length || selectedAddressId.value === 'new'
 )
+// Contact is always collected inline under pickup: there is no saved "pickup address" to select from, and
+// the store still needs to know who is collecting.
+const showContactForm = computed(() => isPickup.value || showAddressForm.value)
 
 function fillFromAddress (a) {
   addr.value = {
@@ -654,6 +797,8 @@ function saveCurrentAddress () {
 // the "Save & calculate shipping" action now does). Best-effort and guarded so recalculating never creates
 // duplicates; a no-op for guests, when the "save" toggle is off, or when a saved address is already chosen.
 async function maybeSaveNewAddress () {
+  // Pickup collects no address — without this it would post the empty form to the buyer's address book.
+  if (isPickup.value) return
   if (!isAuthed.value || !saveNewAddress.value || selectedAddressId.value !== 'new') return
   try {
     const created = await saveCurrentAddress()
@@ -744,13 +889,23 @@ const phoneValid = computed(() => {
   return !!p && isPossiblePhoneNumber(p)
 })
 
-const requiredComplete = computed(() => {
+// Who the order is for — needed either way, and all pickup needs.
+const contactComplete = computed(() => {
   const a = addr.value
   return (
     !!(a.firstName || '').trim() &&
     !!(a.lastName || '').trim() &&
     emailValid.value &&
-    phoneValid.value &&
+    phoneValid.value
+  )
+})
+
+const requiredComplete = computed(() => {
+  if (!contactComplete.value) return false
+  // Collecting in store — nothing is shipped anywhere, so a postal address would be noise.
+  if (isPickup.value) return true
+  const a = addr.value
+  return (
     !!(a.addressLine1 || '').trim() &&
     !!(a.stateProvince || '').trim() &&
     !!(a.postalCode || '').trim() &&
@@ -765,14 +920,37 @@ const quoteError = ref('')
 const selectedShippingMethodId = ref(null)
 
 const shippingOptions = computed(() => quote.value?.shippingOptions || [])
-// A store may have no shipping methods configured for this address; in that case checkout skips the
-// shipping-method requirement and lets the order be placed directly.
-const shippingRequired = computed(() => shippingOptions.value.length > 0)
+// An empty option list never means "nothing to ship": no product can be marked non-shippable, and pickup
+// prices its own zero-cost option. It always means no rate source could quote this address — a broken
+// shipping setup or an unserviceable destination — so it blocks placement rather than waving the order
+// through with no carrier and no shipping cost.
+const shippingUnavailable = computed(
+  () => !!quote.value && !quoting.value && !shippingOptions.value.length
+)
+
+// The server recommends at most one option, and only when selection is automatic. When it does, show that
+// one and collapse the rest; otherwise every option is primary and the expander stays empty.
+const recommendedShipping = computed(() => shippingOptions.value.find((o) => o.isRecommended) || null)
+const primaryShippingOptions = computed(() =>
+  recommendedShipping.value ? [recommendedShipping.value] : shippingOptions.value
+)
+const otherShippingOptions = computed(() =>
+  recommendedShipping.value ? shippingOptions.value.filter((o) => !o.isRecommended) : []
+)
+const showOtherShipping = ref(false)
+
+function deliveryText (opt) {
+  const days = opt.estimatedDeliveryDays
+  if (days == null) return ''
+  if (days === 0) return 'same day'
+  return days === 1 ? 'arrives in 1 day' : `arrives in ${days} days`
+}
 
 // ---- Active calculation partners (shipping carriers + tax provider), shown like the payment partners ----
 // Distinct carriers behind the current shipping options — each option already reports its carrier.
 const CARRIER_META = {
   Custom: { label: 'Store rates', icon: 'o_store' },
+  Pickup: { label: 'Store pickup', icon: 'o_storefront' },
   USPS: { label: 'USPS', icon: 'o_local_post_office' },
   UPS: { label: 'UPS', icon: 'o_local_shipping' },
   FedEx: { label: 'FedEx', icon: 'o_local_shipping' },
@@ -810,7 +988,15 @@ const shippingIntegrationName = computed(() => {
   const c = selectedShipping.value?.carrier
   return c ? (CARRIER_META[c] || { label: c }).label : null
 })
-const canQuote = computed(() => requiredComplete.value && items.value.length > 0)
+const canQuote = computed(() =>
+  requiredComplete.value && items.value.length > 0 && (!isPickup.value || !!pickupStoreId.value)
+)
+
+// Mode-aware calls to action: under pickup there is no shipping to calculate, only a total.
+const quoteLabel = computed(() => {
+  if (isPickup.value) return quote.value ? 'Recalculate total' : 'Calculate total'
+  return quote.value ? 'Recalculate shipping' : 'Save & calculate shipping'
+})
 
 // ---- Guest → account (express registration) ---------------------------------
 // When a store disallows guest ordering, turn the already-entered checkout details into an account:
@@ -853,18 +1039,27 @@ async function registerAndContinue () {
 
 function buildShipTo () {
   const a = addr.value
-  return {
+  const contact = {
     firstName: (a.firstName || '').trim(),
     lastName: (a.lastName || '').trim(),
     email: email.value.trim(),
+    phoneNumber: (a.phoneNumber || '').trim() || null
+  }
+  // A pickup order ships nowhere — routing and tax both use the store's own address. Send the collector's
+  // contact details with no postal address rather than stamping the order with one it never delivers to
+  // (a signed-in buyer's saved address is still sitting in `addr` here).
+  if (isPickup.value) {
+    return { ...contact, line1: '', line2: null, city: '', region: null, postalCode: null, countryCode: '', landmark: null }
+  }
+  return {
+    ...contact,
     line1: (a.addressLine1 || '').trim(),
     line2: (a.addressLine2 || '').trim() || null,
     city: (a.city || '').trim(),
     region: (a.stateProvince || '').trim() || null,
     postalCode: (a.postalCode || '').trim() || null,
     countryCode: a.countryCode,
-    landmark: (a.landmark || '').trim() || null,
-    phoneNumber: (a.phoneNumber || '').trim() || null
+    landmark: (a.landmark || '').trim() || null
   }
 }
 
@@ -877,15 +1072,25 @@ async function runQuote () {
       cartId: null,
       sessionId: sessionId.value,
       shipTo: buildShipTo(),
-      shippingMethodId: selectedShippingMethodId.value || null
+      shippingMethodId: selectedShippingMethodId.value || null,
+      pickupInStore: isPickup.value,
+      pickupStoreId: isPickup.value ? pickupStoreId.value : null
     })
     quote.value = q
-    // Keep a valid shipping selection: default to the cheapest option (which is what
-    // the quote priced) without triggering another quote.
+    // Keep a valid shipping selection, defaulting to whatever the quote actually priced. This mirrors the
+    // server's rule (recommended, else cheapest) — if the two disagreed, the radio would show one option
+    // while the totals reflected another.
     const opts = q.shippingOptions || []
     if (!opts.some((o) => o.methodId === selectedShippingMethodId.value)) {
+      const recommended = opts.find((o) => o.isRecommended)
       const cheapest = [...opts].sort((a, b) => (a.rate ?? 0) - (b.rate ?? 0))[0]
-      selectedShippingMethodId.value = cheapest ? cheapest.methodId : null
+      const fallback = recommended || cheapest
+      selectedShippingMethodId.value = fallback ? fallback.methodId : null
+    }
+    // Keep a selection made from the collapsed group visible rather than appearing to lose it.
+    if (selectedShippingMethodId.value && opts.some((o) => o.methodId === selectedShippingMethodId.value && !o.isRecommended) &&
+        opts.some((o) => o.isRecommended)) {
+      showOtherShipping.value = true
     }
     // Shipping is calculated → persist the new address to the signed-in buyer's account (best-effort).
     await maybeSaveNewAddress()
@@ -908,7 +1113,10 @@ const quoteSignature = computed(() => {
     (a.stateProvince || '').trim(),
     (a.postalCode || '').trim(),
     a.countryCode || '',
-    email.value.trim()
+    email.value.trim(),
+    // Switching fulfilment, or collecting from a different store, re-prices everything (tax included).
+    fulfilment.value,
+    pickupStoreId.value || ''
   ])
 })
 
@@ -965,7 +1173,7 @@ const canPlace = computed(
     isRoutable.value &&
     guestOrderingAllowed.value &&
     items.value.length > 0 &&
-    (!shippingRequired.value || !!selectedShippingMethodId.value) &&
+    !!selectedShippingMethodId.value &&
     !!paymentMethod.value &&
     !placing.value
 )
@@ -977,7 +1185,7 @@ async function placeOrder () {
   placing.value = true
   try {
     // Signed-in buyer entering a new address who opted to save it → add it to their account (best-effort).
-    if (isAuthed.value && selectedAddressId.value === 'new' && saveNewAddress.value) {
+    if (!isPickup.value && isAuthed.value && selectedAddressId.value === 'new' && saveNewAddress.value) {
       await saveCurrentAddress().catch(() => {})
     }
     // reCAPTCHA token for the guest-checkout form (no-op when reCAPTCHA is disabled/unconfigured).
@@ -990,7 +1198,9 @@ async function placeOrder () {
       paymentMethod: paymentMethod.value,
       paymentToken: null,
       couponCode: null,
-      recaptchaToken
+      recaptchaToken,
+      pickupInStore: isPickup.value,
+      pickupStoreId: isPickup.value ? pickupStoreId.value : null
     })
     if (result && result.redirectUrl) {
       // Redirect gateway (Stripe Checkout): hand off to the hosted payment page. The buyer returns to
@@ -1084,6 +1294,8 @@ onMounted(() => {
   refresh().catch((err) => notify.error(getApiErrorMessage(err)))
   // Returning from a redirect payment (Stripe Checkout)? Verify/settle it before anything else.
   handlePaymentReturn()
+  // Which stores allow collection — decides whether the fulfilment choice is offered at all.
+  loadPickupStores()
   // Signed-in buyers get their profile + saved addresses (pick-or-add); guests restore any draft.
   if (isAuthed.value) loadAccountAddresses()
   else restoreContact()
@@ -1099,6 +1311,11 @@ onMounted(() => {
 .sf-address-option {
   border: 1px solid rgba(0, 0, 0, 0.16);
   transition: border-color 0.15s ease, background 0.15s ease;
+}
+
+// Let a store's address wrap onto a few readable lines instead of one long strip.
+.sf-store-tooltip {
+  max-width: 260px;
 }
 .sf-address-option--active {
   border-color: var(--q-primary);

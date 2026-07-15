@@ -154,6 +154,11 @@ export const checkoutApi = {
   // Re-open a payment session for a still-pending order (retry after a cancelled redirect payment).
   retryPayment (orderId) {
     return customerApi.post(CHECKOUT + '/retry-payment', { orderId }).then(unwrap)
+  },
+  // Stores a buyer may collect from (AC-SHP-004.1): id, name, address, operating hours. Anonymous —
+  // the choice is offered before any sign-in, and it carries no buyer identity.
+  pickupStores () {
+    return anonApi.get('/api/storefront/pickup-stores').then(unwrap)
   }
 }
 

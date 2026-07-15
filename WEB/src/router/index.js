@@ -4,9 +4,11 @@
  * Assembles routes from each feature module (modules/<name>/routes) and applies
  * a 4-step navigation guard:
  *   (1) requiresAuth + no token          -> /auth/login (with ?redirect)
- *   (2) authenticated on an /auth/* route -> /dashboard
+ *   (2) authenticated on an /auth/* route -> /dashboard (staff) or the storefront (customers)
  *   (3) mustChangePassword               -> /change-password
- *   (4) deepest meta.permissions unmet    -> notify + redirect "/"
+ *   (4) deepest meta.permissions unmet    -> notify + redirect home for the role
+ *
+ * "/" is the public storefront landing page; the admin front door is /dashboard.
  *
  * (423 setupRequired -> /setup is handled by the axios response interceptor.)
  */
@@ -66,8 +68,11 @@ appShellRoute.children.push(...moduleChildren)
 
 const routes = [
   ...authRoutes, // /auth/*, /setup, /change-password (own layout)
+  // The public customer storefront (own layout, no auth) owns the landing page at "/" and the
+  // /shop/* pages. It MUST precede appShellRoute: both are mounted at "/", so whichever is
+  // registered first wins the bare root.
+  ...storefrontRoutes,
   appShellRoute,
-  ...storefrontRoutes, // /shop/* public customer storefront (own layout, no auth)
   notAuthorizedRoute,
   catchAllRoute
 ]
@@ -91,9 +96,6 @@ export default function () {
   })
 
   Router.beforeEach((to) => {
-    // The bare site root is the public storefront front door — not the admin login.
-    if (to.path === '/') return { path: '/shop' }
-
     const auth = useAuthStore()
     const isAuthed = auth.isAuthenticated
     const requiresAuth = to.matched.some((r) => r.meta && r.meta.requiresAuth)
@@ -109,12 +111,12 @@ export default function () {
     // open (dashboard included), send them to the storefront. Staff = any role other than Customer.
     // change-password is excluded so a forced password change (rule 3) can't ping-pong.
     if (isAuthed && requiresAuth && !auth.isStaff && to.name !== 'change-password') {
-      return { path: '/shop' }
+      return { name: 'shop-home' }
     }
 
     // (2) Already signed in but visiting the auth area — staff → dashboard, customers → storefront.
     if (isAuthed && isAuthArea) {
-      return { path: auth.isStaff ? '/dashboard' : '/shop' }
+      return auth.isStaff ? { path: '/dashboard' } : { name: 'shop-home' }
     }
 
     // (3) Forced password change.
@@ -127,11 +129,12 @@ export default function () {
       return { path: '/change-password' }
     }
 
-    // (4) Permission gate on the deepest matched record.
+    // (4) Permission gate on the deepest matched record. Bounce staff to the admin dashboard
+    // (which carries no permissions of its own, so this can't loop) — "/" is the storefront.
     const requiredPerms = deepestPermissions(to)
     if (requiredPerms && !auth.hasAnyPermission(requiredPerms)) {
       notifyNegative('You are not authorized to view this page.')
-      return { path: '/' }
+      return auth.isStaff ? { path: '/dashboard' } : { name: 'shop-home' }
     }
 
     return true

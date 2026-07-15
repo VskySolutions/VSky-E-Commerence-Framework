@@ -5,7 +5,7 @@
       :breadcrumbs="[{ label: 'Home', icon: 'o_home', to: '/dashboard' }, { label: 'Inventory' }]"
     >
       <template #actions>
-        <div style="min-width: 240px" class="q-mr-sm">
+        <div style="min-width: 240px" class="q-mr-sm StoreSelector">
           <AppSelect
             v-model="storeId"
             label=""

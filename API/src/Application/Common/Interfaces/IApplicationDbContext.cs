@@ -107,6 +107,8 @@ public interface IApplicationDbContext
     DbSet<ShippingMethod> ShippingMethods { get; }
     DbSet<ShippingZone> ShippingZones { get; }
     DbSet<ShippingMethodZoneRate> ShippingMethodZoneRates { get; }
+    DbSet<ShippingProviderConfiguration> ShippingProviderConfigurations { get; }
+    DbSet<ShippingCarrierSetting> ShippingCarrierSettings { get; }
     DbSet<PaymentRecord> PaymentRecords { get; }
     DbSet<TaxProviderConfiguration> TaxProviderConfigurations { get; }
     DbSet<StateNexusAccumulator> StateNexusAccumulators { get; }

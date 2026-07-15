@@ -54,7 +54,8 @@ public class ListStoreQueueQueryHandler : IRequestHandler<ListStoreQueueQuery, P
             query = query.Where(o => o.Status == status);
         }
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderByDescending(o => o.PlacedOnUtc));
         var page = await PaginatedList<Order>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(OrderSummaryDto.From).ToList();
         return new PaginatedList<OrderSummaryDto>(items, page.TotalCount, page.PageNumber, page.PageSize);

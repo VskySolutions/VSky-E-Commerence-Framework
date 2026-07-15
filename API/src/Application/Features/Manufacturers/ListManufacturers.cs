@@ -36,7 +36,8 @@ public class ListManufacturersQueryHandler : IRequestHandler<ListManufacturersQu
             query = query.Where(m => m.Name.Contains(term));
         }
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(m => m.DisplayOrder).ThenBy(m => m.Name));
 
         var page = await PaginatedList<Manufacturer>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ManufacturerDto.From).ToList();

@@ -54,3 +54,31 @@ public class ShippingMethodZoneRateConfiguration : IEntityTypeConfiguration<Ship
         b.HasIndex(x => new { x.ShippingMethodId, x.ShippingZoneId }).IsUnique();
     }
 }
+
+public class ShippingProviderConfigurationConfiguration : IEntityTypeConfiguration<ShippingProviderConfiguration>
+{
+    public void Configure(EntityTypeBuilder<ShippingProviderConfiguration> b)
+    {
+        b.ToTable("ShippingProviderConfigurations");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.SelectionMode).HasConversion<int>();
+    }
+}
+
+public class ShippingCarrierSettingConfiguration : IEntityTypeConfiguration<ShippingCarrierSetting>
+{
+    public void Configure(EntityTypeBuilder<ShippingCarrierSetting> b)
+    {
+        b.ToTable("ShippingCarrierSettings");
+        b.HasKey(x => x.Id);
+        b.Property(x => x.Carrier).HasConversion<int>();
+
+        b.HasOne(x => x.Configuration)
+            .WithMany(c => c.Carriers)
+            .HasForeignKey(x => x.ShippingProviderConfigurationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
+        // One row per carrier per configuration — the upsert relies on this.
+        b.HasIndex(x => new { x.ShippingProviderConfigurationId, x.Carrier }).IsUnique();
+    }
+}

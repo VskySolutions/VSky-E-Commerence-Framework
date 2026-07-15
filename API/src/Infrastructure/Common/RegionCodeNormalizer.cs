@@ -1,14 +1,21 @@
-namespace VSky.Infrastructure.Tax.Providers;
+namespace VSky.Infrastructure.Common;
 
 /// <summary>
 /// Normalizes a US/Canada state or province to its 2-letter ISO 3166-2 code (e.g. "Florida" → "FL").
 /// <para>
 /// The app's one standard address form (<c>AppAddressForm</c>) stores the state/province as its display
-/// <b>name</b> — for every address, store origins and customer destinations alike — whereas tax providers
-/// (TaxJar, Stripe Tax) require the 2-letter code and reject a full name (e.g. TaxJar 400
-/// "from_zip … is not used within from_state FLORIDA"). This adapter bridges the app's storage convention
-/// to the providers' requirement. Only US/Canada use this code convention; other countries and any
-/// unrecognized value are returned trimmed and unchanged so the provider can decide.
+/// <b>name</b> — for every address, store origins and customer destinations alike — whereas the external
+/// integrations require the 2-letter code and reject a full name: tax providers with an explicit 400
+/// (TaxJar: "from_zip … is not used within from_state FLORIDA"), carriers with an equally unhelpful one.
+/// This adapter bridges the app's storage convention to what they expect. Only US/Canada use this code
+/// convention; other countries and any unrecognized value are returned trimmed and unchanged so the
+/// integration can decide.
+/// </para>
+/// <para>
+/// It is also what makes zone matching survive the same mismatch: an admin who types "CA" into a shipping
+/// zone and a buyer whose address says "California" describe the same place, so
+/// <see cref="Shipping.ShippingRateService"/> normalizes both sides before comparing rather than trusting
+/// either to be stored in a particular form.
 /// </para>
 /// </summary>
 internal static class RegionCodeNormalizer
@@ -70,7 +77,7 @@ internal static class RegionCodeNormalizer
         if (NameToCode.TryGetValue(trimmed, out var code))
             return code;
 
-        // Unknown — leave it for the provider to accept or reject (its error will name the field).
+        // Unknown — leave it for the integration to accept or reject (its error will name the field).
         return trimmed;
     }
 

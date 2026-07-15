@@ -12,15 +12,24 @@ public class IntegrationCredentialListItemDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+
+    /// <summary>
+    /// The endpoint this row points at. Null for the integrations with no endpoint to choose (Stripe,
+    /// Twilio, Azure Blob). With a sandbox and a live row per integration, the URL is what tells them
+    /// apart at a glance — the Environment flag says which it claims to be, this says where it goes.
+    /// </summary>
+    public string? BaseUrl { get; set; }
+
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
-    public static IntegrationCredentialListItemDto From(IntegrationCredentialBase e) => new()
+    public static IntegrationCredentialListItemDto From(IntegrationCredentialBase e, string? baseUrl = null) => new()
     {
         Id = e.Id,
         Name = e.Name,
         Active = e.Active,
         IsProduction = e.IsProduction,
+        BaseUrl = baseUrl,
         CreatedOnUtc = e.CreatedOnUtc,
         UpdatedOnUtc = e.UpdatedOnUtc,
     };
@@ -35,15 +44,29 @@ internal static class IntegrationCredentialSupport
     /// <summary>Trims a field, collapsing blank input to null.</summary>
     public static string? Norm(string? value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
-    /// <summary>Active row(s) first, then alphabetical — the shape the admin grid renders.</summary>
+    /// <summary>
+    /// An integration's API host is configuration, not a constant compiled into an adapter: sandbox and live
+    /// live at different hosts, and only the admin knows which account a credential belongs to. Blank passes
+    /// so <c>NotEmpty()</c> owns the required message rather than both rules firing at once.
+    /// </summary>
+    public static bool BeAnAbsoluteHttpUrl(string? value)
+        => string.IsNullOrWhiteSpace(value)
+           || (Uri.TryCreate(value.Trim(), UriKind.Absolute, out var uri)
+               && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps));
+
+    /// <summary>
+    /// Active row(s) first, then alphabetical — the shape the admin grid renders. <paramref name="baseUrl"/>
+    /// projects the endpoint column; it is per-entity rather than on the base type because the integrations
+    /// with no endpoint to choose should not carry a column they can never fill.
+    /// </summary>
     public static async Task<IReadOnlyList<IntegrationCredentialListItemDto>> ListAsync<T>(
-        DbSet<T> set, CancellationToken ct) where T : IntegrationCredentialBase
+        DbSet<T> set, CancellationToken ct, Func<T, string?>? baseUrl = null) where T : IntegrationCredentialBase
     {
         var rows = await set.AsNoTracking()
             .OrderByDescending(x => x.Active)
             .ThenBy(x => x.Name)
             .ToListAsync(ct);
-        return rows.Select(IntegrationCredentialListItemDto.From).ToList();
+        return rows.Select(r => IntegrationCredentialListItemDto.From(r, baseUrl?.Invoke(r))).ToList();
     }
 
     public static async Task<T> GetAsync<T>(DbSet<T> set, Guid id, CancellationToken ct)

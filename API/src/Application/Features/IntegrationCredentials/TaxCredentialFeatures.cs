@@ -34,7 +34,7 @@ public class ListTaxJarCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListTaxJarCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListTaxJarCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.TaxJarCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.TaxJarCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetTaxJarCredentialQuery(Guid Id) : IRequest<TaxJarCredentialDto>;
@@ -56,6 +56,9 @@ public class SaveTaxJarCredentialCommandValidator : AbstractValidator<SaveTaxJar
     public SaveTaxJarCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://api.sandbox.taxjar.com");
         RuleFor(x => x.SecretKey).NotEmpty();
     }
 }
@@ -92,6 +95,7 @@ public class StripeTaxCredentialDto
     public string Name { get; set; } = string.Empty;
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
+    public string? BaseUrl { get; set; }
     public string? PublishableKey { get; set; }
     public string? SecretKey { get; set; }
     public DateTime CreatedOnUtc { get; set; }
@@ -100,7 +104,7 @@ public class StripeTaxCredentialDto
     public static StripeTaxCredentialDto From(StripeTaxCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        PublishableKey = e.PublishableKey, SecretKey = e.SecretKey,
+        BaseUrl = e.BaseUrl, PublishableKey = e.PublishableKey, SecretKey = e.SecretKey,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -113,7 +117,7 @@ public class ListStripeTaxCredentialsQueryHandler
     private readonly IApplicationDbContext _db;
     public ListStripeTaxCredentialsQueryHandler(IApplicationDbContext db) => _db = db;
     public Task<IReadOnlyList<IntegrationCredentialListItemDto>> Handle(ListStripeTaxCredentialsQuery request, CancellationToken ct)
-        => IntegrationCredentialSupport.ListAsync(_db.StripeTaxCredentials, ct);
+        => IntegrationCredentialSupport.ListAsync(_db.StripeTaxCredentials, ct, c => c.BaseUrl);
 }
 
 public record GetStripeTaxCredentialQuery(Guid Id) : IRequest<StripeTaxCredentialDto>;
@@ -128,13 +132,16 @@ public class GetStripeTaxCredentialQueryHandler : IRequestHandler<GetStripeTaxCr
 
 public record SaveStripeTaxCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? PublishableKey, string? SecretKey) : IRequest<StripeTaxCredentialDto>;
+    string? BaseUrl, string? PublishableKey, string? SecretKey) : IRequest<StripeTaxCredentialDto>;
 
 public class SaveStripeTaxCredentialCommandValidator : AbstractValidator<SaveStripeTaxCredentialCommand>
 {
     public SaveStripeTaxCredentialCommandValidator()
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.BaseUrl).NotEmpty().MaximumLength(500)
+            .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
+            .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://api.stripe.com");
         RuleFor(x => x.SecretKey).NotEmpty();
     }
 }
@@ -146,6 +153,7 @@ public class SaveStripeTaxCredentialCommandHandler : IRequestHandler<SaveStripeT
     public async Task<StripeTaxCredentialDto> Handle(SaveStripeTaxCredentialCommand request, CancellationToken ct)
     {
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.StripeTaxCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
+        e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.PublishableKey = IntegrationCredentialSupport.Norm(request.PublishableKey);
         e.SecretKey = IntegrationCredentialSupport.Norm(request.SecretKey);
         await _db.SaveChangesAsync(ct);

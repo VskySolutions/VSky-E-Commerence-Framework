@@ -52,6 +52,9 @@ public class Store : AuditableEntity, ISoftDeletable
     /// <summary>Whether Cash on Delivery is offered at checkout for orders fulfilled by this store.</summary>
     public bool CashOnDeliveryEnabled { get; set; } = true;
 
+    /// <summary>Whether Bank Transfer is offered at checkout for orders fulfilled by this store.</summary>
+    public bool BankTransferEnabled { get; set; } = true;
+
     /// <summary>Whether this store offers pickup-in-store at checkout (REQ-SHP-004).</summary>
     public bool PickupEnabled { get; set; }
 

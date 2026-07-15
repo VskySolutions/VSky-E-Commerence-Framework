@@ -1,8 +1,10 @@
 /*
  * Base route skeleton (WO-94 Step 7).
  *
- * - appShellRoute: the authenticated layout at "/", redirecting "" -> /dashboard.
- *   Feature-module child routes are appended in router/index.js.
+ * - appShellRoute: the authenticated layout mounted at "/", supplying the admin URLs
+ *   (/dashboard, /catalog/*, ...) as children appended in router/index.js. It owns no ""
+ *   child: the bare site root is the public storefront home (modules/storefront/routes),
+ *   which is registered ahead of this record. The admin front door is /dashboard.
  * - /not-authorized and the catch-all 404 are always present.
  */
 
@@ -10,7 +12,7 @@ export const appShellRoute = {
   path: '/',
   component: () => import('layouts/layout.vue'),
   meta: { requiresAuth: true },
-  children: [{ path: '', redirect: '/dashboard' }]
+  children: []
 }
 
 export const notAuthorizedRoute = {

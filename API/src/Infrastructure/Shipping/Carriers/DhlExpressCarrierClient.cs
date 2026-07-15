@@ -1,8 +1,10 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
+using VSky.Domain.Enums;
 
 namespace VSky.Infrastructure.Shipping.Carriers;
 
@@ -20,19 +22,22 @@ namespace VSky.Infrastructure.Shipping.Carriers;
 public class DhlExpressCarrierClient : ICarrierClient
 {
     private const string CredentialKey = "dhl";
-    private const string DefaultBaseUrl = "https://express.api.dhl.com/mydhlapi";
     private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(15);
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICredentialVault _vault;
+    private readonly ILogger<DhlExpressCarrierClient> _logger;
 
-    public DhlExpressCarrierClient(IHttpClientFactory httpClientFactory, ICredentialVault vault)
+    public DhlExpressCarrierClient(
+        IHttpClientFactory httpClientFactory, ICredentialVault vault, ILogger<DhlExpressCarrierClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _vault = vault;
+        _logger = logger;
     }
 
     public string CarrierName => "DHL Express";
+    public ShippingCarrierType Carrier => ShippingCarrierType.DHLExpress;
 
     public async Task<IReadOnlyList<ShippingRateOption>> GetRatesAsync(CarrierRateRequest request, CancellationToken ct)
     {
@@ -44,12 +49,19 @@ public class DhlExpressCarrierClient : ICarrierClient
         if (string.IsNullOrWhiteSpace(credential.ApiKey))
             return Array.Empty<ShippingRateOption>();
 
+        // The endpoint is configuration, not a constant: sandbox and live are different hosts, and only the
+        // credential knows which account it belongs to. No fallback — guessing sends sandbox keys to the
+        // live host, which fails with an opaque 4xx.
+        if (string.IsNullOrWhiteSpace(credential.BaseUrl))
+            throw new InvalidOperationException(
+                "The active DHL Express credential has no Base URL. Set it on the integration (Integrations → DHL Express).");
+
         try
         {
             var client = _httpClientFactory.CreateClient("dhl-express");
             client.Timeout = HttpTimeout;
 
-            var baseUrl = string.IsNullOrWhiteSpace(credential.BaseUrl) ? DefaultBaseUrl : credential.BaseUrl!.TrimEnd('/');
+            var baseUrl = credential.BaseUrl!.TrimEnd('/');
             using var httpRequest = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}/rates");
 
             // MyDHL API uses HTTP Basic auth (apiKey:apiSecret).
@@ -62,15 +74,19 @@ public class DhlExpressCarrierClient : ICarrierClient
 
             using var response = await client.SendAsync(httpRequest, ct);
             if (!response.IsSuccessStatusCode)
+            {
+                await CarrierHttpDiagnostics.LogFailedResponseAsync(_logger, CarrierName, "rate", response, ct);
                 return Array.Empty<ShippingRateOption>();
+            }
 
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             return MapResponse(document.RootElement);
         }
-        catch
+        catch (Exception ex)
         {
             // Network / auth / parse failures exclude DHL from the aggregate rather than fail the quote.
+            _logger.LogWarning(ex, "Shipping carrier {Carrier} rate call threw.", CarrierName);
             return Array.Empty<ShippingRateOption>();
         }
     }
@@ -82,13 +98,13 @@ public class DhlExpressCarrierClient : ICarrierClient
             shipperDetails = new
             {
                 postalCode = request.Origin.PostalCode,
-                cityName = request.Origin.Region,
+                cityName = request.Origin.City,
                 countryCode = request.Origin.CountryCode,
             },
             receiverDetails = new
             {
                 postalCode = request.Destination.PostalCode,
-                cityName = request.Destination.Region,
+                cityName = request.Destination.City,
                 countryCode = request.Destination.CountryCode,
             },
         },

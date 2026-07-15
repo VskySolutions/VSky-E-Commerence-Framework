@@ -9,8 +9,8 @@
       @back="router.push('/dashboard')"
     />
 
-    <div class="row items-center q-col-gutter-md q-mb-md">
-      <div class="col-12 col-md-6">
+    <q-card flat bordered class="app-tabs-toolbar q-mb-md">
+      <div class="app-tabs-toolbar__body">
         <q-tabs
           v-model="tab"
           dense
@@ -18,15 +18,14 @@
           align="left"
           active-color="primary"
           indicator-color="primary"
-          class="text-grey-7 app-attributes-tabs"
+          class="text-grey-7"
           @update:model-value="onTab"
         >
           <q-tab name="product" label="Product Attributes" icon="o_palette" />
           <q-tab name="specification" label="Specification Attributes" icon="o_tune" />
         </q-tabs>
-      </div>
-      <div class="col-12 col-md-6">
-        <div class="row items-center justify-end q-gutter-sm">
+
+        <div class="app-tabs-toolbar__actions">
           <q-input v-model="search" dense outlined debounce="400" placeholder="Search attributes" style="min-width: 220px">
             <template #prepend><q-icon name="o_search" /></template>
             <template v-if="search" #append><q-icon name="o_close" class="cursor-pointer" @click="search = ''" /></template>
@@ -37,7 +36,7 @@
           <q-btn v-if="canWrite" color="primary" unelevated no-caps icon="o_add" label="Add attribute" @click="panelRef?.onAdd()" />
         </div>
       </div>
-    </div>
+    </q-card>
 
     <component :is="activeComponent" ref="panelRef" :search="search" @filter-count="filterCount = $event" />
   </q-page>
@@ -47,8 +46,8 @@
 /*
  * Catalog → Attributes (WO-15): the global attribute library admin screen, with two
  * sub-tabs — Product Attributes (variant-driving) and Specification Attributes (facets).
- * The tabs sit on the left, the active panel's search/filter/add toolbar on the right of
- * the same row; only the active panel is mounted (dynamic component), which drives the
+ * The tabs sit on the left of a bordered card, the active panel's search/filter/add toolbar on
+ * the right of the same row; only the active panel is mounted (dynamic component), which drives the
  * shared toolbar via an exposed onAdd/openFilters + a filter-count event. Deep-linkable via ?tab=.
  */
 import { ref, computed } from 'vue'

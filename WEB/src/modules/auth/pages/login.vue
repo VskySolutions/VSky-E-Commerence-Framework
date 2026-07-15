@@ -71,7 +71,7 @@ async function onSubmit () {
     if (typeof route.query.redirect === 'string' && route.query.redirect) {
       router.push(route.query.redirect)
     } else {
-      router.push(auth.isStaff ? '/dashboard' : '/shop')
+      router.push(auth.isStaff ? { path: '/dashboard' } : { name: 'shop-home' })
     }
   } catch (err) {
     notify.error(getApiErrorMessage(err))

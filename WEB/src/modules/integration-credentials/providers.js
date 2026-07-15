@@ -21,7 +21,7 @@ export const INTEGRATIONS = [
         key: 'returnUrl', label: 'Return URL', required: true,
         prefill: '{origin}/shop/checkout',
         placeholder: 'https://your-store.com/shop/checkout',
-        hint: 'Storefront page Stripe returns buyers to after payment — the base URL is prefilled; edit the route as needed.'
+        hints: ['Storefront page Stripe returns buyers to after payment — the base URL is prefilled; edit the route as needed.']
       }
     ]
   },
@@ -29,6 +29,13 @@ export const INTEGRATIONS = [
     key: 'paypal', kind: 'credential', label: 'PayPal', category: 'Payments', icon: 'o_account_balance_wallet',
     description: 'PayPal Checkout (REST app credentials).',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://api-m.sandbox.paypal.com',
+        hints: ['Sandbox: https://api-m.sandbox.paypal.com', 'Live: https://api-m.paypal.com']
+      },
       { key: 'clientId', label: 'Client ID', required: true },
       { key: 'secretKey', label: 'Secret', secret: true, required: true }
     ]
@@ -37,6 +44,13 @@ export const INTEGRATIONS = [
     key: 'razorpay', kind: 'credential', label: 'Razorpay', category: 'Payments', icon: 'o_payments',
     description: 'Razorpay payments.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://api.razorpay.com/v1',
+        hints: ['Live and test share one host — the key prefix (rzp_test_/rzp_live_) decides the mode.']
+      },
       { key: 'keyId', label: 'Key ID', required: true, placeholder: 'rzp_live_…' },
       { key: 'keySecret', label: 'Key Secret', secret: true, required: true }
     ]
@@ -45,6 +59,13 @@ export const INTEGRATIONS = [
     key: 'square', kind: 'credential', label: 'Square', category: 'Payments', icon: 'o_qr_code_2',
     description: 'Square payments.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://connect.squareupsandbox.com/v2',
+        hints: ['Sandbox: https://connect.squareupsandbox.com/v2', 'Live: https://connect.squareup.com/v2']
+      },
       { key: 'applicationId', label: 'Application ID' },
       { key: 'accessToken', label: 'Access Token', secret: true, required: true },
       { key: 'applicationSecret', label: 'Application Secret', secret: true }
@@ -54,6 +75,16 @@ export const INTEGRATIONS = [
     key: 'authorizenet', kind: 'credential', label: 'Authorize.Net', category: 'Payments', icon: 'o_credit_score',
     description: 'Authorize.Net payment gateway.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Endpoint URL',
+        required: true,
+        placeholder: 'https://apitest.authorize.net/xml/v1/request.api',
+        hints: [
+          'Sandbox: https://apitest.authorize.net/xml/v1/request.api',
+          'Live: https://api.authorize.net/xml/v1/request.api'
+        ]
+      },
       { key: 'applicationLoginId', label: 'API Login ID', required: true },
       { key: 'transactionKey', label: 'Transaction Key', secret: true, required: true },
       { key: 'signatureKey', label: 'Signature Key', secret: true }
@@ -65,7 +96,13 @@ export const INTEGRATIONS = [
     key: 'taxjar', kind: 'credential', label: 'TaxJar', category: 'Tax', icon: 'o_receipt_long',
     description: 'TaxJar sales-tax API.',
     fields: [
-      { key: 'baseUrl', label: 'Base URL', placeholder: 'https://api.taxjar.com' },
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://api.sandbox.taxjar.com',
+        hints: ['Sandbox: https://api.sandbox.taxjar.com', 'Live: https://api.taxjar.com']
+      },
       { key: 'secretKey', label: 'API Token', secret: true, required: true }
     ]
   },
@@ -73,6 +110,13 @@ export const INTEGRATIONS = [
     key: 'stripe-tax', kind: 'credential', label: 'Stripe Tax', category: 'Tax', icon: 'o_receipt',
     description: 'Stripe Tax calculation.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://api.stripe.com',
+        hints: ['Live and test share one host — the key prefix (sk_test_/sk_live_) decides the mode.']
+      },
       { key: 'publishableKey', label: 'Publishable Key', placeholder: 'pk_live_…' },
       { key: 'secretKey', label: 'Secret Key', secret: true, required: true, placeholder: 'sk_live_…' }
     ]
@@ -83,22 +127,56 @@ export const INTEGRATIONS = [
     key: 'fedex', kind: 'credential', label: 'FedEx', category: 'Shipping', icon: 'o_local_shipping',
     description: 'FedEx rates and labels.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://apis-sandbox.fedex.com',
+        hints: ['Sandbox: https://apis-sandbox.fedex.com', 'Live: https://apis.fedex.com']
+      },
       { key: 'apiKey', label: 'API Key', required: true },
-      { key: 'apiSecret', label: 'API Secret', secret: true, required: true }
+      { key: 'apiSecret', label: 'API Secret', secret: true, required: true },
+      {
+        key: 'accountNumber',
+        label: 'Account Number',
+        required: true,
+        placeholder: 'FedEx account number',
+        hints: ['The key and secret only authenticate you — FedEx rejects a rate request that names no account with a 403.']
+      }
     ]
   },
   {
     key: 'dhl', kind: 'credential', label: 'DHL Express', category: 'Shipping', icon: 'o_local_shipping',
     description: 'DHL Express rates and labels.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://express.api.dhl.com/mydhlapi/test',
+        hints: ['Test: https://express.api.dhl.com/mydhlapi/test', 'Live: https://express.api.dhl.com/mydhlapi']
+      },
       { key: 'apiKey', label: 'API Key', required: true },
-      { key: 'apiSecret', label: 'API Secret', secret: true, required: true }
+      { key: 'apiSecret', label: 'API Secret', secret: true, required: true },
+      {
+        key: 'accountNumber',
+        label: 'Account Number',
+        placeholder: 'DHL Express account number',
+        hints: ['Optional — without it MyDHL quotes generic products rather than your negotiated rates.']
+      }
     ]
   },
   {
     key: 'usps', kind: 'credential', label: 'USPS', category: 'Shipping', icon: 'o_markunread_mailbox',
     description: 'USPS shipping.',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://apis-tem.usps.com',
+        hints: ['Test (TEM): https://apis-tem.usps.com', 'Live: https://apis.usps.com']
+      },
       { key: 'consumerKey', label: 'Consumer Key', required: true },
       { key: 'consumerSecret', label: 'Consumer Secret', secret: true, required: true }
     ]
@@ -107,6 +185,13 @@ export const INTEGRATIONS = [
     key: 'ups', kind: 'credential', label: 'UPS', category: 'Shipping', icon: 'o_local_shipping',
     description: 'UPS rates and labels (OAuth2 client credentials).',
     fields: [
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        required: true,
+        placeholder: 'https://wwwcie.ups.com',
+        hints: ['Test (CIE): https://wwwcie.ups.com', 'Live: https://onlinetools.ups.com']
+      },
       { key: 'merchantId', label: 'Merchant ID', placeholder: 'UPS account / shipper number' },
       { key: 'clientId', label: 'Client ID', required: true },
       { key: 'clientSecret', label: 'Client Secret', secret: true, required: true }

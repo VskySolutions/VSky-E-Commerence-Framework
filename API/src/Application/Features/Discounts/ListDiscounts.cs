@@ -50,7 +50,8 @@ public class ListDiscountsQueryHandler : IRequestHandler<ListDiscountsQuery, Pag
         if (request.IsActive.HasValue)
             query = query.Where(d => d.IsActive == request.IsActive.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(d => d.Name));
 
         var page = await PaginatedList<Discount>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(DiscountDto.From).ToList();

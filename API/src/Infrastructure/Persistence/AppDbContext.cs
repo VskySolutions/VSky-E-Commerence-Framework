@@ -128,6 +128,8 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<ShippingMethod> ShippingMethods => Set<ShippingMethod>();
     public DbSet<ShippingZone> ShippingZones => Set<ShippingZone>();
     public DbSet<ShippingMethodZoneRate> ShippingMethodZoneRates => Set<ShippingMethodZoneRate>();
+    public DbSet<ShippingProviderConfiguration> ShippingProviderConfigurations => Set<ShippingProviderConfiguration>();
+    public DbSet<ShippingCarrierSetting> ShippingCarrierSettings => Set<ShippingCarrierSetting>();
     public DbSet<PaymentRecord> PaymentRecords => Set<PaymentRecord>();
     public DbSet<TaxProviderConfiguration> TaxProviderConfigurations => Set<TaxProviderConfiguration>();
     public DbSet<StateNexusAccumulator> StateNexusAccumulators => Set<StateNexusAccumulator>();

@@ -23,6 +23,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly IApplicationDbContext _db;
     private readonly IOrderRoutingEngine _routing;
     private readonly IShippingRateService _shipping;
+    private readonly IShippingOptionSelector _shippingSelector;
     private readonly IDiscountService _discounts;
     private readonly ICouponService _coupons;
     private readonly ITaxCalculationService _tax;
@@ -38,6 +39,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         IApplicationDbContext db,
         IOrderRoutingEngine routing,
         IShippingRateService shipping,
+        IShippingOptionSelector shippingSelector,
         IDiscountService discounts,
         ICouponService coupons,
         ITaxCalculationService tax,
@@ -52,6 +54,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _db = db;
         _routing = routing;
         _shipping = shipping;
+        _shippingSelector = shippingSelector;
         _discounts = discounts;
         _coupons = coupons;
         _tax = tax;
@@ -103,15 +106,20 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
     /// <summary>
     /// Payment methods offered for an order fulfilled by <paramref name="store"/>: the active/enabled +
-    /// credential-configured gateways (<see cref="IPaymentGatewayRouter.AvailableMethodsAsync"/>), with Cash
-    /// on Delivery included only when the store enables it (<see cref="Domain.Entities.Store.CashOnDeliveryEnabled"/>).
+    /// credential-configured gateways (<see cref="IPaymentGatewayRouter.AvailableMethodsAsync"/>), minus the
+    /// manual methods this store switches off (<see cref="Domain.Entities.Store.CashOnDeliveryEnabled"/>,
+    /// <see cref="Domain.Entities.Store.BankTransferEnabled"/>). Both settle at the store rather than through
+    /// a gateway, so whether they can be honoured is the fulfilling store's call, not the platform's.
     /// </summary>
     private async Task<IReadOnlyList<PaymentMethodAvailability>> AvailablePaymentMethodsAsync(Domain.Entities.Store store, CancellationToken ct)
     {
         var methods = await _payments.AvailableMethodsAsync(ct);
-        return store.CashOnDeliveryEnabled
-            ? methods
-            : methods.Where(m => m.Method != PaymentMethodType.CashOnDelivery).ToList();
+        return methods.Where(m => m.Method switch
+        {
+            PaymentMethodType.CashOnDelivery => store.CashOnDeliveryEnabled,
+            PaymentMethodType.BankTransfer => store.BankTransferEnabled,
+            _ => true,
+        }).ToList();
     }
 
     public async Task<CheckoutResult> PlaceAsync(PlaceCheckoutRequest req, CancellationToken ct)
@@ -177,8 +185,10 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             // Provider calculation reference (e.g. Stripe Tax calculation id) for post-completion reporting (WO-37).
             TaxProviderCalculationRef = priced.Tax.ProviderReference,
             AppliedCouponCode = priced.CouponValid ? priced.CouponCode : null,
+            ShippingMethodId = priced.SelectedShipping?.MethodId,
             ShippingMethodName = priced.SelectedShipping?.Name,
             ShippingCarrier = priced.SelectedShipping?.Carrier,
+            ShippingWasRecommended = priced.SelectedShipping?.IsRecommended ?? false,
         };
 
         foreach (var line in priced.Lines)
@@ -549,21 +559,33 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         var weightKg = Math.Max(1m, lines.Sum(l => (decimal)l.Quantity));
         var shippingOptions = await _shipping.GetRatesAsync(
             new CarrierRateRequest(
-                new CarrierAddress(store.CountryCode, store.StateProvince, store.PostalCode, store.Latitude, store.Longitude),
-                new CarrierAddress(shipTo.CountryCode, shipTo.Region, shipTo.PostalCode, shipTo.Latitude, shipTo.Longitude),
+                new CarrierAddress(store.CountryCode, store.StateProvince, store.PostalCode, store.Latitude, store.Longitude, store.City),
+                new CarrierAddress(shipTo.CountryCode, shipTo.Region, shipTo.PostalCode, shipTo.Latitude, shipTo.Longitude, shipTo.City),
                 weightKg, Length: null, Width: null, Height: null, OrderSubtotal: subtotal),
             ct);
+
+        // Flag the recommended option (Automatic) or clear the flag (Manual). The recommendation is the
+        // default when the buyer has not chosen — it never overrides a choice they did make.
+        var selection = await _shippingSelector.SelectAsync(shippingOptions, ct);
+        shippingOptions = selection.Options;
 
         ShippingRateOption? selected;
         if (forPlacement)
         {
+            // Nothing quoted. This is never "the order needs no shipping" — no product can be marked
+            // non-shippable, and pickup prices its own option on a path that never reaches here. It means
+            // every rate source declined or is misconfigured, so refuse rather than ship for free.
+            if (!shippingOptions.Any())
+                throw new ConflictException(
+                    "No delivery options are available for this address. Please try a different address or contact support.");
+
             if (string.IsNullOrWhiteSpace(shippingMethodId))
             {
-                // No method chosen — valid only when the store offers no shipping for this order
-                // (the storefront enables Place order directly in that case).
-                if (shippingOptions.Any())
+                // No method chosen. Under Automatic that is fine — fall back to the recommendation; under
+                // Manual nothing is recommended, so the buyer has to pick.
+                selected = selection.Recommended;
+                if (selected is null)
                     throw new ConflictException("Please choose a shipping method.");
-                selected = null;
             }
             else
             {
@@ -575,11 +597,12 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         }
         else
         {
-            // Prefer the requested method if given and still offered; otherwise default to the cheapest.
+            // Prefer the requested method if given and still offered; otherwise fall back to the
+            // recommendation, or to the cheapest when nothing is recommended (Manual).
             selected = !string.IsNullOrWhiteSpace(shippingMethodId)
                 ? shippingOptions.FirstOrDefault(o => o.MethodId == shippingMethodId)
                 : null;
-            selected ??= shippingOptions.OrderBy(o => o.Rate).FirstOrDefault();
+            selected ??= selection.Recommended ?? shippingOptions.OrderBy(o => o.Rate).FirstOrDefault();
         }
         var shippingTotal = selected?.Rate ?? 0m;
 
@@ -647,6 +670,15 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     {
         if (pickupStoreId is not Guid storeId)
             throw new ConflictException("A pickup store is required for pickup-in-store checkout.");
+
+        // Platform switch: collection can be withdrawn everywhere without editing each store. A missing
+        // configuration row leaves it available, matching how the rate sources treat an unconfigured install.
+        var pickupAllowed = await _db.ShippingProviderConfigurations
+            .AsNoTracking()
+            .Select(c => (bool?)c.PickupEnabled)
+            .FirstOrDefaultAsync(ct) ?? true;
+        if (!pickupAllowed)
+            throw new ConflictException("Pickup in store is not available right now.");
 
         var store = await _db.Stores.AsNoTracking().Include(s => s.Address).FirstOrDefaultAsync(s => s.Id == storeId, ct)
             ?? throw new ConflictException("The selected pickup store could not be found.");

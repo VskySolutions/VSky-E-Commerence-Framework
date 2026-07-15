@@ -37,7 +37,8 @@ public class ListCategoriesQueryHandler : IRequestHandler<ListCategoriesQuery, P
             query = query.Where(c => c.Name.Contains(term));
         }
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name));
 
         var page = await PaginatedList<Category>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(CategoryDto.From).ToList();

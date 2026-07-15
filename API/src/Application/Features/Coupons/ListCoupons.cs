@@ -48,7 +48,8 @@ public class ListCouponsQueryHandler : IRequestHandler<ListCouponsQuery, Paginat
         if (request.IsActive.HasValue)
             query = query.Where(c => c.IsActive == request.IsActive.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(c => c.Code));
 
         var page = await PaginatedList<CouponCode>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(CouponDto.From).ToList();

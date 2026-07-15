@@ -19,8 +19,6 @@ namespace VSky.Infrastructure.Payments.Adapters;
 /// </summary>
 public class SquareGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string LiveBaseUrl = "https://connect.squareup.com/v2";
-    private const string SandboxBaseUrl = "https://connect.squareupsandbox.com/v2";
     private const string SquareVersion = "2024-01-18";
 
     public SquareGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<SquareGatewayAdapter> logger)
@@ -119,7 +117,7 @@ public class SquareGatewayAdapter : PaymentGatewayAdapterBase
         var resolved = await ResolveAsync(ct);
         if (resolved is null)
             return null;
-        var baseUrl = resolved.IsProduction ? LiveBaseUrl : SandboxBaseUrl;
+        var baseUrl = RequireBaseUrl(resolved);
         return (baseUrl, resolved.Value);
     }
 

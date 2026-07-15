@@ -51,7 +51,8 @@ public class ListStoresQueryHandler : IRequestHandler<ListStoresQuery, Paginated
         if (request.PickupEnabled.HasValue)
             query = query.Where(s => s.PickupEnabled == request.PickupEnabled.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(s => s.Name));
 
         var page = await PaginatedList<Store>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(StoreDto.From).ToList();

@@ -2,8 +2,11 @@ using System.Globalization;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Extensions.Logging;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
+using VSky.Domain.Enums;
+using VSky.Infrastructure.Common;
 
 namespace VSky.Infrastructure.Shipping.Carriers;
 
@@ -22,21 +25,24 @@ namespace VSky.Infrastructure.Shipping.Carriers;
 public class UpsCarrierClient : ICarrierClient
 {
     private const string CredentialKey = "ups";
-    private const string DefaultBaseUrl = "https://onlinetools.ups.com";
     private const string TokenPath = "/security/v1/oauth/token";
     private const string RatingPath = "/api/rating/v2409/Rate";
     private static readonly TimeSpan HttpTimeout = TimeSpan.FromSeconds(15);
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICredentialVault _vault;
+    private readonly ILogger<UpsCarrierClient> _logger;
 
-    public UpsCarrierClient(IHttpClientFactory httpClientFactory, ICredentialVault vault)
+    public UpsCarrierClient(
+        IHttpClientFactory httpClientFactory, ICredentialVault vault, ILogger<UpsCarrierClient> logger)
     {
         _httpClientFactory = httpClientFactory;
         _vault = vault;
+        _logger = logger;
     }
 
     public string CarrierName => "UPS";
+    public ShippingCarrierType Carrier => ShippingCarrierType.UPS;
 
     public async Task<IReadOnlyList<ShippingRateOption>> GetRatesAsync(CarrierRateRequest request, CancellationToken ct)
     {
@@ -48,11 +54,18 @@ public class UpsCarrierClient : ICarrierClient
         if (string.IsNullOrWhiteSpace(credential.ClientId) || string.IsNullOrWhiteSpace(credential.ClientSecret))
             return Array.Empty<ShippingRateOption>();
 
+        // The endpoint is configuration, not a constant: the CIE test environment and live are different
+        // hosts, and only the credential knows which account it belongs to. No fallback — guessing sends
+        // test keys to the live host, which fails with an opaque 4xx.
+        if (string.IsNullOrWhiteSpace(credential.BaseUrl))
+            throw new InvalidOperationException(
+                "The active UPS credential has no Base URL. Set it on the integration (Integrations → UPS).");
+
         try
         {
             var client = _httpClientFactory.CreateClient("ups");
             client.Timeout = HttpTimeout;
-            var baseUrl = string.IsNullOrWhiteSpace(credential.BaseUrl) ? DefaultBaseUrl : credential.BaseUrl!.TrimEnd('/');
+            var baseUrl = credential.BaseUrl!.TrimEnd('/');
 
             var token = await GetAccessTokenAsync(client, baseUrl, credential, ct);
             if (string.IsNullOrWhiteSpace(token))
@@ -67,20 +80,24 @@ public class UpsCarrierClient : ICarrierClient
 
             using var response = await client.SendAsync(httpRequest, ct);
             if (!response.IsSuccessStatusCode)
+            {
+                await CarrierHttpDiagnostics.LogFailedResponseAsync(_logger, CarrierName, "rate", response, ct);
                 return Array.Empty<ShippingRateOption>();
+            }
 
             await using var stream = await response.Content.ReadAsStreamAsync(ct);
             using var document = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
             return MapResponse(document.RootElement);
         }
-        catch
+        catch (Exception ex)
         {
             // Network / auth / parse failures exclude UPS from the aggregate rather than fail the quote.
+            _logger.LogWarning(ex, "Shipping carrier {Carrier} rate call threw.", CarrierName);
             return Array.Empty<ShippingRateOption>();
         }
     }
 
-    private static async Task<string?> GetAccessTokenAsync(HttpClient client, string baseUrl, UpsCredential credential, CancellationToken ct)
+    private async Task<string?> GetAccessTokenAsync(HttpClient client, string baseUrl, UpsCredential credential, CancellationToken ct)
     {
         // UPS OAuth2 client-credentials: HTTP Basic auth (clientId:clientSecret) + grant_type body.
         using var tokenRequest = new HttpRequestMessage(HttpMethod.Post, $"{baseUrl}{TokenPath}")
@@ -92,7 +109,10 @@ public class UpsCarrierClient : ICarrierClient
 
         using var tokenResponse = await client.SendAsync(tokenRequest, ct);
         if (!tokenResponse.IsSuccessStatusCode)
+        {
+            await CarrierHttpDiagnostics.LogFailedResponseAsync(_logger, CarrierName, "OAuth token", tokenResponse, ct);
             return null;
+        }
 
         await using var stream = await tokenResponse.Content.ReadAsStreamAsync(ct);
         using var doc = await JsonDocument.ParseAsync(stream, cancellationToken: ct);
@@ -103,7 +123,9 @@ public class UpsCarrierClient : ICarrierClient
     {
         RateRequest = new
         {
-            Request = new { RequestOption = "Shop" },
+            // "Shoptimeintransit" is "Shop" plus delivery estimates. Plain "Shop" only populates
+            // GuaranteedDelivery, so non-guaranteed services (Ground) would come back unknown-speed.
+            Request = new { RequestOption = "Shoptimeintransit" },
             Shipment = new
             {
                 Shipper = new
@@ -113,6 +135,7 @@ public class UpsCarrierClient : ICarrierClient
                 },
                 ShipFrom = new { Address = BuildAddress(request.Origin) },
                 ShipTo = new { Address = BuildAddress(request.Destination) },
+                DeliveryTimeInformation = new { PackageBillType = "03" },
                 Package = new
                 {
                     PackagingType = new { Code = "02" },
@@ -126,10 +149,14 @@ public class UpsCarrierClient : ICarrierClient
         },
     };
 
+    /// <summary>
+    /// UPS rates against the 2-letter state code and rejects the display name the address form stores, so
+    /// the region is normalized here rather than sent as typed.
+    /// </summary>
     private static object BuildAddress(CarrierAddress address) => new
     {
         PostalCode = address.PostalCode ?? string.Empty,
-        StateProvinceCode = address.Region ?? string.Empty,
+        StateProvinceCode = RegionCodeNormalizer.ToStateCode(address.CountryCode, address.Region) ?? string.Empty,
         CountryCode = address.CountryCode ?? string.Empty,
     };
 
@@ -168,13 +195,6 @@ public class UpsCarrierClient : ICarrierClient
             decimal.TryParse(monetary.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
             rate = value;
 
-        int? transitDays = null;
-        if (shipment.TryGetProperty("GuaranteedDelivery", out var guaranteed) &&
-            guaranteed.TryGetProperty("BusinessDaysInTransit", out var transit) &&
-            transit.ValueKind == JsonValueKind.String &&
-            int.TryParse(transit.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var days))
-            transitDays = days;
-
         if (rate is null)
             return;
 
@@ -182,9 +202,39 @@ public class UpsCarrierClient : ICarrierClient
             MethodId: serviceCode ?? "UPS",
             Name: serviceCode is null ? "UPS" : $"UPS {serviceCode}",
             Carrier: "UPS",
-            EstimatedDeliveryDays: transitDays,
+            EstimatedDeliveryDays: ReadTransitDays(shipment),
             Rate: rate.Value));
     }
+
+    /// <summary>
+    /// Reads a transit estimate from a rated shipment. <c>GuaranteedDelivery.BusinessDaysInTransit</c> is
+    /// only present on guaranteed services, so fall back to the TimeInTransit node that
+    /// RequestOption "Shoptimeintransit" adds for the rest. Returns null when neither is present.
+    /// </summary>
+    private static int? ReadTransitDays(JsonElement shipment)
+    {
+        if (shipment.TryGetProperty("GuaranteedDelivery", out var guaranteed) &&
+            guaranteed.TryGetProperty("BusinessDaysInTransit", out var transit) &&
+            ParseInt(transit) is { } guaranteedDays)
+            return guaranteedDays;
+
+        if (shipment.TryGetProperty("TimeInTransit", out var timeInTransit) &&
+            timeInTransit.TryGetProperty("ServiceSummary", out var summary) &&
+            summary.TryGetProperty("EstimatedArrival", out var arrival) &&
+            arrival.TryGetProperty("BusinessDaysInTransit", out var businessDays) &&
+            ParseInt(businessDays) is { } estimatedDays)
+            return estimatedDays;
+
+        return null;
+    }
+
+    /// <summary>UPS returns numbers as JSON strings; tolerate both.</summary>
+    private static int? ParseInt(JsonElement element) => element.ValueKind switch
+    {
+        JsonValueKind.String when int.TryParse(element.GetString(), NumberStyles.Any, CultureInfo.InvariantCulture, out var s) => s,
+        JsonValueKind.Number when element.TryGetInt32(out var n) => n,
+        _ => null,
+    };
 
     private sealed record UpsCredential(string? ClientId, string? ClientSecret, string? MerchantId, string? BaseUrl)
     {

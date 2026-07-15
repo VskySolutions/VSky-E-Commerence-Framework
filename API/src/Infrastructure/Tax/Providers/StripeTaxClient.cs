@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Enums;
+using VSky.Infrastructure.Common;
 
 namespace VSky.Infrastructure.Tax.Providers;
 
@@ -22,8 +23,8 @@ namespace VSky.Infrastructure.Tax.Providers;
 public class StripeTaxClient : ITaxProviderClient
 {
     private const string CredentialKey = "stripe-tax";
-    private const string CalculationsUrl = "https://api.stripe.com/v1/tax/calculations";
-    private const string TransactionsUrl = "https://api.stripe.com/v1/tax/transactions/create_from_calculation";
+    private const string CalculationsPath = "/v1/tax/calculations";
+    private const string TransactionsPath = "/v1/tax/transactions/create_from_calculation";
 
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ICredentialVault _vault;
@@ -40,17 +41,10 @@ public class StripeTaxClient : ITaxProviderClient
 
     public async Task<TaxBreakdown> CalculateAsync(TaxCalculationRequest req, CancellationToken ct)
     {
-        // Live Stripe secret key, stored encrypted in the Credential Vault under "stripe-tax".
-        var secretKey = await _vault.GetCredentialAsync(CredentialKey, ct);
-        if (string.IsNullOrWhiteSpace(secretKey))
-            throw new InvalidOperationException("Stripe Tax credentials are not configured (Credential Vault key 'stripe-tax').");
-
-        var client = _httpClientFactory.CreateClient("stripe-tax");
-        client.Timeout = TimeSpan.FromSeconds(15);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+        var (client, baseUrl) = await CreateClientAsync(ct);
 
         using var content = new FormUrlEncodedContent(BuildForm(req));
-        using var response = await client.PostAsync(CalculationsUrl, content, ct);
+        using var response = await client.PostAsync(baseUrl + CalculationsPath, content, ct);
         await EnsureStripeSuccessAsync(response, ct);
 
         await using var stream = await response.Content.ReadAsStreamAsync(ct);
@@ -74,21 +68,36 @@ public class StripeTaxClient : ITaxProviderClient
         if (order is null || string.IsNullOrWhiteSpace(order.TaxProviderCalculationRef))
             return;
 
-        var secretKey = await _vault.GetCredentialAsync(CredentialKey, ct);
-        if (string.IsNullOrWhiteSpace(secretKey))
-            throw new InvalidOperationException("Stripe Tax credentials are not configured (Credential Vault key 'stripe-tax').");
-
-        var client = _httpClientFactory.CreateClient("stripe-tax");
-        client.Timeout = TimeSpan.FromSeconds(15);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+        var (client, baseUrl) = await CreateClientAsync(ct);
 
         using var content = new FormUrlEncodedContent(new List<KeyValuePair<string, string>>
         {
             new("calculation", order.TaxProviderCalculationRef!),
             new("reference", order.OrderNumber),
         });
-        using var response = await client.PostAsync(TransactionsUrl, content, ct);
+        using var response = await client.PostAsync(baseUrl + TransactionsPath, content, ct);
         await EnsureStripeSuccessAsync(response, ct);
+    }
+
+    /// <summary>
+    /// The authenticated client plus the endpoint its credential belongs to. The URL is the admin's to set
+    /// rather than a constant compiled in here — see <see cref="ResolvedCredential.BaseUrl"/>.
+    /// </summary>
+    private async Task<(HttpClient Client, string BaseUrl)> CreateClientAsync(CancellationToken ct)
+    {
+        // Live Stripe secret key, stored encrypted in the Credential Vault under "stripe-tax".
+        var resolved = await _vault.GetResolvedCredentialAsync(CredentialKey, ct);
+        var secretKey = resolved?.Value;
+        if (string.IsNullOrWhiteSpace(secretKey))
+            throw new InvalidOperationException("Stripe Tax credentials are not configured (Credential Vault key 'stripe-tax').");
+        if (string.IsNullOrWhiteSpace(resolved!.BaseUrl))
+            throw new InvalidOperationException(
+                "The active Stripe Tax credential has no Base URL. Set it on the integration (Integrations → Stripe Tax).");
+
+        var client = _httpClientFactory.CreateClient("stripe-tax");
+        client.Timeout = TimeSpan.FromSeconds(15);
+        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", secretKey);
+        return (client, resolved.BaseUrl!.Trim().TrimEnd('/'));
     }
 
     private static List<KeyValuePair<string, string>> BuildForm(TaxCalculationRequest req)

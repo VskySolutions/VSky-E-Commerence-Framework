@@ -18,8 +18,6 @@ namespace VSky.Infrastructure.Payments.Adapters;
 /// </summary>
 public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
 {
-    private const string BaseUrl = "https://api.razorpay.com/v1";
-
     public RazorpayGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<RazorpayGatewayAdapter> logger)
         : base(vault, httpClientFactory, logger) { }
 
@@ -28,9 +26,10 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> AuthorizeAsync(PaymentRequest req, CaptureMode mode, CancellationToken ct)
         => GuardAsync("authorize", async () =>
         {
-            var basic = await GetBasicAuthAsync(ct);
-            if (basic is null)
+            var auth = await GetAuthAsync(ct);
+            if (auth is null)
                 return PaymentResult.Failed("Razorpay keys are not configured in the Credential Vault (service type 'razorpay', format 'key_id:key_secret').");
+            var (basic, baseUrl) = auth.Value;
 
             // If the client has already produced a payment_id, capture/authorize it directly.
             if (!string.IsNullOrWhiteSpace(req.PaymentToken))
@@ -38,7 +37,7 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
                 if (mode == CaptureMode.AuthorizeAndCapture)
                 {
                     var body = JsonSerializer.Serialize(new { amount = ToMinorUnits(req.Amount), currency = req.CurrencyCode });
-                    using var capDoc = await PostJsonAsync(basic, $"{BaseUrl}/payments/{req.PaymentToken}/capture", body, ct);
+                    using var capDoc = await PostJsonAsync(basic, $"{baseUrl}/payments/{req.PaymentToken}/capture", body, ct);
                     return MapPayment(capDoc.RootElement, req.Amount, req.PaymentToken!);
                 }
 
@@ -53,7 +52,7 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
                 currency = req.CurrencyCode,
                 payment_capture = mode == CaptureMode.AuthorizeAndCapture,
             });
-            using var doc = await PostJsonAsync(basic, $"{BaseUrl}/orders", orderBody, ct);
+            using var doc = await PostJsonAsync(basic, $"{baseUrl}/orders", orderBody, ct);
             var root = doc.RootElement;
             var orderId = GetString(root, "id");
 
@@ -66,32 +65,34 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
     public override Task<PaymentResult> CaptureAsync(PaymentRecord payment, decimal amount, CancellationToken ct)
         => GuardAsync("capture", async () =>
         {
-            var basic = await GetBasicAuthAsync(ct);
-            if (basic is null)
+            var auth = await GetAuthAsync(ct);
+            if (auth is null)
                 return PaymentResult.Failed("Razorpay keys are not configured in the Credential Vault (service type 'razorpay').");
+            var (basic, baseUrl) = auth.Value;
 
             var paymentId = payment.AuthorizationId ?? payment.GatewayReference;
             if (string.IsNullOrWhiteSpace(paymentId))
                 return PaymentResult.Failed("Razorpay capture requires the payment id.");
 
             var body = JsonSerializer.Serialize(new { amount = ToMinorUnits(amount), currency = payment.CurrencyCode });
-            using var doc = await PostJsonAsync(basic, $"{BaseUrl}/payments/{paymentId}/capture", body, ct);
+            using var doc = await PostJsonAsync(basic, $"{baseUrl}/payments/{paymentId}/capture", body, ct);
             return MapPayment(doc.RootElement, amount, paymentId!);
         });
 
     public override Task<PaymentResult> RefundAsync(PaymentRecord payment, decimal amount, CancellationToken ct)
         => GuardAsync("refund", async () =>
         {
-            var basic = await GetBasicAuthAsync(ct);
-            if (basic is null)
+            var auth = await GetAuthAsync(ct);
+            if (auth is null)
                 return PaymentResult.Failed("Razorpay keys are not configured in the Credential Vault (service type 'razorpay').");
+            var (basic, baseUrl) = auth.Value;
 
             var paymentId = payment.TransactionId ?? payment.AuthorizationId ?? payment.GatewayReference;
             if (string.IsNullOrWhiteSpace(paymentId))
                 return PaymentResult.Failed("Razorpay refund requires the payment id.");
 
             var body = JsonSerializer.Serialize(new { amount = ToMinorUnits(amount) });
-            using var doc = await PostJsonAsync(basic, $"{BaseUrl}/payments/{paymentId}/refund", body, ct);
+            using var doc = await PostJsonAsync(basic, $"{baseUrl}/payments/{paymentId}/refund", body, ct);
             var root = doc.RootElement;
             var refundId = GetString(root, "id");
 
@@ -111,12 +112,13 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
         };
     }
 
-    private async Task<string?> GetBasicAuthAsync(CancellationToken ct)
+    /// <summary>Basic-auth header value plus the endpoint this credential belongs to; null when unconfigured.</summary>
+    private async Task<(string Basic, string BaseUrl)?> GetAuthAsync(CancellationToken ct)
     {
-        var credential = await ResolveCredentialAsync(ct);
-        if (string.IsNullOrWhiteSpace(credential) || !credential!.Contains(':'))
+        var resolved = await ResolveAsync(ct);
+        if (resolved is null || !resolved.Value.Contains(':'))
             return null;
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(credential));
+        return (Convert.ToBase64String(Encoding.UTF8.GetBytes(resolved.Value)), RequireBaseUrl(resolved));
     }
 
     private async Task<JsonDocument> PostJsonAsync(string basic, string url, string json, CancellationToken ct)

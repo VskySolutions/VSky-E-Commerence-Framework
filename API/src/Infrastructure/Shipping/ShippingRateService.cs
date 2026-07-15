@@ -1,17 +1,23 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
+using VSky.Infrastructure.Common;
 
 namespace VSky.Infrastructure.Shipping;
 
 /// <summary>
 /// Aggregates shipping options for a shipment (WO-40): first the enabled custom shipping methods
-/// (flat / weight / price / free, with per-zone rates and zone eligibility), then every configured live
-/// carrier queried in parallel. Carriers that throw or return nothing are silently excluded so a single
-/// failing integration never blocks checkout (AC-SHP-001.3).
+/// (flat / weight / price / free, with per-zone rates and zone eligibility), then every live carrier the
+/// admin has enabled, queried in parallel. Carriers that throw or return nothing are silently excluded so a
+/// single failing integration never blocks checkout (AC-SHP-001.3).
+///
+/// Which sources take part is driven by <see cref="ShippingProviderConfiguration"/>: unlike tax, which
+/// resolves exactly one active provider, shipping fans out to every enabled source and offers the union.
 /// </summary>
 public class ShippingRateService : IShippingRateService
 {
@@ -19,26 +25,72 @@ public class ShippingRateService : IShippingRateService
 
     private readonly IApplicationDbContext _db;
     private readonly IEnumerable<ICarrierClient> _carriers;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<ShippingRateService> _logger;
 
-    public ShippingRateService(IApplicationDbContext db, IEnumerable<ICarrierClient> carriers)
+    public ShippingRateService(
+        IApplicationDbContext db,
+        IEnumerable<ICarrierClient> carriers,
+        IServiceScopeFactory scopeFactory,
+        ILogger<ShippingRateService> logger)
     {
         _db = db;
         _carriers = carriers;
+        _scopeFactory = scopeFactory;
+        _logger = logger;
     }
 
     public async Task<IReadOnlyList<ShippingRateOption>> GetRatesAsync(CarrierRateRequest request, CancellationToken ct)
     {
-        var options = new List<ShippingRateOption>();
-        options.AddRange(await EvaluateCustomMethodsAsync(request, ct));
+        var config = await LoadConfigurationAsync(ct);
+        if (!config.IsEnabled)
+            return Array.Empty<ShippingRateOption>();
 
-        // Query every configured carrier concurrently; a carrier that throws or returns nothing is
-        // silently excluded from the aggregate (AC-SHP-001.3).
-        var carrierResults = await Task.WhenAll(_carriers.Select(c => SafeGetRatesAsync(c, request, ct)));
+        var options = new List<ShippingRateOption>();
+
+        if (IsCarrierEnabled(config, ShippingCarrierType.Manual))
+            options.AddRange(await EvaluateCustomMethodsAsync(request, ct));
+
+        // Query each enabled carrier concurrently, in the admin's display order; a carrier that throws or
+        // returns nothing is silently excluded from the aggregate (AC-SHP-001.3).
+        var carriers = _carriers
+            .Where(c => IsCarrierEnabled(config, c.Carrier))
+            .OrderBy(c => DisplayOrderOf(config, c.Carrier))
+            .ToList();
+
+        var carrierResults = await Task.WhenAll(carriers.Select(c => SafeGetRatesAsync(c.Carrier, request, ct)));
         foreach (var result in carrierResults)
             options.AddRange(result);
 
         return options;
     }
+
+    /// <summary>
+    /// Loads the singleton configuration with its carrier rows. A missing row means the admin has never
+    /// visited the configuration tab, so every source stays on — matching the pre-configuration behaviour
+    /// rather than silently disabling shipping on upgrade.
+    /// </summary>
+    private async Task<ShippingProviderConfiguration> LoadConfigurationAsync(CancellationToken ct)
+        => await _db.ShippingProviderConfigurations
+            .AsNoTracking()
+            .Include(c => c.Carriers)
+            .FirstOrDefaultAsync(ct)
+           ?? DefaultConfiguration();
+
+    private static ShippingProviderConfiguration DefaultConfiguration()
+    {
+        var config = new ShippingProviderConfiguration { IsEnabled = true };
+        foreach (var carrier in Enum.GetValues<ShippingCarrierType>())
+            config.Carriers.Add(new ShippingCarrierSetting { Carrier = carrier, IsEnabled = true, DisplayOrder = (int)carrier });
+        return config;
+    }
+
+    /// <summary>A carrier with no row is treated as disabled (AC-SHP-005.2).</summary>
+    private static bool IsCarrierEnabled(ShippingProviderConfiguration config, ShippingCarrierType carrier)
+        => config.Carriers.FirstOrDefault(s => s.Carrier == carrier)?.IsEnabled == true;
+
+    private static int DisplayOrderOf(ShippingProviderConfiguration config, ShippingCarrierType carrier)
+        => config.Carriers.FirstOrDefault(s => s.Carrier == carrier)?.DisplayOrder ?? int.MaxValue;
 
     private async Task<IReadOnlyList<ShippingRateOption>> EvaluateCustomMethodsAsync(CarrierRateRequest request, CancellationToken ct)
     {
@@ -80,23 +132,46 @@ public class ShippingRateService : IShippingRateService
                 MethodId: method.Id.ToString(),
                 Name: method.Name,
                 Carrier: "Custom",
-                EstimatedDeliveryDays: null,
+                EstimatedDeliveryDays: method.TransitDays,
                 Rate: rate.Value));
         }
 
         return results;
     }
 
-    private static async Task<IReadOnlyList<ShippingRateOption>> SafeGetRatesAsync(
-        ICarrierClient client, CarrierRateRequest request, CancellationToken ct)
+    /// <summary>
+    /// Rates one carrier inside its own DI scope. Every client opens by resolving its credentials through
+    /// the scoped <see cref="IApplicationDbContext"/>, and EF's DbContext is not thread-safe — so sharing
+    /// this request's context across the fan-out above makes the carriers race, and whichever lose throw
+    /// "A second operation was started on this context instance". A scope each gives every client its own
+    /// context, keeping the parallelism this method exists for.
+    /// </summary>
+    private async Task<IReadOnlyList<ShippingRateOption>> SafeGetRatesAsync(
+        ShippingCarrierType carrier, CarrierRateRequest request, CancellationToken ct)
     {
         try
         {
-            return await client.GetRatesAsync(request, ct);
+            using var scope = _scopeFactory.CreateScope();
+            var client = scope.ServiceProvider.GetServices<ICarrierClient>().First(c => c.Carrier == carrier);
+
+            var rates = await client.GetRatesAsync(request, ct);
+
+            // An enabled carrier that quotes nothing is indistinguishable at checkout from one that is
+            // switched off, and silently drops the buyer's only delivery option — say so.
+            if (rates.Count == 0)
+                _logger.LogInformation(
+                    "Shipping carrier {Carrier} returned no rates for {Country}/{PostalCode}.",
+                    carrier, request.Destination.CountryCode, request.Destination.PostalCode);
+
+            return rates;
         }
-        catch
+        catch (Exception ex)
         {
-            // Exclude a failing carrier from the aggregate rather than fail the whole quote.
+            // Exclude a failing carrier from the aggregate rather than fail the whole quote — but never
+            // silently: unlogged, a bad credential looks exactly like a carrier with nothing to offer.
+            _logger.LogWarning(
+                ex, "Shipping carrier {Carrier} failed to return rates and was excluded from the quote.",
+                carrier);
             return Array.Empty<ShippingRateOption>();
         }
     }
@@ -110,8 +185,15 @@ public class ShippingRateService : IShippingRateService
             return false;
         if (!string.Equals(zone.CountryCode, destination.CountryCode, StringComparison.OrdinalIgnoreCase))
             return false;
+        // Compare the region as a normalized code rather than as typed. The admin defining a zone and the
+        // buyer filling in the address form are describing the same place in different words — the form
+        // stores "California" while a zone is usually keyed "CA" — and a raw string compare silently
+        // withholds every method in the zone from every address in it.
         if (!string.IsNullOrWhiteSpace(zone.Region) &&
-            !string.Equals(zone.Region, destination.Region, StringComparison.OrdinalIgnoreCase))
+            !string.Equals(
+                RegionCodeNormalizer.ToStateCode(zone.CountryCode, zone.Region),
+                RegionCodeNormalizer.ToStateCode(destination.CountryCode, destination.Region),
+                StringComparison.OrdinalIgnoreCase))
             return false;
         if (!string.IsNullOrWhiteSpace(zone.PostalCodeStart) &&
             !string.IsNullOrWhiteSpace(zone.PostalCodeEnd) &&

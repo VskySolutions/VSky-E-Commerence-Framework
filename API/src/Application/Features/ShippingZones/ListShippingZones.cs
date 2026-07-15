@@ -45,7 +45,8 @@ public class ListShippingZonesQueryHandler : IRequestHandler<ListShippingZonesQu
         if (request.IsEnabled.HasValue)
             query = query.Where(z => z.IsEnabled == request.IsEnabled.Value);
 
-        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap);
+        var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,
+            defaultSort: q => q.OrderBy(z => z.Name));
 
         var page = await PaginatedList<ShippingZone>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(ShippingZoneDto.From).ToList();

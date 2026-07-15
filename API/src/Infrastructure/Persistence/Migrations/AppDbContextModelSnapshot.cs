@@ -325,6 +325,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -1033,6 +1036,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
 
@@ -1041,6 +1048,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("ApiSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BaseUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("CreatedById")
@@ -1268,6 +1278,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("AccountNumber")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
 
@@ -1276,6 +1290,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("ApiSecret")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("BaseUrl")
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("CreatedById")
@@ -1684,6 +1701,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("ShippingMethodId")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<string>("ShippingMethodName")
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
@@ -1691,6 +1712,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<decimal>("ShippingTotal")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
+
+                    b.Property<bool>("ShippingWasRecommended")
+                        .HasColumnType("bit");
 
                     b.Property<Guid?>("SourceCartId")
                         .HasColumnType("uniqueidentifier");
@@ -1829,6 +1853,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
+
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ClientId")
                         .HasMaxLength(300)
@@ -2546,6 +2573,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
 
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -3049,6 +3079,31 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("ShipmentTrackingEvents", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.ShippingCarrierSetting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Carrier")
+                        .HasColumnType("int");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<Guid>("ShippingProviderConfigurationId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ShippingProviderConfigurationId", "Carrier")
+                        .IsUnique();
+
+                    b.ToTable("ShippingCarrierSettings", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethod", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3091,6 +3146,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<string>("TiersJson")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int?>("TransitDays")
+                        .HasColumnType("int");
+
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -3125,6 +3183,43 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("ShippingMethodZoneRates", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ShippingProviderConfiguration", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AssumedTransitDays")
+                        .HasColumnType("int");
+
+                    b.Property<int>("CostVsSpeedWeight")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("PickupEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("SelectionMode")
+                        .HasColumnType("int");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("ShippingProviderConfigurations", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ShippingZone", b =>
@@ -3336,6 +3431,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<string>("ApplicationSecret")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -3428,6 +3526,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("AddressId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("BankTransferEnabled")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("CashOnDeliveryEnabled")
                         .HasColumnType("bit");
@@ -3646,6 +3747,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
+
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uniqueidentifier");
@@ -4084,6 +4188,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
 
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("ClientId")
                         .HasMaxLength(300)
                         .HasColumnType("nvarchar(300)");
@@ -4245,6 +4352,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("Active")
                         .HasColumnType("bit");
+
+                    b.Property<string>("BaseUrl")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ConsumerKey")
                         .HasMaxLength(300)
@@ -4992,6 +5102,17 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Shipment");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.ShippingCarrierSetting", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.ShippingProviderConfiguration", "Configuration")
+                        .WithMany("Carriers")
+                        .HasForeignKey("ShippingProviderConfigurationId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Configuration");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethodZoneRate", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.ShippingMethod", "ShippingMethod")
@@ -5272,6 +5393,11 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.ShippingMethod", b =>
                 {
                     b.Navigation("ZoneRates");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.ShippingProviderConfiguration", b =>
+                {
+                    b.Navigation("Carriers");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ShippingZone", b =>

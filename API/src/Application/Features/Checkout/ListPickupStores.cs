@@ -29,6 +29,16 @@ public class ListPickupStoresQueryHandler : IRequestHandler<ListPickupStoresQuer
 
     public async Task<List<PickupStoreDto>> Handle(ListPickupStoresQuery request, CancellationToken cancellationToken)
     {
+        // Platform switch off → offer nothing, whatever the individual stores say. A missing configuration
+        // row means the admin has never opened the page, which leaves pickup available (the row defaults on).
+        var pickupAllowed = await _db.ShippingProviderConfigurations
+            .AsNoTracking()
+            .Select(c => (bool?)c.PickupEnabled)
+            .FirstOrDefaultAsync(cancellationToken) ?? true;
+
+        if (!pickupAllowed)
+            return new List<PickupStoreDto>();
+
         return await _db.Stores
             .Include(s => s.Address)
             .AsNoTracking()
