@@ -45,17 +45,6 @@ const sections = [
     header: null,
     items: [
       { label: 'Dashboard', icon: 'o_dashboard', to: '/dashboard', permissions: null },
-      { label: 'Admin Alerts', icon: 'o_notification_important', to: '/alerts', permissions: [Permissions.AlertsRead] }
-    ]
-  },
-  {
-    header: 'Catalog',
-    items: [
-      { label: 'Manufacturers', icon: 'o_factory', to: '/catalog/manufacturers', permissions: [Permissions.CatalogRead] },
-      { label: 'Categories', icon: 'o_account_tree', to: '/catalog/categories', permissions: [Permissions.CatalogRead] },
-      { label: 'Products', icon: 'o_inventory_2', to: '/catalog/products', permissions: [Permissions.CatalogRead] },
-      { label: 'Attributes', icon: 'o_tune', to: '/catalog/attributes', permissions: [Permissions.CatalogRead] },
-      { label: 'Promotions', icon: 'o_local_offer', to: '/promotions', permissions: [Permissions.CatalogRead] }
     ]
   },
   {
@@ -72,9 +61,29 @@ const sections = [
     ]
   },
   {
-    header: 'Storefront',
+    header: 'Catalog',
     items: [
-      { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] }
+      { label: 'Manufacturers', icon: 'o_factory', to: '/catalog/manufacturers', permissions: [Permissions.CatalogRead] },
+      { label: 'Categories', icon: 'o_account_tree', to: '/catalog/categories', permissions: [Permissions.CatalogRead] },
+      { label: 'Products', icon: 'o_inventory_2', to: '/catalog/products', permissions: [Permissions.CatalogRead] },
+      { label: 'Attributes', icon: 'o_tune', to: '/catalog/attributes', permissions: [Permissions.CatalogRead] },
+      { label: 'Promotions', icon: 'o_local_offer', to: '/promotions', permissions: [Permissions.CatalogRead] }
+    ]
+  },
+  {
+    header: 'Customer Management',
+    items: [
+      { label: 'Customers', icon: 'o_people', to: '/customers', permissions: [Permissions.UsersRead] },
+      { label: 'Customer Groups', icon: 'o_sell', to: '/customer-groups', permissions: [Permissions.UsersRead] },
+      { label: 'Tax Exemptions', icon: 'o_verified', to: '/tax-exemption-requests', permissions: [Permissions.UsersRead] }
+    ]
+  },
+  {
+    header: 'Access Management',
+    items: [
+
+      { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
+      { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
     ]
   },
   {
@@ -85,25 +94,14 @@ const sections = [
     ]
   },
   {
-    header: 'Access Management',
+    roles: ['SuperAdmin'],
+    header: 'Store Setup',
     items: [
-      { label: 'Customers', icon: 'o_people', to: '/customers', permissions: [Permissions.UsersRead] },
-      { label: 'Customer Groups', icon: 'o_sell', to: '/customer-groups', permissions: [Permissions.UsersRead] },
-      { label: 'Tax Exemptions', icon: 'o_verified', to: '/tax-exemption-requests', permissions: [Permissions.UsersRead] },
-      { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
-      { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
+      { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] },
+      { label: 'Integrations', icon: 'o_extension', to: '/integrations', permissions: [Permissions.CredentialsRead] },
+      { label: 'Admin Alerts', icon: 'o_notification_important', to: '/alerts', permissions: [Permissions.AlertsRead] }
     ]
   },
-  {
-    // Platform-infrastructure: Super Admin only.
-    header: 'Platform',
-    roles: ['SuperAdmin'],
-    items: [
-      // { label: 'Settings', icon: 'o_settings', to: '/settings', permissions: [Permissions.SettingsRead] },
-      { label: 'Integrations', icon: 'o_extension', to: '/integrations', permissions: [Permissions.CredentialsRead] },
-      // { label: 'Webhooks', icon: 'o_webhook', to: '/webhooks', permissions: [Permissions.WebhooksRead] }
-    ]
-  }
   // {
   //   header: 'General',
   //   items: [

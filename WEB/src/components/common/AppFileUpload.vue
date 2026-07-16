@@ -27,8 +27,39 @@
       <input ref="inputRef" type="file" class="hidden" :accept="accept" :multiple="multiple" @change="onSelect">
     </div>
 
-    <!-- Previews -->
-    <div v-if="items.length" class="row q-col-gutter-sm q-mt-sm">
+    <!-- Uploaded files as a mapping table (variant='table') -->
+    <q-markup-table
+      v-if="items.length && variant === 'table'"
+      flat
+      bordered
+      dense
+      class="q-mt-sm app-fileupload__table"
+    >
+      <thead>
+        <tr>
+          <th class="text-left">File</th>
+          <th class="text-right" style="width: 72px">Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(item, i) in items" :key="item.url + i">
+          <td class="text-left">
+            <div class="row items-center no-wrap">
+              <q-icon :name="isImage(item) ? 'o_image' : 'o_description'" size="20px" class="q-mr-sm text-grey-7" />
+              <a :href="$media(item.url)" target="_blank" rel="noopener" class="text-primary ellipsis">{{ item.name }}</a>
+            </div>
+          </td>
+          <td class="text-right">
+            <q-btn flat round dense size="sm" color="negative" icon="o_delete" aria-label="Remove" @click="remove(i)">
+              <q-tooltip>Remove</q-tooltip>
+            </q-btn>
+          </td>
+        </tr>
+      </tbody>
+    </q-markup-table>
+
+    <!-- Previews (thumbnail grid, default) -->
+    <div v-if="items.length && variant === 'grid'" class="row q-col-gutter-sm q-mt-sm">
       <div v-for="(item, i) in items" :key="item.url + i" class="col-auto">
         <div class="app-fileupload__item">
           <img
@@ -102,7 +133,14 @@ const props = defineProps({
   // Limits per the portal standard.
   maxFiles: { type: Number, default: 20 },
   singleMaxMb: { type: Number, default: 5 },
-  multiMaxTotalMb: { type: Number, default: 50 }
+  multiMaxTotalMb: { type: Number, default: 50 },
+  // Optional custom upload: async (file) => the item object stored in the model. Lets non-admin surfaces
+  // (e.g. the storefront) upload through their own endpoint instead of the admin storage endpoint. In
+  // multiple mode the returned objects are appended to the model as-is (so callers can carry extra fields
+  // such as a mediaId); in single mode the model becomes that object rather than a bare URL string.
+  uploadFn: { type: Function, default: null },
+  // Uploaded-item layout: 'grid' (thumbnail previews) or 'table' (a File/Actions mapping table).
+  variant: { type: String, default: 'grid' }
 })
 
 const emit = defineEmits(['update:modelValue', 'update:previewUrl'])
@@ -241,18 +279,24 @@ async function upload (rawFiles) {
   try {
     const uploaded = []
     for (const file of files) {
-      const form = new FormData()
-      form.append('file', file)
-      form.append('folder', props.folder)
-      const ref = await api.post('/api/admin/storage/upload', form).then(unwrap)
-      if (ref?.publicUrl) uploaded.push({ url: ref.publicUrl, assetKey: ref.assetKey, name: file.name })
+      if (props.uploadFn) {
+        const item = await props.uploadFn(file)
+        if (item) uploaded.push(item)
+      } else {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('folder', props.folder)
+        const ref = await api.post('/api/admin/storage/upload', form).then(unwrap)
+        if (ref?.publicUrl) uploaded.push({ url: ref.publicUrl, assetKey: ref.assetKey, name: file.name })
+      }
     }
 
     if (props.multiple) {
       const current = Array.isArray(props.modelValue) ? props.modelValue.slice() : []
       emit('update:modelValue', current.concat(uploaded))
     } else if (uploaded.length) {
-      emit('update:modelValue', uploaded[0].url)
+      // A custom uploadFn returns a caller-shaped object; the default path stores the bare URL string.
+      emit('update:modelValue', props.uploadFn ? uploaded[0] : uploaded[0].url)
     }
   } catch (err) {
     errorMessage.value = getApiErrorMessage(err)

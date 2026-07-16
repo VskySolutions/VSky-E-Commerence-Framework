@@ -57,7 +57,7 @@ public class TaxExemptionRequestTests : CatalogTestBase
     }
 
     private SubmitTaxExemptionRequestCommandHandler SubmitHandler(Guid userId)
-        => new(NewContext(), new FakeCurrentUser { UserId = userId }, new FixedClock(DateTime.UtcNow));
+        => new(NewContext(), new FakeCurrentUser { UserId = userId }, new FixedClock(DateTime.UtcNow), new FakeEmailTemplateSender());
 
     private ResolveTaxExemptionRequestCommandHandler ResolveHandler(Guid adminUserId)
         => new(NewContext(), new FakeCurrentUser { UserId = adminUserId }, new FixedClock(DateTime.UtcNow), new FakeEmailTemplateSender());

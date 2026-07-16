@@ -52,6 +52,11 @@ public class OrderDocumentService : IOrderDocumentService
         string Money(decimal amount) => $"{order.CurrencyCode} {amount.ToString("N2", CultureInfo.InvariantCulture)}";
         var taxLines = ParseTaxBreakdown(order.TaxBreakdownJson);
 
+        // Customer Group pricing is stored as a per-line saving; show the list-price subtotal and itemize
+        // the saving so the invoice reconciles (list − group − coupon discount + shipping + tax = total).
+        var groupDiscount = order.Lines.Sum(l => l.DiscountAmount);
+        var listSubtotal = order.Subtotal + groupDiscount;
+
         return Document.Create(doc =>
         {
             doc.Page(page =>
@@ -103,10 +108,19 @@ public class OrderDocumentService : IOrderDocumentService
                     // Monetary totals, taken verbatim from the order.
                     content.Item().PaddingTop(12).AlignRight().Column(totals =>
                     {
-                        totals.Item().Text($"Subtotal: {Money(order.Subtotal)}");
+                        totals.Item().Text($"Subtotal: {Money(listSubtotal)}");
+                        if (groupDiscount > 0m)
+                            totals.Item().Text($"Group discount: -{Money(groupDiscount)}");
                         totals.Item().Text($"Discount: {Money(order.DiscountTotal)}");
                         totals.Item().Text($"Shipping: {Money(order.ShippingTotal)}");
                         totals.Item().Text($"Tax: {Money(order.TaxTotal)}");
+                        if (order.PaymentFeeTotal > 0m)
+                        {
+                            var feeLabel = order.PaymentFeePercent > 0m
+                                ? $"Payment fee ({order.PaymentFeePercent.ToString("0.##", CultureInfo.InvariantCulture)}%)"
+                                : "Payment fee";
+                            totals.Item().Text($"{feeLabel}: {Money(order.PaymentFeeTotal)}");
+                        }
                         totals.Item().Text($"Total: {Money(order.TotalAmount)}").FontSize(12).SemiBold();
                     });
 

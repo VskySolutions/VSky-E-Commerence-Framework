@@ -92,6 +92,10 @@ export const accountApi = {
   getOrder (id) {
     return customerApi.get(ORDERS + '/' + encodeURIComponent(id)).then(unwrap)
   },
+  // The order's status timeline (oldest transition first) for the current customer.
+  orderTimeline (id) {
+    return customerApi.get(ORDERS + '/' + encodeURIComponent(id) + '/timeline').then(unwrap)
+  },
   // Download the order's invoice PDF (blob → browser download).
   downloadInvoice (id) {
     return downloadPdf(ORDERS + '/' + encodeURIComponent(id) + '/invoice', `invoice-${id}.pdf`)

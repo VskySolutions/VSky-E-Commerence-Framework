@@ -42,5 +42,9 @@ public abstract class ManualPaymentAdapterBase : IPaymentGatewayAdapter
     public Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct)
         => Task.FromResult(PaymentResult.Failed("This gateway does not use a redirect flow.", PaymentStatus.Pending));
 
+    /// <summary>Manual methods have no on-site widget — nothing to verify.</summary>
+    public Task<PaymentResult> VerifyClientPaymentAsync(PaymentRecord payment, IReadOnlyDictionary<string, string> data, CancellationToken ct)
+        => Task.FromResult(PaymentResult.Failed("This gateway does not use a client-side payment flow.", PaymentStatus.Pending));
+
     private string BuildReference(Guid orderId) => $"{ReferencePrefix}-{orderId:N}";
 }

@@ -20,6 +20,13 @@ public abstract class IntegrationCredentialBase : AuditableEntity, ISoftDeletabl
     /// <summary>Admin-facing label distinguishing rows of the same integration, e.g. "Live Stripe".</summary>
     public string Name { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Optional transaction/processing fee charged as a percentage of the order total when this integration
+    /// is used (0–100; null = no fee). Only meaningful for payment gateways — the checkout adds the active
+    /// gateway credential's fee to the order total as an additional charge. Ignored by non-payment integrations.
+    /// </summary>
+    public decimal? TransactionFeePercent { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 }
@@ -43,6 +50,10 @@ public class PayPalCredential : IntegrationCredentialBase
     public string? BaseUrl { get; set; }
     public string? ClientId { get; set; }
     [Encrypted] public string? SecretKey { get; set; }
+
+    /// <summary>Storefront URL PayPal returns the buyer to after approving/cancelling payment (the buyer lands
+    /// here to confirm the order). Required for the redirect flow, mirroring the Stripe return URL.</summary>
+    public string? ReturnUrl { get; set; }
 }
 
 /// <summary>Razorpay key id/secret + endpoint (table <c>Credentials_Razorpay</c>).</summary>

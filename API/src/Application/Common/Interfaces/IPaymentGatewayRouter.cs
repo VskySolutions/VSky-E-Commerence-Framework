@@ -25,6 +25,12 @@ public interface IPaymentGatewayRouter
     Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct = default);
 
     /// <summary>
+    /// Verifies a client-completed gateway's on-site payment (Razorpay Checkout) from the tokens the widget
+    /// returned, captures it, and reports Captured when it succeeds.
+    /// </summary>
+    Task<PaymentResult> VerifyClientPaymentAsync(PaymentRecord payment, IReadOnlyDictionary<string, string> data, CancellationToken ct = default);
+
+    /// <summary>
     /// Auto-captures the order's authorized-but-uncaptured payment, e.g. when the order ships under an
     /// authorize-only gateway (AC-PAY-002.3). No-op when there is nothing to capture.
     /// </summary>

@@ -37,13 +37,32 @@ public class OrderDto
     public string CurrencyCode { get; set; } = "USD";
     public decimal Subtotal { get; set; }
     public decimal DiscountTotal { get; set; }
+
+    /// <summary>Total Customer Group saving across the lines (Σ line DiscountAmount); 0 when none. The
+    /// <see cref="Subtotal"/> is already net of it — surfaced so the breakdown can itemize it against the
+    /// list-price subtotal (<see cref="Subtotal"/> + this).</summary>
+    public decimal GroupDiscountTotal { get; set; }
+
     public decimal ShippingTotal { get; set; }
     public decimal TaxTotal { get; set; }
+
+    /// <summary>Payment-gateway transaction fee added to the order (% applied + resulting amount); 0 when none. Included in <see cref="TotalAmount"/>.</summary>
+    public decimal PaymentFeePercent { get; set; }
+    public decimal PaymentFeeTotal { get; set; }
+
     public decimal TotalAmount { get; set; }
     public string? AppliedCouponCode { get; set; }
 
     /// <summary>Order-level payment rollup (Pending/Authorized/Captured/Refunded/…).</summary>
     public string PaymentStatus { get; set; } = string.Empty;
+
+    /// <summary>The gateway used to pay (e.g. PayPal, Stripe, CashOnDelivery); null when no payment exists yet
+    /// or the payments were not loaded. Populated from the order's most recent payment record.</summary>
+    public string? PaymentMethod { get; set; }
+
+    /// <summary>The gateway transaction id of the settled payment (for the buyer's records); null until a
+    /// payment carries one, or when payments were not loaded.</summary>
+    public string? PaymentTransactionId { get; set; }
 
     // Shipping selection + fulfilment tracking.
     public string? ShippingMethodName { get; set; }
@@ -89,11 +108,21 @@ public class OrderDto
         CurrencyCode = o.CurrencyCode,
         Subtotal = o.Subtotal,
         DiscountTotal = o.DiscountTotal,
+        GroupDiscountTotal = o.Lines.Sum(l => l.DiscountAmount),
         ShippingTotal = o.ShippingTotal,
         TaxTotal = o.TaxTotal,
+        PaymentFeePercent = o.PaymentFeePercent,
+        PaymentFeeTotal = o.PaymentFeeTotal,
         TotalAmount = o.TotalAmount,
         AppliedCouponCode = o.AppliedCouponCode,
         PaymentStatus = o.PaymentStatus.ToString(),
+        // The latest payment's method — null when payments were not Include()d (a safe no-op for callers
+        // that do not load them, e.g. the admin list) or none exists yet.
+        PaymentMethod = o.Payments.OrderByDescending(p => p.CreatedOnUtc).FirstOrDefault()?.Method.ToString(),
+        // The most recent payment that carries a gateway transaction id (the settled one).
+        PaymentTransactionId = o.Payments
+            .OrderByDescending(p => p.CreatedOnUtc)
+            .FirstOrDefault(p => !string.IsNullOrEmpty(p.TransactionId))?.TransactionId,
         ShippingMethodName = o.ShippingMethodName,
         ShippingCarrier = o.ShippingCarrier,
         TrackingNumber = o.TrackingNumber,
@@ -113,6 +142,21 @@ public class OrderLineItemDto
     public string? Sku { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+
+    /// <summary>
+    /// Whether the line's product is still viewable on the storefront (exists and is published). Defaults to
+    /// <c>false</c> (fail-closed) and is set by the callers that resolve it, so a storefront link is only ever
+    /// offered when the product page would actually load. The order snapshots name/price, so the line still
+    /// renders regardless.
+    /// </summary>
+    public bool ProductAvailable { get; set; }
+
+    /// <summary>The list (pre-discount) unit price; equals <see cref="UnitPrice"/> when no group discount applied.</summary>
+    public decimal OriginalUnitPrice { get; set; }
+
+    /// <summary>The Customer Group saving on this line; 0 when none.</summary>
+    public decimal DiscountAmount { get; set; }
+
     public decimal LineTotal { get; set; }
 
     public static OrderLineItemDto From(OrderLineItem l) => new()
@@ -124,6 +168,8 @@ public class OrderLineItemDto
         Sku = l.Sku,
         Quantity = l.Quantity,
         UnitPrice = l.UnitPrice,
+        OriginalUnitPrice = l.OriginalUnitPrice,
+        DiscountAmount = l.DiscountAmount,
         LineTotal = l.LineTotal,
     };
 }

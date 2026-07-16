@@ -76,7 +76,14 @@
                 <td>{{ l.sku || '—' }}</td>
                 <td class="text-right">{{ l.quantity }}</td>
                 <td class="text-right">{{ shippedFor(l.id) }}</td>
-                <td class="text-right">{{ formatMoney(l.unitPrice) }}</td>
+                <td class="text-right">
+                  <span
+                    v-if="l.discountAmount > 0"
+                    class="text-grey-6 q-mr-xs"
+                    style="text-decoration: line-through"
+                  >{{ formatMoney(l.originalUnitPrice) }}</span>
+                  {{ formatMoney(l.unitPrice) }}
+                </td>
                 <td class="text-right">{{ formatMoney(l.lineTotal) }}</td>
               </tr>
             </tbody>
@@ -160,7 +167,11 @@
         <AppSection title="Order totals">
           <div class="text-body2">
             <div class="row justify-between q-py-xs">
-              <span class="text-grey-7">Subtotal</span><span>{{ money(order.subtotal) }}</span>
+              <span class="text-grey-7">Subtotal</span><span>{{ money(listSubtotal) }}</span>
+            </div>
+            <div v-if="order.groupDiscountTotal > 0" class="row justify-between q-py-xs">
+              <span class="text-grey-7">Customer group discount</span>
+              <span class="text-negative">−{{ money(order.groupDiscountTotal) }}</span>
             </div>
             <div v-if="order.discountTotal > 0" class="row justify-between q-py-xs">
               <span class="text-grey-7">Discount<span v-if="order.appliedCouponCode"> ({{ order.appliedCouponCode }})</span></span>
@@ -172,6 +183,10 @@
             <div class="row justify-between q-py-xs">
               <span class="text-grey-7">Tax <q-badge v-if="order.taxFlaggedForReview" color="orange" label="review" class="q-ml-xs" /></span>
               <span>{{ money(order.taxTotal) }}</span>
+            </div>
+            <div v-if="order.paymentFeeTotal > 0" class="row justify-between q-py-xs">
+              <span class="text-grey-7">Payment fee<span v-if="order.paymentFeePercent"> ({{ order.paymentFeePercent }}%)</span></span>
+              <span>{{ money(order.paymentFeeTotal) }}</span>
             </div>
             <q-separator class="q-my-sm" />
             <div class="row justify-between items-center">
@@ -322,6 +337,11 @@ const shipAddress = computed(() => {
   return [o.addressLine1, o.addressLine2, o.city, o.stateProvince || o.region, o.postalCode, o.countryCode].filter(Boolean).join(', ') || '—'
 })
 const canShipMore = computed(() => (order.value?.lines || []).some((l) => remainingFor(l.id) > 0))
+// The list-price subtotal = charged subtotal + the group saving that was folded into the unit prices.
+const listSubtotal = computed(() => {
+  const o = order.value
+  return o ? (o.subtotal || 0) + (o.groupDiscountTotal || 0) : 0
+})
 
 // Money with the order's currency code, e.g. "USD 42.00".
 function money (value) {

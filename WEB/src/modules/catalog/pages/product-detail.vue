@@ -13,6 +13,21 @@
       @back="router.push({ name: 'catalog-products' })"
     >
       <template #actions>
+        <q-btn
+          v-if="!isCreate && product"
+          outline
+          color="primary"
+          no-caps
+          icon="o_visibility"
+          label="Preview in store"
+          type="a"
+          :href="storePreviewUrl"
+          target="_blank"
+          rel="noopener"
+          class="q-mr-sm"
+        >
+          <q-tooltip>Open this product's storefront page in a new tab</q-tooltip>
+        </q-btn>
         <q-chip
           v-if="saveStatus"
           :icon="saveStatus.icon"
@@ -552,6 +567,16 @@ const EMPTY = {
 }
 const CORE_KEYS = Object.keys(EMPTY)
 const form = reactive({ ...EMPTY })
+
+// Storefront product URL for the "Preview in store" header action (slug preferred, id fallback), opened
+// in a new tab so editing is never interrupted.
+const storePreviewUrl = computed(() =>
+  router.resolve({
+    name: 'shop-product',
+    params: { idOrSlug: form.slug || product.value?.id || route.params.id }
+  }).href
+)
+
 const rules = {
   name: { required, maxLength: maxLength(400) },
   productType: { required },

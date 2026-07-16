@@ -98,6 +98,20 @@
       </template>
 
       <template #actions="{ row }">
+        <q-btn
+          flat
+          round
+          dense
+          icon="o_visibility"
+          color="primary"
+          type="a"
+          :href="storePreviewUrl(row)"
+          target="_blank"
+          rel="noopener"
+          @click.stop
+        >
+          <q-tooltip>Preview in store (new tab)</q-tooltip>
+        </q-btn>
         <q-btn flat round dense icon="o_tune" @click="onManage(row)">
           <q-tooltip>Manage</q-tooltip>
         </q-btn>
@@ -221,6 +235,12 @@ function goImportExport () {
 
 function onManage (row) {
   router.push({ name: 'catalog-product-detail', params: { id: row.id } })
+}
+
+// Storefront product URL (slug preferred, id fallback) for the "Preview in store" action — opened in a
+// new tab so the admin keeps their place in the list.
+function storePreviewUrl (row) {
+  return router.resolve({ name: 'shop-product', params: { idOrSlug: row.slug || row.id } }).href
 }
 
 async function onDelete (row) {

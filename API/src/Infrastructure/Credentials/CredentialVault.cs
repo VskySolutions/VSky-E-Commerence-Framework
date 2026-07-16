@@ -38,7 +38,7 @@ public class CredentialVault : ICredentialVault
             // Payment gateways. Stripe passes no baseUrl: the Stripe.net SDK owns the host, and the key
             // prefix (sk_test_/sk_live_) decides the mode — there is no endpoint for an admin to choose.
             "stripe"       => Resolve(await ActiveAsync(_db.StripeCredentials, cancellationToken), c => Json(new { secretKey = c.SecretKey, returnUrl = c.ReturnUrl })),
-            "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey), c => c.BaseUrl),
+            "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey), c => c.BaseUrl, c => c.ReturnUrl),
             "razorpay"     => Resolve(await ActiveAsync(_db.RazorpayCredentials, cancellationToken), c => Pair(c.KeyId, c.KeySecret), c => c.BaseUrl),
             "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), c => c.AccessToken, c => c.BaseUrl),
             "authorizenet" => Resolve(await ActiveAsync(_db.AuthorizeNetCredentials, cancellationToken), c => Pair(c.ApplicationLoginId, c.TransactionKey), c => c.BaseUrl),
@@ -70,13 +70,16 @@ public class CredentialVault : ICredentialVault
     /// when unusable. <paramref name="baseUrl"/> is omitted only for providers with no host to choose.
     /// </summary>
     private static ResolvedCredential? Resolve<T>(
-        T? credential, Func<T, string?> project, Func<T, string?>? baseUrl = null) where T : IntegrationCredentialBase
+        T? credential, Func<T, string?> project, Func<T, string?>? baseUrl = null,
+        Func<T, string?>? returnUrl = null) where T : IntegrationCredentialBase
     {
         if (credential is null) return null;
         var value = project(credential);
         return string.IsNullOrWhiteSpace(value)
             ? null
-            : new ResolvedCredential(value, credential.IsProduction, baseUrl?.Invoke(credential));
+            : new ResolvedCredential(
+                value, credential.IsProduction, baseUrl?.Invoke(credential), credential.TransactionFeePercent,
+                returnUrl?.Invoke(credential));
     }
 
     /// <summary>Colon-joined "id:secret" pair; null unless both halves are present.</summary>

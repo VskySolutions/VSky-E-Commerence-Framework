@@ -10,7 +10,7 @@
           <q-chip :color="statusMeta.color" text-color="white" :icon="statusMeta.icon" :label="statusMeta.label" />
         </q-card-section>
         <q-separator />
-        <q-card-section class="q-gutter-sm">
+        <q-card-section class="q-gutter-y-sm">
           <div class="text-body2 text-grey-8">{{ statusMeta.description }}</div>
 
           <div v-if="status === 'PendingReview' && latest" class="text-caption text-grey-6">
@@ -62,10 +62,10 @@
         </q-card-section>
         <q-separator />
         <q-form @submit.prevent="onSubmit">
-          <q-card-section class="q-gutter-md">
-            <div class="text-body2 text-grey-7">
-              Provide your tax certificate number or VAT ID and upload supporting documentation. At least one identifier
-              and one document are required.
+          <q-card-section class="q-gutter-y-md">
+            <div class="text-body2 text-grey-7 q-mb-md">
+              Provide your tax certificate number or VAT ID and upload supporting documentation. At least one
+              identifier and one document are required.
             </div>
 
             <div class="row q-col-gutter-md">
@@ -77,37 +77,18 @@
               </div>
             </div>
 
-            <!-- Documents -->
-            <div>
-              <q-file
-                v-model="fileModel"
-                label="Add a document"
-                outlined
-                dense
-                accept=".pdf,.jpg,.jpeg,.png,.webp"
-                max-file-size="5242880"
-                :loading="uploading"
-                :disable="uploading"
-                hint="PDF, JPG, PNG or WEBP. Max 5 MB each."
-                @update:model-value="onFileSelected"
-                @rejected="onRejected"
-              >
-                <template #prepend><q-icon name="o_attach_file" /></template>
-              </q-file>
-
-              <div v-if="documents.length" class="q-mt-sm q-gutter-xs">
-                <q-chip
-                  v-for="(doc, i) in documents"
-                  :key="doc.mediaId"
-                  removable
-                  color="grey-3"
-                  text-color="grey-9"
-                  icon="o_description"
-                  :label="doc.fileName"
-                  @remove="removeDocument(i)"
-                />
-              </div>
-            </div>
+            <AppFileUpload
+              v-model="documents"
+              multiple
+              variant="table"
+              label="Supporting documents"
+              required
+              :upload-fn="uploadTaxDoc"
+              accept=".pdf,.jpg,.jpeg,.png,.webp"
+              extensions-label="PDF, JPG, PNG or WEBP"
+              :single-max-mb="5"
+              hint="PDF, JPG, PNG or WEBP · up to 5 MB per file"
+            />
           </q-card-section>
           <q-card-actions align="right" class="q-px-md q-pb-md">
             <q-btn
@@ -117,7 +98,7 @@
               no-caps
               label="Submit request"
               :loading="submitting"
-              :disable="!canSend || uploading"
+              :disable="!canSend"
             />
           </q-card-actions>
         </q-form>
@@ -137,12 +118,10 @@ const $q = useQuasar()
 
 const loading = ref(false)
 const submitting = ref(false)
-const uploading = ref(false)
 
 const data = ref(null)
 const form = reactive({ certificateNumber: '', vatId: '' })
-const fileModel = ref(null)
-const documents = ref([]) // [{ mediaId, fileName, url }]
+const documents = ref([]) // [{ url, name, mediaId }] — bound to AppFileUpload (multiple + table)
 
 const status = computed(() => (data.value && data.value.status) || 'NotSubmitted')
 const latest = computed(() => (data.value && data.value.latestRequest) || null)
@@ -194,27 +173,11 @@ async function load () {
   }
 }
 
-// Auto-upload each selected file, then collect the returned media reference.
-async function onFileSelected (file) {
-  if (!file) return
-  uploading.value = true
-  try {
-    const res = await accountApi.uploadTaxDocument(file)
-    documents.value.push({ mediaId: res.mediaId, fileName: res.fileName, url: res.url })
-  } catch (e) {
-    $q.notify({ type: 'negative', message: getApiErrorMessage(e) })
-  } finally {
-    uploading.value = false
-    fileModel.value = null // reset so the next file (or the same one) can be picked
-  }
-}
-
-function removeDocument (i) {
-  documents.value.splice(i, 1)
-}
-
-function onRejected () {
-  $q.notify({ type: 'negative', message: 'File rejected — must be a PDF, JPG, PNG or WEBP under 5 MB.' })
+// Custom upload for AppFileUpload: pushes each file through the customer tax-document endpoint and returns
+// the item stored in the model (carrying the mediaId used at submit time).
+async function uploadTaxDoc (file) {
+  const res = await accountApi.uploadTaxDocument(file)
+  return { url: res.url, name: res.fileName, mediaId: res.mediaId }
 }
 
 async function onSubmit () {
@@ -237,7 +200,6 @@ async function onSubmit () {
     form.certificateNumber = ''
     form.vatId = ''
     documents.value = []
-    fileModel.value = null
     await load()
   } catch (e) {
     $q.notify({ type: 'negative', message: getApiErrorMessage(e) })

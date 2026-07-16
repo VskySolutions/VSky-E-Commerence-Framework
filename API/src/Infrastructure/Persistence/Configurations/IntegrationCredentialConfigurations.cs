@@ -20,6 +20,7 @@ public abstract class IntegrationCredentialConfig<T> : IEntityTypeConfiguration<
         b.ToTable(TableName);
         b.HasKey(x => x.Id);
         b.Property(x => x.Name).IsRequired().HasMaxLength(200);
+        b.Property(x => x.TransactionFeePercent).HasPrecision(5, 2);
         b.HasQueryFilter(x => !x.Deleted);
         ConfigureFields(b);
     }
@@ -44,7 +45,10 @@ public sealed class PayPalCredentialConfig : IntegrationCredentialConfig<PayPalC
 {
     protected override string TableName => "Credentials_PayPal";
     protected override void ConfigureFields(EntityTypeBuilder<PayPalCredential> b)
-        => b.Property(x => x.ClientId).HasMaxLength(300);
+    {
+        b.Property(x => x.ClientId).HasMaxLength(300);
+        b.Property(x => x.ReturnUrl).HasMaxLength(500);
+    }
 }
 
 public sealed class RazorpayCredentialConfig : IntegrationCredentialConfig<RazorpayCredential>

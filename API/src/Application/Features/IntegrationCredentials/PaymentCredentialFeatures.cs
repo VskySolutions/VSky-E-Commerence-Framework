@@ -16,6 +16,7 @@ public class StripeCredentialDto
     public string? PublishableKey { get; set; }
     public string? SecretKey { get; set; }
     public string? ReturnUrl { get; set; }
+    public decimal? TransactionFeePercent { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
@@ -23,6 +24,7 @@ public class StripeCredentialDto
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
         PublishableKey = e.PublishableKey, SecretKey = e.SecretKey, ReturnUrl = e.ReturnUrl,
+        TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -50,7 +52,8 @@ public class GetStripeCredentialQueryHandler : IRequestHandler<GetStripeCredenti
 
 public record SaveStripeCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? PublishableKey, string? SecretKey, string? ReturnUrl) : IRequest<StripeCredentialDto>;
+    string? PublishableKey, string? SecretKey, string? ReturnUrl,
+    decimal? TransactionFeePercent = null) : IRequest<StripeCredentialDto>;
 
 public class SaveStripeCredentialCommandValidator : AbstractValidator<SaveStripeCredentialCommand>
 {
@@ -58,6 +61,7 @@ public class SaveStripeCredentialCommandValidator : AbstractValidator<SaveStripe
     {
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
         RuleFor(x => x.SecretKey).NotEmpty();
+        RuleFor(x => x.TransactionFeePercent).InclusiveBetween(0m, 100m).When(x => x.TransactionFeePercent.HasValue);
     }
 }
 
@@ -71,6 +75,7 @@ public class SaveStripeCredentialCommandHandler : IRequestHandler<SaveStripeCred
         e.PublishableKey = IntegrationCredentialSupport.Norm(request.PublishableKey);
         e.SecretKey = IntegrationCredentialSupport.Norm(request.SecretKey);
         e.ReturnUrl = IntegrationCredentialSupport.Norm(request.ReturnUrl);
+        e.TransactionFeePercent = request.TransactionFeePercent;
         await _db.SaveChangesAsync(ct);
         return StripeCredentialDto.From(e);
     }
@@ -97,13 +102,16 @@ public class PayPalCredentialDto
     public string? BaseUrl { get; set; }
     public string? ClientId { get; set; }
     public string? SecretKey { get; set; }
+    public string? ReturnUrl { get; set; }
+    public decimal? TransactionFeePercent { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
     public static PayPalCredentialDto From(PayPalCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        BaseUrl = e.BaseUrl, ClientId = e.ClientId, SecretKey = e.SecretKey,
+        BaseUrl = e.BaseUrl, ClientId = e.ClientId, SecretKey = e.SecretKey, ReturnUrl = e.ReturnUrl,
+        TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -131,7 +139,8 @@ public class GetPayPalCredentialQueryHandler : IRequestHandler<GetPayPalCredenti
 
 public record SavePayPalCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? BaseUrl, string? ClientId, string? SecretKey) : IRequest<PayPalCredentialDto>;
+    string? BaseUrl, string? ClientId, string? SecretKey, string? ReturnUrl = null,
+    decimal? TransactionFeePercent = null) : IRequest<PayPalCredentialDto>;
 
 public class SavePayPalCredentialCommandValidator : AbstractValidator<SavePayPalCredentialCommand>
 {
@@ -143,6 +152,7 @@ public class SavePayPalCredentialCommandValidator : AbstractValidator<SavePayPal
             .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://api-m.sandbox.paypal.com");
         RuleFor(x => x.ClientId).NotEmpty();
         RuleFor(x => x.SecretKey).NotEmpty();
+        RuleFor(x => x.TransactionFeePercent).InclusiveBetween(0m, 100m).When(x => x.TransactionFeePercent.HasValue);
     }
 }
 
@@ -156,6 +166,8 @@ public class SavePayPalCredentialCommandHandler : IRequestHandler<SavePayPalCred
         e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ClientId = IntegrationCredentialSupport.Norm(request.ClientId);
         e.SecretKey = IntegrationCredentialSupport.Norm(request.SecretKey);
+        e.ReturnUrl = IntegrationCredentialSupport.Norm(request.ReturnUrl);
+        e.TransactionFeePercent = request.TransactionFeePercent;
         await _db.SaveChangesAsync(ct);
         return PayPalCredentialDto.From(e);
     }
@@ -182,6 +194,7 @@ public class RazorpayCredentialDto
     public string? BaseUrl { get; set; }
     public string? KeyId { get; set; }
     public string? KeySecret { get; set; }
+    public decimal? TransactionFeePercent { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
@@ -189,6 +202,7 @@ public class RazorpayCredentialDto
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
         BaseUrl = e.BaseUrl, KeyId = e.KeyId, KeySecret = e.KeySecret,
+        TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -216,7 +230,8 @@ public class GetRazorpayCredentialQueryHandler : IRequestHandler<GetRazorpayCred
 
 public record SaveRazorpayCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? BaseUrl, string? KeyId, string? KeySecret) : IRequest<RazorpayCredentialDto>;
+    string? BaseUrl, string? KeyId, string? KeySecret,
+    decimal? TransactionFeePercent = null) : IRequest<RazorpayCredentialDto>;
 
 public class SaveRazorpayCredentialCommandValidator : AbstractValidator<SaveRazorpayCredentialCommand>
 {
@@ -228,6 +243,7 @@ public class SaveRazorpayCredentialCommandValidator : AbstractValidator<SaveRazo
             .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://api.razorpay.com/v1");
         RuleFor(x => x.KeyId).NotEmpty();
         RuleFor(x => x.KeySecret).NotEmpty();
+        RuleFor(x => x.TransactionFeePercent).InclusiveBetween(0m, 100m).When(x => x.TransactionFeePercent.HasValue);
     }
 }
 
@@ -241,6 +257,7 @@ public class SaveRazorpayCredentialCommandHandler : IRequestHandler<SaveRazorpay
         e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.KeyId = IntegrationCredentialSupport.Norm(request.KeyId);
         e.KeySecret = IntegrationCredentialSupport.Norm(request.KeySecret);
+        e.TransactionFeePercent = request.TransactionFeePercent;
         await _db.SaveChangesAsync(ct);
         return RazorpayCredentialDto.From(e);
     }
@@ -268,6 +285,7 @@ public class SquareCredentialDto
     public string? ApplicationId { get; set; }
     public string? AccessToken { get; set; }
     public string? ApplicationSecret { get; set; }
+    public decimal? TransactionFeePercent { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
@@ -275,6 +293,7 @@ public class SquareCredentialDto
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
         BaseUrl = e.BaseUrl, ApplicationId = e.ApplicationId, AccessToken = e.AccessToken, ApplicationSecret = e.ApplicationSecret,
+        TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -302,7 +321,8 @@ public class GetSquareCredentialQueryHandler : IRequestHandler<GetSquareCredenti
 
 public record SaveSquareCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? BaseUrl, string? ApplicationId, string? AccessToken, string? ApplicationSecret) : IRequest<SquareCredentialDto>;
+    string? BaseUrl, string? ApplicationId, string? AccessToken, string? ApplicationSecret,
+    decimal? TransactionFeePercent = null) : IRequest<SquareCredentialDto>;
 
 public class SaveSquareCredentialCommandValidator : AbstractValidator<SaveSquareCredentialCommand>
 {
@@ -313,6 +333,7 @@ public class SaveSquareCredentialCommandValidator : AbstractValidator<SaveSquare
             .Must(IntegrationCredentialSupport.BeAnAbsoluteHttpUrl)
             .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://connect.squareupsandbox.com/v2");
         RuleFor(x => x.AccessToken).NotEmpty();
+        RuleFor(x => x.TransactionFeePercent).InclusiveBetween(0m, 100m).When(x => x.TransactionFeePercent.HasValue);
     }
 }
 
@@ -327,6 +348,7 @@ public class SaveSquareCredentialCommandHandler : IRequestHandler<SaveSquareCred
         e.ApplicationId = IntegrationCredentialSupport.Norm(request.ApplicationId);
         e.AccessToken = IntegrationCredentialSupport.Norm(request.AccessToken);
         e.ApplicationSecret = IntegrationCredentialSupport.Norm(request.ApplicationSecret);
+        e.TransactionFeePercent = request.TransactionFeePercent;
         await _db.SaveChangesAsync(ct);
         return SquareCredentialDto.From(e);
     }
@@ -354,6 +376,7 @@ public class AuthorizeNetCredentialDto
     public string? ApplicationLoginId { get; set; }
     public string? TransactionKey { get; set; }
     public string? SignatureKey { get; set; }
+    public decimal? TransactionFeePercent { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
 
@@ -361,6 +384,7 @@ public class AuthorizeNetCredentialDto
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
         BaseUrl = e.BaseUrl, ApplicationLoginId = e.ApplicationLoginId, TransactionKey = e.TransactionKey, SignatureKey = e.SignatureKey,
+        TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
 }
@@ -388,7 +412,8 @@ public class GetAuthorizeNetCredentialQueryHandler : IRequestHandler<GetAuthoriz
 
 public record SaveAuthorizeNetCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? BaseUrl, string? ApplicationLoginId, string? TransactionKey, string? SignatureKey) : IRequest<AuthorizeNetCredentialDto>;
+    string? BaseUrl, string? ApplicationLoginId, string? TransactionKey, string? SignatureKey,
+    decimal? TransactionFeePercent = null) : IRequest<AuthorizeNetCredentialDto>;
 
 public class SaveAuthorizeNetCredentialCommandValidator : AbstractValidator<SaveAuthorizeNetCredentialCommand>
 {
@@ -400,6 +425,7 @@ public class SaveAuthorizeNetCredentialCommandValidator : AbstractValidator<Save
             .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://apitest.authorize.net/xml/v1/request.api");
         RuleFor(x => x.ApplicationLoginId).NotEmpty();
         RuleFor(x => x.TransactionKey).NotEmpty();
+        RuleFor(x => x.TransactionFeePercent).InclusiveBetween(0m, 100m).When(x => x.TransactionFeePercent.HasValue);
     }
 }
 
@@ -414,6 +440,7 @@ public class SaveAuthorizeNetCredentialCommandHandler : IRequestHandler<SaveAuth
         e.ApplicationLoginId = IntegrationCredentialSupport.Norm(request.ApplicationLoginId);
         e.TransactionKey = IntegrationCredentialSupport.Norm(request.TransactionKey);
         e.SignatureKey = IntegrationCredentialSupport.Norm(request.SignatureKey);
+        e.TransactionFeePercent = request.TransactionFeePercent;
         await _db.SaveChangesAsync(ct);
         return AuthorizeNetCredentialDto.From(e);
     }

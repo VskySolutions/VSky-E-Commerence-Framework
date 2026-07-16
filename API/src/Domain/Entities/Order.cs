@@ -62,6 +62,13 @@ public class Order : AuditableEntity, ISoftDeletable
     public decimal DiscountTotal { get; set; }
     public decimal ShippingTotal { get; set; }
     public decimal TaxTotal { get; set; }
+
+    /// <summary>The payment-gateway transaction fee added to this order as an additional charge: the
+    /// percentage applied (from the gateway's integration config) and the resulting amount. Both 0 when the
+    /// chosen method has no fee. Included in <see cref="TotalAmount"/>.</summary>
+    public decimal PaymentFeePercent { get; set; }
+    public decimal PaymentFeeTotal { get; set; }
+
     public decimal TotalAmount { get; set; }
 
     /// <summary>Immutable jurisdiction-level tax breakdown JSON, stored at placement time and never recalculated (Order Management ADR).</summary>

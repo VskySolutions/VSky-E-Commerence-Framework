@@ -39,13 +39,15 @@ public class SubmitTaxExemptionRequestCommandHandler
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
     private readonly IDateTimeProvider _clock;
+    private readonly IEmailTemplateSender _email;
 
     public SubmitTaxExemptionRequestCommandHandler(
-        IApplicationDbContext db, ICurrentUserService current, IDateTimeProvider clock)
+        IApplicationDbContext db, ICurrentUserService current, IDateTimeProvider clock, IEmailTemplateSender email)
     {
         _db = db;
         _current = current;
         _clock = clock;
+        _email = email;
     }
 
     public async Task<TaxExemptionRequestDto> Handle(
@@ -95,6 +97,44 @@ public class SubmitTaxExemptionRequestCommandHandler
         _db.TaxExemptionRequests.Add(exemptionRequest);
         await _db.SaveChangesAsync(cancellationToken);
 
+        await NotifyAdminAsync(customer, exemptionRequest, mediaIds.Count, cancellationToken);
+
         return TaxExemptionRequestDto.From(exemptionRequest);
+    }
+
+    /// <summary>
+    /// Emails the tenant's support/admin address that a new request is awaiting review — so an admin is
+    /// prompted to act rather than having to notice it in the pending list. Sent to
+    /// <see cref="Domain.Entities.TenantBranding.SupportEmail"/>; a no-op when that is unset. Best-effort:
+    /// a mail failure must never roll back the submitted request.
+    /// </summary>
+    private async Task NotifyAdminAsync(Customer customer, TaxExemptionRequest request, int documentCount, CancellationToken ct)
+    {
+        var recipient = await _db.TenantBrandings
+            .AsNoTracking()
+            .Select(b => b.SupportEmail)
+            .FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(recipient))
+            return;
+
+        var customerName = $"{customer.FirstName} {customer.LastName}".Trim();
+        var variables = new Dictionary<string, string>
+        {
+            ["customerName"] = string.IsNullOrWhiteSpace(customerName) ? "A customer" : customerName,
+            ["customerEmail"] = _current.Email ?? string.Empty,
+            ["certificateNumber"] = request.CertificateNumber ?? "—",
+            ["vatId"] = request.VatId ?? "—",
+            ["documentCount"] = documentCount.ToString(),
+            ["submittedOn"] = $"{request.SubmittedOnUtc:MMM d, yyyy HH:mm} UTC",
+        };
+
+        try
+        {
+            await _email.SendAsync("tax-exemption.submitted", recipient, null, variables, ct);
+        }
+        catch
+        {
+            // Swallowed deliberately — the request is already persisted.
+        }
     }
 }

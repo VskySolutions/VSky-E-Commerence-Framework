@@ -23,6 +23,13 @@ public interface ICheckoutOrchestrator
     /// </summary>
     Task<CheckoutResult> ConfirmAsync(Guid orderId, CancellationToken ct);
 
+    /// <summary>
+    /// Confirms an on-site widget payment (Razorpay Checkout): verifies the tokens the widget returned
+    /// (<paramref name="gatewayData"/>), captures the payment, consumes the cart, and finalizes the order.
+    /// Idempotent — re-confirming an already-paid order just returns success.
+    /// </summary>
+    Task<CheckoutResult> ConfirmClientPaymentAsync(Guid orderId, IReadOnlyDictionary<string, string> gatewayData, CancellationToken ct);
+
     /// <summary>Re-opens a payment session for a still-pending order (retry after a cancelled redirect payment).</summary>
     Task<CheckoutResult> RetryPaymentAsync(Guid orderId, CancellationToken ct);
 }

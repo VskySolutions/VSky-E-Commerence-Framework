@@ -21,6 +21,11 @@ public class CustomerOrdersController : ApiControllerBase
     public async Task<ActionResult<OrderDto>> Get(Guid id)
         => Ok(await Mediator.Send(new GetMyOrderQuery(id)));
 
+    /// <summary>The current customer's own order status timeline (oldest transition first).</summary>
+    [HttpGet("{id:guid}/timeline")]
+    public async Task<ActionResult<List<OrderStatusHistoryDto>>> Timeline(Guid id)
+        => Ok(await Mediator.Send(new GetMyOrderTimelineQuery(id)));
+
     /// <summary>Download the current customer's own order invoice as a PDF.</summary>
     [HttpGet("{id:guid}/invoice")]
     public async Task<IActionResult> Invoice(Guid id)

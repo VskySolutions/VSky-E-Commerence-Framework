@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text.Json;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -76,6 +77,9 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         var quote = new CheckoutQuote
         {
             Subtotal = priced.Subtotal,
+            BaseSubtotal = priced.BaseSubtotal,
+            GroupDiscountTotal = priced.GroupDiscountTotal,
+            GroupDiscountName = priced.GroupDiscountName,
             Discounts = priced.Discounts,
             DiscountTotal = priced.DiscountTotal,
             ShippingOptions = priced.ShippingOptions.ToList(),
@@ -91,7 +95,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         // Only a routed order has a fulfilling store, and so a concrete set of payment methods to offer.
         if (priced.Store is not null)
             quote.AvailablePaymentMethods = (await AvailablePaymentMethodsAsync(priced.Store, ct))
-                .Select(m => new PaymentMethodOption { Method = m.Method.ToString(), IsProduction = m.IsProduction })
+                .Select(m => new PaymentMethodOption { Method = m.Method.ToString(), IsProduction = m.IsProduction, FeePercent = m.FeePercent })
                 .ToList();
 
         // The active tax provider (for the storefront's "calculated via …" indicator); defaults to FlatRate
@@ -133,8 +137,18 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         // Enforce the store's payment-method availability (e.g. COD switched off, or a deactivated gateway)
         // server-side — the storefront only ever offers these, but never trust the client.
-        if (priced.Store is not null && !(await AvailablePaymentMethodsAsync(priced.Store, ct)).Any(m => m.Method == req.PaymentMethod))
+        var availableMethods = priced.Store is null
+            ? (IReadOnlyList<PaymentMethodAvailability>)Array.Empty<PaymentMethodAvailability>()
+            : await AvailablePaymentMethodsAsync(priced.Store, ct);
+        if (priced.Store is not null && !availableMethods.Any(m => m.Method == req.PaymentMethod))
             throw new ConflictException("The selected payment method is not available for this order.");
+
+        // Payment transaction fee: the chosen gateway's configured fee (% of the order total) is added as an
+        // additional charge the buyer pays (WO-fee). Resolved authoritatively here from the active credential —
+        // never from the client — and 0 when the method has no fee. Applied to the pre-fee grand total.
+        var feePercent = availableMethods.FirstOrDefault(m => m.Method == req.PaymentMethod)?.FeePercent ?? 0m;
+        var paymentFee = decimal.Round(priced.Total * feePercent / 100m, 2, MidpointRounding.AwayFromZero);
+        var grandTotal = priced.Total + paymentFee;
 
         // Resolve the customer only when the caller is an authenticated customer; guests place a null-customer order.
         Guid? customerId = null;
@@ -178,7 +192,9 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             DiscountTotal = priced.DiscountTotal,
             ShippingTotal = priced.ShippingTotal,
             TaxTotal = priced.TaxTotal,
-            TotalAmount = priced.Total,
+            PaymentFeePercent = feePercent,
+            PaymentFeeTotal = paymentFee,
+            TotalAmount = grandTotal,
             // Immutable jurisdiction-level tax breakdown, stored verbatim and never recalculated.
             TaxBreakdownJson = JsonSerializer.Serialize(priced.Tax),
             TaxFlaggedForReview = priced.Tax.FallbackApplied,
@@ -201,6 +217,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 Sku = line.Sku,
                 Quantity = line.Quantity,
                 UnitPrice = line.UnitPrice,
+                OriginalUnitPrice = line.OriginalUnitPrice,
+                DiscountAmount = line.DiscountAmount,
                 LineTotal = line.LineTotal,
             });
         }
@@ -223,14 +241,14 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             OrderId = order.Id,
             Method = req.PaymentMethod,
             GatewayName = req.PaymentMethod.ToString(),
-            Amount = priced.Total,
+            Amount = grandTotal,
             CurrencyCode = order.CurrencyCode,
             Status = PaymentStatus.Pending,
         };
         _db.PaymentRecords.Add(payment);
 
         var payResult = await _payments.AuthorizeAsync(
-            new PaymentRequest(order.Id, req.PaymentMethod, priced.Total, order.CurrencyCode, req.PaymentToken,
+            new PaymentRequest(order.Id, req.PaymentMethod, grandTotal, order.CurrencyCode, req.PaymentToken,
                 OrderNumber: order.OrderNumber),
             ct);
 
@@ -263,6 +281,21 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             return OrderResult(order, success: false, error: null, redirectUrl: payResult.RedirectUrl);
         }
 
+        // Client-completed gateway (Razorpay Checkout): the provider order is created, but the buyer must pay
+        // in the on-site widget, after which /confirm-client-payment verifies + captures. As with the redirect
+        // flow, remember the source cart so it is consumed only on a successful confirmation; nothing is
+        // finalized yet, and the order stays Pending/unpaid until the widget's tokens are verified.
+        if (payResult.ClientAction is not null)
+        {
+            order.SourceCartId = priced.Cart.Id;
+            await _db.SaveChangesAsync(ct);
+            var pending = OrderResult(order, success: false, error: null, redirectUrl: null);
+            pending.ClientPayment = BuildClientPayment(
+                payResult, order, grandTotal,
+                req.ShipTo.FirstName, req.ShipTo.LastName, req.ShipTo.Email, req.ShipTo.PhoneNumber);
+            return pending;
+        }
+
         // Payment failed: leave the order Pending/unpaid so the buyer can retry, and do NOT mark the
         // cart checked out or fire any confirmation side effects (AC-PAY-001.3).
         if (!payResult.Success)
@@ -272,7 +305,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 OrderId = order.Id,
                 OrderNumber = order.OrderNumber,
                 Status = order.Status.ToString(),
-                Total = priced.Total,
+                Total = grandTotal,
                 PaymentStatus = payResult.Status.ToString(),
                 Success = false,
                 Error = payResult.ErrorMessage
@@ -318,17 +351,62 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 error: result.ErrorMessage ?? "Payment was not completed. Please try again.", redirectUrl: null);
         }
 
+        return await ApplyCaptureAndFinalizeAsync(order, payment, result, ct);
+    }
+
+    public async Task<CheckoutResult> ConfirmClientPaymentAsync(
+        Guid orderId, IReadOnlyDictionary<string, string> gatewayData, CancellationToken ct)
+    {
+        var order = await _db.Orders
+            .Include(o => o.Lines)
+            .Include(o => o.ShippingAddress)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct)
+            ?? throw new NotFoundException(nameof(Order), orderId);
+
+        // Idempotent: already captured (e.g. the buyer's widget result was submitted twice).
+        if (order.PaymentStatus == PaymentStatus.Captured)
+            return OrderResult(order, success: true, error: null, redirectUrl: null,
+                transactionId: await CapturedTransactionIdAsync(orderId, ct));
+
+        var payment = await _db.PaymentRecords
+            .Where(p => p.OrderId == orderId)
+            .OrderByDescending(p => p.CreatedOnUtc)
+            .FirstOrDefaultAsync(ct);
+        if (payment is null)
+            return OrderResult(order, success: false, error: "No payment to confirm for this order.", redirectUrl: null);
+
+        // Verify the on-site widget's tokens (order match + signature + settled amount) and capture.
+        var result = await _payments.VerifyClientPaymentAsync(payment, gatewayData, ct);
+        if (!result.Success || result.Status != PaymentStatus.Captured)
+        {
+            payment.ErrorMessage = result.ErrorMessage;
+            await _db.SaveChangesAsync(ct);
+            return OrderResult(order, success: false,
+                error: result.ErrorMessage ?? "Payment was not completed. Please try again.", redirectUrl: null);
+        }
+
+        return await ApplyCaptureAndFinalizeAsync(order, payment, result, ct);
+    }
+
+    /// <summary>
+    /// Marks a verified payment Captured, consumes the source cart (kept intact until now so a cancelled
+    /// payment leaves the buyer's cart untouched for a retry), and finalizes the order (stock, coupon,
+    /// events, emails). Shared by the redirect (<see cref="ConfirmAsync"/>) and on-site widget
+    /// (<see cref="ConfirmClientPaymentAsync"/>) confirmation paths.
+    /// </summary>
+    private async Task<CheckoutResult> ApplyCaptureAndFinalizeAsync(
+        Order order, PaymentRecord payment, PaymentResult result, CancellationToken ct)
+    {
         var now = _clock.UtcNow;
         payment.Status = PaymentStatus.Captured;
         payment.TransactionId = result.TransactionId ?? payment.TransactionId;
+        payment.AuthorizationId = result.AuthorizationId ?? payment.AuthorizationId;
         payment.GatewayReference = result.GatewayReference ?? payment.GatewayReference;
         payment.AuthorizedOnUtc ??= now;
         payment.CapturedOnUtc = now;
         payment.ErrorMessage = null;
         order.PaymentStatus = PaymentStatus.Captured;
 
-        // Consume the source cart now that payment succeeded — kept intact until now so a cancelled
-        // payment leaves the buyer's cart untouched for a retry.
         if (order.SourceCartId is Guid cartId)
         {
             var cart = await _db.Carts.FirstOrDefaultAsync(c => c.Id == cartId && !c.IsCheckedOut, ct);
@@ -342,9 +420,42 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         return OrderResult(order, success: true, error: null, redirectUrl: null, transactionId: payment.TransactionId);
     }
 
+    /// <summary>
+    /// Builds the on-site-widget config the storefront opens Razorpay Checkout with, from the gateway's
+    /// client action (public key, amount, currency) plus the order's number and the buyer's contact details
+    /// (best-effort prefill). The amount is the minor-unit value the gateway created the provider order with.
+    /// </summary>
+    private static ClientPaymentAction BuildClientPayment(
+        PaymentResult payResult, Order order, decimal amount,
+        string? firstName, string? lastName, string? email, string? phone)
+    {
+        var action = payResult.ClientAction!;
+        var amountMinor = action.TryGetValue("amount", out var raw)
+            && long.TryParse(raw, NumberStyles.Integer, CultureInfo.InvariantCulture, out var m)
+            ? m
+            : (long)Math.Round(amount * 100m, MidpointRounding.AwayFromZero);
+        var name = $"{firstName} {lastName}".Trim();
+
+        return new ClientPaymentAction
+        {
+            Provider = action.TryGetValue("provider", out var p) ? p : string.Empty,
+            KeyId = action.TryGetValue("keyId", out var k) ? k : string.Empty,
+            GatewayOrderId = payResult.GatewayReference ?? string.Empty,
+            AmountMinor = amountMinor,
+            CurrencyCode = action.TryGetValue("currency", out var c) ? c : order.CurrencyCode,
+            OrderNumber = order.OrderNumber,
+            CustomerName = string.IsNullOrWhiteSpace(name) ? null : name,
+            CustomerEmail = email,
+            CustomerPhone = phone,
+        };
+    }
+
     public async Task<CheckoutResult> RetryPaymentAsync(Guid orderId, CancellationToken ct)
     {
-        var order = await _db.Orders.FirstOrDefaultAsync(o => o.Id == orderId, ct)
+        // Include the shipping address so an on-site widget retry can prefill the buyer's contact details.
+        var order = await _db.Orders
+            .Include(o => o.ShippingAddress)
+            .FirstOrDefaultAsync(o => o.Id == orderId, ct)
             ?? throw new NotFoundException(nameof(Order), orderId);
 
         // Already paid — nothing to retry.
@@ -373,6 +484,24 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 await _db.SaveChangesAsync(ct);
             }
             return OrderResult(order, success: false, error: null, redirectUrl: payResult.RedirectUrl);
+        }
+
+        // On-site widget gateway (Razorpay Checkout): a fresh provider order was created — hand its config
+        // back so the storefront can re-open the widget for the same pending order.
+        if (payResult.ClientAction is not null)
+        {
+            if (payment is not null)
+            {
+                payment.GatewayReference = payResult.GatewayReference;
+                payment.Status = PaymentStatus.Pending;
+                payment.ErrorMessage = null;
+                await _db.SaveChangesAsync(ct);
+            }
+            var addr = order.ShippingAddress;
+            var pending = OrderResult(order, success: false, error: null, redirectUrl: null);
+            pending.ClientPayment = BuildClientPayment(
+                payResult, order, order.TotalAmount, addr?.FirstName, addr?.LastName, addr?.Email, addr?.PhoneNumber);
+            return pending;
         }
 
         return OrderResult(order, success: false,
@@ -511,12 +640,26 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         if (items.Count == 0)
             throw new ConflictException("The cart is empty. Add items before checking out.");
 
-        var lines = await ApplyGroupPricingAsync(await BuildLinesAsync(items, ct), ct);
+        // Apply Customer Group pricing to the lines (member unit prices), keeping the pre-discount base
+        // subtotal so the group saving can be itemized in the summary (WO-22) rather than silently folded
+        // into the unit prices — where it is otherwise invisible to the buyer.
+        var baseLines = await BuildLinesAsync(items, ct);
+        var groupId = await _customerGroups.GetCurrentGroupIdAsync(ct);
+        var lines = await ApplyGroupPricingAsync(baseLines, groupId, ct);
         var subtotal = lines.Sum(l => l.LineTotal);
+        var baseSubtotal = baseLines.Sum(l => l.LineTotal);
+        var groupDiscountTotal = baseSubtotal - subtotal;
+        // Name the group only when it actually reduced the price (a fixed group price can sit at or above
+        // base, in which case there is nothing to itemize).
+        string? groupName = null;
+        if (groupDiscountTotal > 0m && groupId is Guid gid)
+            groupName = await _db.CustomerGroups.AsNoTracking()
+                .Where(g => g.Id == gid).Select(g => g.Name).FirstOrDefaultAsync(ct);
 
         // Pickup-in-store: skip routing + carrier rates entirely; fulfil at the chosen store (REQ-SHP-004).
         if (pickupInStore)
-            return await BuildPickupAsync(cart, lines, subtotal, pickupStoreId, requestCouponCode, forPlacement, ct);
+            return await BuildPickupAsync(cart, lines, subtotal, baseSubtotal, groupDiscountTotal, groupName,
+                pickupStoreId, requestCouponCode, forPlacement, ct);
 
         // 2. Route the order against active stores (ship-to address + line items).
         var routing = await _routing.RouteAsync(BuildRoutingRequest(shipTo, lines), ct);
@@ -534,7 +677,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 Discounts: new List<AppliedDiscount>(), DiscountTotal: 0m,
                 Tax: new TaxBreakdown(0m, new(), false), TaxTotal: 0m,
                 Total: subtotal, GuestOrderingAllowed: true,
-                CouponCode: cart.AppliedCouponCode, CouponValid: false);
+                CouponCode: cart.AppliedCouponCode, CouponValid: false,
+                BaseSubtotal: baseSubtotal, GroupDiscountTotal: groupDiscountTotal, GroupDiscountName: groupName);
         }
 
         // 3. Guest-ordering policy (AC-STR-001.5 / AC-CHK-003.2): load the assigned store and, if it
@@ -657,7 +801,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             cart, lines, subtotal, routing, store,
             shippingOptions, selected, shippingTotal,
             discountResult.Applied, discountResult.TotalDiscount,
-            tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid);
+            tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid,
+            BaseSubtotal: baseSubtotal, GroupDiscountTotal: groupDiscountTotal, GroupDiscountName: groupName);
     }
 
     /// <summary>
@@ -665,7 +810,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     /// is the fulfilling store, shipping is free, and tax is collected at the store.
     /// </summary>
     private async Task<PricedCheckout> BuildPickupAsync(
-        Cart cart, List<LineWork> lines, decimal subtotal, Guid? pickupStoreId,
+        Cart cart, List<LineWork> lines, decimal subtotal,
+        decimal baseSubtotal, decimal groupDiscountTotal, string? groupName, Guid? pickupStoreId,
         string? requestCouponCode, bool forPlacement, CancellationToken ct)
     {
         if (pickupStoreId is not Guid storeId)
@@ -743,7 +889,9 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             cart, lines, subtotal, routing, store,
             new[] { pickupOption }, pickupOption, 0m,
             discountResult.Applied, discountResult.TotalDiscount,
-            tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid, IsPickup: true);
+            tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid,
+            BaseSubtotal: baseSubtotal, GroupDiscountTotal: groupDiscountTotal, GroupDiscountName: groupName,
+            IsPickup: true);
     }
 
     /// <summary>
@@ -862,7 +1010,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
             lines.Add(new LineWork(
                 item.ProductId, item.ProductVariantId, item.Quantity, item.UnitPrice,
-                name, sku, taxCode, categoryIds));
+                name, sku, taxCode, categoryIds, OriginalUnitPrice: item.UnitPrice));
         }
 
         return lines;
@@ -871,16 +1019,13 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     /// <summary>
     /// Applies the authenticated customer's Customer Group pricing to each line (WO-22, AC-CUS-003.5),
     /// running before the subtotal so discounts, tax and the total all derive from the member price. A
-    /// no-op for guests and customers with no group — <see cref="ICustomerGroupService.ResolvePricesAsync"/>
-    /// echoes the base price back — so the common checkout path is unchanged.
+    /// no-op for guests and customers with no group (<paramref name="groupId"/> null) — and
+    /// <see cref="ICustomerGroupService.ResolvePricesAsync"/> echoes the base price back for non-discounted
+    /// lines — so the common checkout path is unchanged.
     /// </summary>
-    private async Task<List<LineWork>> ApplyGroupPricingAsync(List<LineWork> lines, CancellationToken ct)
+    private async Task<List<LineWork>> ApplyGroupPricingAsync(List<LineWork> lines, Guid? groupId, CancellationToken ct)
     {
-        if (lines.Count == 0)
-            return lines;
-
-        var groupId = await _customerGroups.GetCurrentGroupIdAsync(ct);
-        if (groupId is null)
+        if (lines.Count == 0 || groupId is null)
             return lines;
 
         // Resolved in one batch: a per-line call would issue two queries per cart line.
@@ -922,9 +1067,13 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         string ProductName,
         string? Sku,
         string? TaxCategoryCode,
-        IReadOnlyList<Guid> CategoryIds)
+        IReadOnlyList<Guid> CategoryIds,
+        decimal OriginalUnitPrice)
     {
         public decimal LineTotal => UnitPrice * Quantity;
+
+        /// <summary>The Customer Group saving on this line: (list − charged) × qty, never negative.</summary>
+        public decimal DiscountAmount => Math.Max(0m, (OriginalUnitPrice - UnitPrice) * Quantity);
     }
 
     /// <summary>The full set of computed parts shared between a quote and its placement.</summary>
@@ -945,5 +1094,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         bool GuestOrderingAllowed,
         string? CouponCode,
         bool CouponValid,
+        decimal BaseSubtotal = 0m,
+        decimal GroupDiscountTotal = 0m,
+        string? GroupDiscountName = null,
         bool IsPickup = false);
 }

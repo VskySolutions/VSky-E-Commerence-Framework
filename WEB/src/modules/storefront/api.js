@@ -151,6 +151,12 @@ export const checkoutApi = {
   confirm (orderId) {
     return customerApi.post(CHECKOUT + '/confirm', { orderId }).then(unwrap)
   },
+  // Confirm an on-site widget payment (Razorpay Checkout): posts the tokens the widget returned for
+  // server-side signature verification + capture. `gatewayData` is the provider's raw response
+  // (e.g. { razorpay_payment_id, razorpay_order_id, razorpay_signature }).
+  confirmClientPayment (orderId, gatewayData) {
+    return customerApi.post(CHECKOUT + '/confirm-client-payment', { orderId, gatewayData }).then(unwrap)
+  },
   // Re-open a payment session for a still-pending order (retry after a cancelled redirect payment).
   retryPayment (orderId) {
     return customerApi.post(CHECKOUT + '/retry-payment', { orderId }).then(unwrap)

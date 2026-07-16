@@ -16,4 +16,15 @@ namespace VSky.Application.Common.Models;
 /// part of each adapter's credential contract; this envelope is how the providers whose value is a bare
 /// secret (PayPal, Square, …) receive it.
 /// </param>
-public sealed record ResolvedCredential(string Value, bool IsProduction, string? BaseUrl = null);
+/// <param name="TransactionFeePercent">
+/// The optional transaction/processing fee (% of order total) the admin configured for this integration;
+/// null when unset. Only payment gateways act on it — the checkout adds the active gateway's fee to the
+/// order total as an additional charge.
+/// </param>
+/// <param name="ReturnUrl">
+/// The storefront URL a redirect-based gateway sends the buyer back to after approving/cancelling payment
+/// (e.g. PayPal). Null for gateways that carry it elsewhere (Stripe encodes it inside <see cref="Value"/>)
+/// or have no redirect flow.
+/// </param>
+public sealed record ResolvedCredential(
+    string Value, bool IsProduction, string? BaseUrl = null, decimal? TransactionFeePercent = null, string? ReturnUrl = null);

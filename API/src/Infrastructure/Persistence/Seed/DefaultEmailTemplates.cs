@@ -111,6 +111,10 @@ public static class DefaultEmailTemplates
             "Update on your tax exemption request",
             "Tax exemption could not be approved",
             "<p>Hi {{customerName}},</p><p>Your tax exemption request could not be approved, so tax will continue to apply to your orders. You're welcome to submit a new request.</p><p>{{adminNote}}</p>"),
+        new("tax-exemption.submitted", "Tax Exemption Submitted (Admin)", NotificationCategory.Transactional,
+            "New tax exemption request from {{customerName}}",
+            "New tax exemption request to review",
+            "<p>A customer has submitted a tax exemption request that is awaiting review.</p><p>Customer: <strong>{{customerName}}</strong> ({{customerEmail}})<br>Certificate number: {{certificateNumber}}<br>VAT ID: {{vatId}}<br>Documents: {{documentCount}}<br>Submitted: {{submittedOn}}</p><p>Please review it in the admin portal.</p>"),
 
         // ---- Marketing ----
         new("cart.abandoned", "Abandoned Cart Recovery", NotificationCategory.Marketing,
@@ -176,7 +180,7 @@ public static class DefaultEmailTemplates
         return $"{heading}\n\n{text}";
     }
 
-    /// <summary>Builds fresh <see cref="EmailTemplate"/> entities for seeding (25 notification events).</summary>
+    /// <summary>Builds fresh <see cref="EmailTemplate"/> entities for seeding (one per notification event).</summary>
     public static IReadOnlyList<EmailTemplate> Build() =>
         Seeds.Select(s => new EmailTemplate
         {

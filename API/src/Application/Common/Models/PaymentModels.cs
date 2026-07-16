@@ -22,8 +22,9 @@ public record PaymentRequest(
 /// A payment method currently offered at checkout: the <see cref="Method"/> plus its environment —
 /// <see cref="IsProduction"/> is <c>true</c> for a live credential, <c>false</c> for sandbox/test, and
 /// <c>null</c> for manual methods (Cash on Delivery, Bank Transfer) that have no gateway environment.
+/// <see cref="FeePercent"/> is the gateway's configured transaction fee (% of order total), 0 when none.
 /// </summary>
-public record PaymentMethodAvailability(PaymentMethodType Method, bool? IsProduction);
+public record PaymentMethodAvailability(PaymentMethodType Method, bool? IsProduction, decimal FeePercent = 0m);
 
 /// <summary>
 /// The normalized outcome of an authorize/capture/refund call, mapped from each provider's native
@@ -44,9 +45,26 @@ public record PaymentResult(
     /// </summary>
     public string? RedirectUrl { get; init; }
 
+    /// <summary>
+    /// For client-completed gateways (e.g. Razorpay Checkout): the provider-specific fields the storefront
+    /// needs to open the on-site payment widget — e.g. { keyId } alongside the provider order id in
+    /// <see cref="GatewayReference"/>. Null for inline/redirect gateways. When set, the checkout returns this
+    /// to the client instead of finalizing; the buyer pays in the widget and the tokens it returns are
+    /// verified via <see cref="Interfaces.IPaymentGatewayRouter.VerifyClientPaymentAsync"/>.
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? ClientAction { get; init; }
+
     /// <summary>A "send the buyer to this URL" result for redirect gateways; the order stays pending until they return.</summary>
     public static PaymentResult Redirect(string url, string? gatewayReference)
         => new(false, PaymentStatus.Pending, GatewayReference: gatewayReference) { RedirectUrl = url };
+
+    /// <summary>
+    /// A "the buyer must complete payment in an on-site widget" result (Razorpay Checkout). The order stays
+    /// pending until the widget completes and its tokens are verified. <paramref name="gatewayReference"/>
+    /// is the provider order id; <paramref name="action"/> carries the widget config (e.g. the public key).
+    /// </summary>
+    public static PaymentResult ClientActionRequired(string gatewayReference, IReadOnlyDictionary<string, string> action)
+        => new(false, PaymentStatus.Pending, GatewayReference: gatewayReference) { ClientAction = action };
 
     /// <summary>A failed result (default status <see cref="PaymentStatus.Failed"/>) carrying the gateway error.</summary>
     public static PaymentResult Failed(string error, PaymentStatus status = PaymentStatus.Failed)

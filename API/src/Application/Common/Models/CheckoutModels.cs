@@ -44,6 +44,25 @@ public record CheckoutQuoteRequest(
 public class CheckoutQuote
 {
     public decimal Subtotal { get; set; }
+
+    /// <summary>
+    /// The cart subtotal BEFORE Customer Group pricing — the lines at their list price. Equals
+    /// <see cref="Subtotal"/> when the buyer is in no discounting group. Surfaced so the summary can show
+    /// this as "Subtotal" and itemize <see cref="GroupDiscountTotal"/> against it, reconciling with the
+    /// (list-priced) line items the cart renders.
+    /// </summary>
+    public decimal BaseSubtotal { get; set; }
+
+    /// <summary>
+    /// The saving from the buyer's Customer Group pricing (<see cref="BaseSubtotal"/> − <see cref="Subtotal"/>)
+    /// when positive; 0 when there is no group discount. Group pricing is applied by lowering each line's unit
+    /// price, so without this it would be invisible in the summary (WO-22).
+    /// </summary>
+    public decimal GroupDiscountTotal { get; set; }
+
+    /// <summary>The name of the pricing group behind <see cref="GroupDiscountTotal"/> (summary label); null when none.</summary>
+    public string? GroupDiscountName { get; set; }
+
     public List<AppliedDiscount> Discounts { get; set; } = new();
     public decimal DiscountTotal { get; set; }
     public List<ShippingRateOption> ShippingOptions { get; set; } = new();
@@ -79,6 +98,10 @@ public class PaymentMethodOption
 {
     public string Method { get; set; } = string.Empty;
     public bool? IsProduction { get; set; }
+
+    /// <summary>The gateway's transaction fee as a percentage of the order total (0 when none). The storefront
+    /// shows it against each method and adds it to the total the buyer pays when the method is selected.</summary>
+    public decimal FeePercent { get; set; }
 }
 
 /// <summary>
@@ -126,4 +149,41 @@ public class CheckoutResult
     /// redirects here to complete payment; the order stays pending until they return and confirm.
     /// </summary>
     public string? RedirectUrl { get; set; }
+
+    /// <summary>
+    /// For client-completed gateways (Razorpay Checkout): the config the storefront needs to open the
+    /// on-site payment widget. When set, the storefront opens the widget and, on completion, calls
+    /// confirm-client-payment to verify + capture. Null for inline/redirect gateways.
+    /// </summary>
+    public ClientPaymentAction? ClientPayment { get; set; }
+}
+
+/// <summary>
+/// The data a client-completed gateway hands to the storefront to open its on-site payment widget
+/// (Razorpay Checkout). The buyer pays inside the widget; the tokens it returns are posted back to
+/// confirm-client-payment, which verifies the signature server-side and captures the payment.
+/// </summary>
+public class ClientPaymentAction
+{
+    /// <summary>The gateway this widget belongs to (e.g. "razorpay") so the storefront opens the right SDK.</summary>
+    public string Provider { get; set; } = string.Empty;
+
+    /// <summary>The gateway's public/publishable key used to initialise the widget (never the secret).</summary>
+    public string KeyId { get; set; } = string.Empty;
+
+    /// <summary>The provider order id the widget charges against (Razorpay order_id), created server-side.</summary>
+    public string GatewayOrderId { get; set; } = string.Empty;
+
+    /// <summary>The amount in the currency's minor unit (paise/cents), matching the created provider order.</summary>
+    public long AmountMinor { get; set; }
+
+    public string CurrencyCode { get; set; } = string.Empty;
+
+    /// <summary>Our order number, shown in the widget and used as the description.</summary>
+    public string OrderNumber { get; set; } = string.Empty;
+
+    /// <summary>Buyer contact details to prefill the widget (best-effort; the buyer can edit them).</summary>
+    public string? CustomerName { get; set; }
+    public string? CustomerEmail { get; set; }
+    public string? CustomerPhone { get; set; }
 }

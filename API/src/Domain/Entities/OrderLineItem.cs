@@ -18,7 +18,20 @@ public class OrderLineItem : BaseEntity
     public string ProductName { get; set; } = string.Empty;
     public string? Sku { get; set; }
     public int Quantity { get; set; }
+
+    /// <summary>The unit price actually charged — the Customer Group member price when the buyer is in a
+    /// discounting group, otherwise the list price. <see cref="LineTotal"/> is this × <see cref="Quantity"/>.</summary>
     public decimal UnitPrice { get; set; }
+
+    /// <summary>The list (pre-discount) unit price, snapshotted at placement. Equals <see cref="UnitPrice"/>
+    /// when no group discount applied. Kept so the order records what the item would have cost at list.</summary>
+    public decimal OriginalUnitPrice { get; set; }
+
+    /// <summary>The Customer Group saving on this line = (<see cref="OriginalUnitPrice"/> − <see cref="UnitPrice"/>)
+    /// × <see cref="Quantity"/>; 0 when no group discount applied. Persisted so the saving is itemizable on the
+    /// order/invoice without re-deriving it from live pricing (WO-22).</summary>
+    public decimal DiscountAmount { get; set; }
+
     public decimal LineTotal { get; set; }
 
     /// <summary>Units of this line already dispatched across shipments; drives partial-fulfilment state (WO-46).</summary>

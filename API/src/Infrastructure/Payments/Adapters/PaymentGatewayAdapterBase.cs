@@ -41,6 +41,10 @@ public abstract class PaymentGatewayAdapterBase : IPaymentGatewayAdapter
     public virtual Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct)
         => Task.FromResult(PaymentResult.Failed("This gateway does not use a redirect flow.", PaymentStatus.Pending));
 
+    /// <summary>Default: this gateway has no on-site widget flow, so there is nothing to verify.</summary>
+    public virtual Task<PaymentResult> VerifyClientPaymentAsync(PaymentRecord payment, IReadOnlyDictionary<string, string> data, CancellationToken ct)
+        => Task.FromResult(PaymentResult.Failed("This gateway does not use a client-side payment flow.", PaymentStatus.Pending));
+
     /// <summary>A named HttpClient (pooled by the factory) with a sane timeout for gateway calls.</summary>
     protected HttpClient CreateClient()
     {

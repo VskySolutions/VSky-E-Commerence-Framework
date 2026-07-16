@@ -34,4 +34,11 @@ public interface IPaymentGatewayAdapter
     /// reports it Captured when paid. Non-redirect gateways return a non-captured result (base default).
     /// </summary>
     Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct);
+
+    /// <summary>
+    /// For client-completed gateways (Razorpay Checkout): verifies the tokens the on-site widget returned
+    /// (<paramref name="data"/> — e.g. payment id + signature), captures the payment, and reports it
+    /// Captured when it succeeds. Non-widget gateways return a non-captured result (base default).
+    /// </summary>
+    Task<PaymentResult> VerifyClientPaymentAsync(PaymentRecord payment, IReadOnlyDictionary<string, string> data, CancellationToken ct);
 }

@@ -92,6 +92,8 @@ public class PlaceOrderCommandHandler : IRequestHandler<PlaceOrderCommand, Order
                 Sku = variant is not null ? variant.Sku ?? product.Sku : product.Sku,
                 Quantity = item.Quantity,
                 UnitPrice = unitPrice,
+                // No Customer Group pricing on this routing-only path: list price == charged price.
+                OriginalUnitPrice = unitPrice,
                 LineTotal = unitPrice * item.Quantity,
             });
         }

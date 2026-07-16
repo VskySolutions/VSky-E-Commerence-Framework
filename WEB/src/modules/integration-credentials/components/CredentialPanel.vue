@@ -48,6 +48,12 @@
         </q-td>
       </template>
 
+      <template #body-cell-transactionFeePercent="cell">
+        <q-td :props="cell" class="text-right">
+          {{ cell.row.transactionFeePercent != null ? cell.row.transactionFeePercent + '%' : '—' }}
+        </q-td>
+      </template>
+
       <template #body-cell-updatedOnUtc="cell">
         <q-td :props="cell">{{ $datetime(cell.row.updatedOnUtc) }}</q-td>
       </template>
@@ -107,8 +113,8 @@
             v-model="form.fields[field.key]"
             :label="field.label"
             :required="!!field.required"
-            :rules="field.required ? [requiredRule] : []"
-            :type="field.secret && !reveal[field.key] ? 'password' : 'text'"
+            :rules="fieldRules(field)"
+            :type="fieldInputType(field)"
             :placeholder="field.placeholder || ''"
             autocomplete="new-password"
           >
@@ -166,6 +172,10 @@ const canWrite = computed(() => has(Permissions.CredentialsWrite))
 // show a column they can never fill.
 const hasBaseUrl = computed(() => (props.item.fields || []).some((f) => f.key === 'baseUrl'))
 
+// Payment gateways carry a transaction-fee field — surface it as a grid column so the configured fee is
+// visible at a glance across the integration's rows.
+const hasFee = computed(() => (props.item.fields || []).some((f) => f.key === 'transactionFeePercent'))
+
 // With a sandbox and a live row side by side, the URL is what tells them apart: Environment says which one
 // it claims to be, this says where it actually goes.
 const columns = computed(() => [
@@ -175,6 +185,9 @@ const columns = computed(() => [
     : []),
   { name: 'active', label: 'Active', field: 'active', align: 'center' },
   { name: 'isProduction', label: 'Environment', field: 'isProduction', align: 'center' },
+  ...(hasFee.value
+    ? [{ name: 'transactionFeePercent', label: 'Fee %', field: 'transactionFeePercent', align: 'right' }]
+    : []),
   { name: 'updatedOnUtc', label: 'Updated', field: 'updatedOnUtc', align: 'left', sortable: true }
 ])
 
@@ -190,6 +203,23 @@ const form = reactive({ name: '', active: false, isProduction: false, fields: {}
 const reveal = reactive({})
 
 const requiredRule = (val) => (!!val && String(val).trim().length > 0) || 'Required'
+
+// A percent/number field (e.g. a gateway transaction fee) renders as a numeric input and is sent as a
+// real number, not a string — so it binds to the decimal? on the command.
+function isNumericField (field) {
+  return field.type === 'percent' || field.type === 'number'
+}
+function fieldInputType (field) {
+  if (field.secret && !reveal[field.key]) return 'password'
+  return isNumericField(field) ? 'number' : 'text'
+}
+function fieldRules (field) {
+  const rules = field.required ? [requiredRule] : []
+  if (field.type === 'percent') {
+    rules.push((v) => v == null || v === '' || (Number(v) >= 0 && Number(v) <= 100) || 'Enter a value between 0 and 100')
+  }
+  return rules
+}
 
 function onRequest (p) {
   if (p && p.pagination) pagination.value = p.pagination
@@ -240,7 +270,11 @@ function buildPayload () {
   const payload = { name: form.name.trim(), active: form.active, isProduction: form.isProduction }
   for (const f of props.item.fields) {
     const v = form.fields[f.key]
-    payload[f.key] = v == null || String(v).trim() === '' ? null : String(v).trim()
+    if (isNumericField(f)) {
+      payload[f.key] = v === '' || v == null ? null : Number(v)
+    } else {
+      payload[f.key] = v == null || String(v).trim() === '' ? null : String(v).trim()
+    }
   }
   return payload
 }

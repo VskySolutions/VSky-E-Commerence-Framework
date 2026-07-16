@@ -44,6 +44,9 @@ internal sealed class FakePaymentRouter : IPaymentGatewayRouter
     public Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct = default)
         => throw new NotSupportedException();
 
+    public Task<PaymentResult> VerifyClientPaymentAsync(PaymentRecord payment, IReadOnlyDictionary<string, string> data, CancellationToken ct = default)
+        => throw new NotSupportedException();
+
     public Task CaptureForOrderAsync(Guid orderId, CancellationToken ct = default) => Task.CompletedTask;
 
     public Task<IReadOnlyList<PaymentMethodAvailability>> AvailableMethodsAsync(CancellationToken ct = default)

@@ -13,6 +13,9 @@ public class IntegrationCredentialListItemDto
     public bool Active { get; set; }
     public bool IsProduction { get; set; }
 
+    /// <summary>Transaction/processing fee (% of order total) added at checkout for payment gateways; null when unset.</summary>
+    public decimal? TransactionFeePercent { get; set; }
+
     /// <summary>
     /// The endpoint this row points at. Null for the integrations with no endpoint to choose (Stripe,
     /// Twilio, Azure Blob). With a sandbox and a live row per integration, the URL is what tells them
@@ -29,6 +32,7 @@ public class IntegrationCredentialListItemDto
         Name = e.Name,
         Active = e.Active,
         IsProduction = e.IsProduction,
+        TransactionFeePercent = e.TransactionFeePercent,
         BaseUrl = baseUrl,
         CreatedOnUtc = e.CreatedOnUtc,
         UpdatedOnUtc = e.UpdatedOnUtc,

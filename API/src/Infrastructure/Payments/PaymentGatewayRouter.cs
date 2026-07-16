@@ -52,6 +52,9 @@ public class PaymentGatewayRouter : IPaymentGatewayRouter
     public Task<PaymentResult> VerifyRedirectAsync(PaymentRecord payment, CancellationToken ct = default)
         => Resolve(payment.Method).VerifyRedirectAsync(payment, ct);
 
+    public Task<PaymentResult> VerifyClientPaymentAsync(PaymentRecord payment, IReadOnlyDictionary<string, string> data, CancellationToken ct = default)
+        => Resolve(payment.Method).VerifyClientPaymentAsync(payment, data, ct);
+
     public async Task CaptureForOrderAsync(Guid orderId, CancellationToken ct = default)
     {
         // Auto-capture the order's authorized-but-uncaptured payment when it ships/fulfils (AC-PAY-002.3).
@@ -112,10 +115,10 @@ public class PaymentGatewayRouter : IPaymentGatewayRouter
                 continue;
 
             // A gateway is offered only when its active credential is configured; that row also tells us
-            // whether it is a live or sandbox account.
+            // whether it is a live or sandbox account and carries the optional per-transaction fee.
             var credential = await _vault.GetResolvedCredentialAsync(serviceType, ct);
             if (credential is not null)
-                available.Add(new PaymentMethodAvailability(method, credential.IsProduction));
+                available.Add(new PaymentMethodAvailability(method, credential.IsProduction, credential.TransactionFeePercent ?? 0m));
         }
 
         return available;

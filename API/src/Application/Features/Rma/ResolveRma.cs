@@ -174,6 +174,7 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
                 Sku = line.Sku,
                 Quantity = line.Quantity,
                 UnitPrice = 0m,
+                OriginalUnitPrice = 0m,
                 LineTotal = 0m,
             });
         }

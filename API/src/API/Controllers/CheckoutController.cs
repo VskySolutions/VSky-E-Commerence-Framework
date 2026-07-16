@@ -34,6 +34,14 @@ public class CheckoutController : ApiControllerBase
         [FromBody] CheckoutOrderRef request, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(new ConfirmCheckoutCommand(request.OrderId), cancellationToken));
 
+    /// <summary>Confirm an on-site widget payment (Razorpay Checkout): verify the returned tokens and capture on success.</summary>
+    [HttpPost("confirm-client-payment")]
+    public async Task<ActionResult<CheckoutResult>> ConfirmClientPayment(
+        [FromBody] ConfirmClientPaymentRequest request, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(
+            new ConfirmClientPaymentCommand(request.OrderId, request.GatewayData ?? new Dictionary<string, string>()),
+            cancellationToken));
+
     /// <summary>Re-open a payment session for a still-pending order (retry after a cancelled redirect payment).</summary>
     [HttpPost("retry-payment")]
     public async Task<ActionResult<CheckoutResult>> RetryPayment(

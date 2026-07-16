@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using VSky.Infrastructure.Persistence;
 
@@ -11,9 +12,11 @@ using VSky.Infrastructure.Persistence;
 namespace VSky.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260716094133_AddOrderLinePriceBreakdown")]
+    partial class AddOrderLinePriceBreakdown
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -351,10 +354,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<string>("SignatureKey")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<string>("TransactionKey")
                         .HasColumnType("nvarchar(max)");
 
@@ -399,10 +398,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -1039,10 +1034,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -1284,10 +1275,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -1656,14 +1643,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("nvarchar(40)");
 
-                    b.Property<decimal>("PaymentFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
-                    b.Property<decimal>("PaymentFeeTotal")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
                     b.Property<int>("PaymentStatus")
                         .HasColumnType("int");
 
@@ -1871,16 +1850,8 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("ReturnUrl")
-                        .HasMaxLength(500)
-                        .HasColumnType("nvarchar(500)");
-
                     b.Property<string>("SecretKey")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -2577,10 +2548,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -3433,10 +3400,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -3712,10 +3675,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<string>("SecretKey")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -3764,10 +3723,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SecretKey")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -3992,10 +3947,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("SecretKey")
                         .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -4240,10 +4191,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
-
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -4300,10 +4247,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");
@@ -4465,10 +4408,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
-
-                    b.Property<decimal?>("TransactionFeePercent")
-                        .HasPrecision(5, 2)
-                        .HasColumnType("decimal(5,2)");
 
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uniqueidentifier");

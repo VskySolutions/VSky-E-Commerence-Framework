@@ -476,6 +476,9 @@
                     />
                   </q-item-label>
                   <q-item-label caption>{{ m.hint }}</q-item-label>
+                  <q-item-label v-if="m.feePercent > 0" caption class="text-orange-8">
+                    +{{ m.feePercent }}% transaction fee
+                  </q-item-label>
                 </q-item-section>
                 <q-item-section side>
                   <q-radio :model-value="paymentMethod" :val="m.value" color="primary" @update:model-value="paymentMethod = m.value" />
@@ -526,10 +529,19 @@
             <!-- Totals -->
             <div class="row items-center justify-between q-mb-xs">
               <span class="text-grey-8">Subtotal</span>
-              <span>{{ format(quote ? quote.subtotal : subtotal) }}</span>
+              <span>{{ format(displaySubtotal) }}</span>
             </div>
 
             <template v-if="quote">
+              <!-- Customer Group pricing (e.g. a 25% member discount) is applied by lowering unit prices,
+                   so itemize the saving here — otherwise it is invisible against the list-priced lines. -->
+              <div
+                v-if="quote.groupDiscountTotal > 0"
+                class="row items-center justify-between q-mb-xs text-green-8"
+              >
+                <span>{{ quote.groupDiscountName || 'Customer group discount' }}</span>
+                <span>-{{ format(quote.groupDiscountTotal) }}</span>
+              </div>
               <div
                 v-for="d in quote.discounts"
                 :key="d.discountId"
@@ -585,11 +597,19 @@
                 Estimated tax — {{ taxProviderInfo ? `${taxProviderInfo.label} was unavailable, so a` : 'a' }} fallback rate was applied.
               </div>
 
+              <!-- Payment transaction fee for the selected gateway (added to the total the buyer pays). -->
+              <div v-if="paymentFee > 0" class="row items-center justify-between q-mb-xs">
+                <span class="text-grey-8">
+                  Payment fee<span v-if="selectedPaymentFeePercent"> ({{ selectedPaymentFeePercent }}%)</span>
+                </span>
+                <span>{{ format(paymentFee) }}</span>
+              </div>
+
               <q-separator class="q-my-sm" />
 
               <div class="row items-center justify-between text-subtitle1 text-weight-bold">
                 <span>Total</span>
-                <span>{{ format(quote.total) }}</span>
+                <span>{{ format(grandTotal) }}</span>
               </div>
             </template>
 
@@ -919,6 +939,14 @@ const quoting = ref(false)
 const quoteError = ref('')
 const selectedShippingMethodId = ref(null)
 
+// The summary's "Subtotal" row shows the list-price subtotal so the itemized customer-group discount
+// reconciles with the (list-priced) line items above it; the group saving is then subtracted on its own
+// line. Falls back to the member subtotal when there is no group saving, and to the cart before a quote.
+const displaySubtotal = computed(() => {
+  if (!quote.value) return subtotal.value
+  return quote.value.groupDiscountTotal > 0 ? quote.value.baseSubtotal : quote.value.subtotal
+})
+
 const shippingOptions = computed(() => quote.value?.shippingOptions || [])
 // An empty option list never means "nothing to ship": no product can be marked non-shippable, and pickup
 // prices its own zero-cost option. It always means no rate source could quote this address — a broken
@@ -1149,9 +1177,21 @@ const PAYMENT_METHOD_META = {
 const paymentMethods = computed(() =>
   (quote.value?.availablePaymentMethods || [])
     .filter((m) => PAYMENT_METHOD_META[m.method])
-    .map((m) => ({ value: m.method, isProduction: m.isProduction, ...PAYMENT_METHOD_META[m.method] }))
+    .map((m) => ({ value: m.method, isProduction: m.isProduction, feePercent: m.feePercent || 0, ...PAYMENT_METHOD_META[m.method] }))
 )
 const paymentMethod = ref(null)
+
+// Transaction fee for the selected gateway: a percent of the order total, added to what the buyer pays.
+// The server re-resolves and re-applies this authoritatively at placement; this mirrors it for the preview.
+const selectedPaymentFeePercent = computed(() => {
+  const m = paymentMethods.value.find((x) => x.value === paymentMethod.value)
+  return m ? m.feePercent || 0 : 0
+})
+const paymentFee = computed(() => {
+  if (!quote.value) return 0
+  return Math.round(quote.value.total * selectedPaymentFeePercent.value) / 100
+})
+const grandTotal = computed(() => (quote.value ? quote.value.total + paymentFee.value : 0))
 // Keep the selection valid as availability changes — default to the first offered method.
 watch(paymentMethods, (methods) => {
   if (!methods.length) paymentMethod.value = null
@@ -1208,6 +1248,11 @@ async function placeOrder () {
       window.location.href = result.redirectUrl
       return
     }
+    if (result && result.clientPayment) {
+      // On-site widget gateway (Razorpay Checkout): open the widget; payment is verified in its handler.
+      await openClientPaymentWidget(result)
+      return
+    }
     if (result && result.success) {
       orderResult.value = result
       // Order placed — the saved checkout details are no longer needed.
@@ -1224,6 +1269,102 @@ async function placeOrder () {
     notify.error(placeError.value)
   } finally {
     placing.value = false
+  }
+}
+
+// ---- On-site payment widget (Razorpay Checkout) -----------------------------
+// checkout.js is loaded on demand — only when a Razorpay payment is actually placed — and once per page.
+let razorpayScriptPromise = null
+function loadRazorpayScript () {
+  if (window.Razorpay) return Promise.resolve(true)
+  if (!razorpayScriptPromise) {
+    razorpayScriptPromise = new Promise((resolve) => {
+      const s = document.createElement('script')
+      s.src = 'https://checkout.razorpay.com/v1/checkout.js'
+      s.async = true
+      s.onload = () => resolve(true)
+      s.onerror = () => { razorpayScriptPromise = null; resolve(false) }
+      document.head.appendChild(s)
+    })
+  }
+  return razorpayScriptPromise
+}
+
+// Opens the provider's on-site widget for a placed-but-unpaid order. The server already created the
+// provider order and returned its config in `placeResult.clientPayment`; the buyer pays inside the widget
+// and its result is verified server-side in confirmClientPayment. The order stays pending until then.
+async function openClientPaymentWidget (placeResult) {
+  const cp = placeResult.clientPayment
+  if (!cp || cp.provider !== 'razorpay') {
+    placeError.value = 'This payment method is not supported here. Please choose another.'
+    notify.error(placeError.value)
+    return
+  }
+
+  const loaded = await loadRazorpayScript()
+  if (!loaded || !window.Razorpay) {
+    placeError.value = 'Could not load Razorpay Checkout. Check your connection and try again.'
+    notify.error(placeError.value)
+    retryState.value = { orderId: placeResult.orderId, message: placeError.value }
+    return
+  }
+
+  const rzp = new window.Razorpay({
+    key: cp.keyId,
+    order_id: cp.gatewayOrderId,
+    amount: cp.amountMinor,
+    currency: cp.currencyCode,
+    description: `Order ${cp.orderNumber}`,
+    prefill: {
+      name: cp.customerName || '',
+      email: cp.customerEmail || '',
+      contact: cp.customerPhone || ''
+    },
+    handler (response) {
+      // Buyer completed payment — verify + capture server-side.
+      confirmClientPayment(placeResult.orderId, response)
+    },
+    modal: {
+      // Buyer dismissed the widget without paying — the order stays pending and is retryable.
+      ondismiss () {
+        retryState.value = {
+          orderId: placeResult.orderId,
+          message: 'Your payment was not completed. You can try again.'
+        }
+      }
+    }
+  })
+  rzp.on('payment.failed', (response) => {
+    const msg = (response && response.error && response.error.description) || 'Your payment could not be processed.'
+    notify.error(msg)
+    retryState.value = { orderId: placeResult.orderId, message: msg }
+  })
+  rzp.open()
+}
+
+// Verifies an on-site widget result server-side (signature + capture) and finalizes on success.
+async function confirmClientPayment (orderId, response) {
+  confirming.value = true
+  placeError.value = ''
+  try {
+    const result = await checkoutApi.confirmClientPayment(orderId, {
+      razorpay_payment_id: response.razorpay_payment_id,
+      razorpay_order_id: response.razorpay_order_id,
+      razorpay_signature: response.razorpay_signature
+    })
+    if (result && result.success) {
+      retryState.value = null
+      orderResult.value = result
+      clearContact()
+      await refresh().catch(() => {})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      retryState.value = { orderId, message: (result && result.error) || 'We could not confirm your payment.' }
+    }
+  } catch (err) {
+    retryState.value = { orderId, message: getApiErrorMessage(err) }
+  } finally {
+    confirming.value = false
   }
 }
 
@@ -1272,6 +1413,12 @@ async function retryPayment () {
     const result = await checkoutApi.retryPayment(retryState.value.orderId)
     if (result && result.redirectUrl) {
       window.location.href = result.redirectUrl
+      return
+    }
+    if (result && result.clientPayment) {
+      // On-site widget gateway (Razorpay Checkout): re-open the widget for the same pending order.
+      retryState.value = null
+      await openClientPaymentWidget(result)
       return
     }
     if (result && result.success) {

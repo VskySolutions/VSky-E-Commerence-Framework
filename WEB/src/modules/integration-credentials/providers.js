@@ -9,6 +9,16 @@
  * generation) are attached below via INTEGRATION_META and drive the badge + external link in the panel title.
  */
 
+// Shared optional fee field for the payment gateways: a percentage of the order total added to the amount
+// the customer pays at checkout when that gateway is used. `type: 'percent'` renders a numeric input.
+const TRANSACTION_FEE_FIELD = {
+  key: 'transactionFeePercent',
+  label: 'Transaction fee (%)',
+  type: 'percent',
+  placeholder: 'e.g. 4',
+  hints: ['Charged as a percent of the order total and added to what the customer pays at checkout when this gateway is used. Leave blank for no fee.']
+}
+
 export const INTEGRATIONS = [
   // ---- Payments ----
   {
@@ -22,7 +32,8 @@ export const INTEGRATIONS = [
         prefill: '{origin}/shop/checkout',
         placeholder: 'https://your-store.com/shop/checkout',
         hints: ['Storefront page Stripe returns buyers to after payment — the base URL is prefilled; edit the route as needed.']
-      }
+      },
+      TRANSACTION_FEE_FIELD
     ]
   },
   {
@@ -37,7 +48,14 @@ export const INTEGRATIONS = [
         hints: ['Sandbox: https://api-m.sandbox.paypal.com', 'Live: https://api-m.paypal.com']
       },
       { key: 'clientId', label: 'Client ID', required: true },
-      { key: 'secretKey', label: 'Secret', secret: true, required: true }
+      { key: 'secretKey', label: 'Secret', secret: true, required: true },
+      {
+        key: 'returnUrl', label: 'Return URL', required: true,
+        prefill: '{origin}/shop/checkout',
+        placeholder: 'https://your-store.com/shop/checkout',
+        hints: ['Storefront page PayPal returns buyers to after approving payment — the base URL is prefilled; edit the route as needed.']
+      },
+      TRANSACTION_FEE_FIELD
     ]
   },
   {
@@ -52,7 +70,8 @@ export const INTEGRATIONS = [
         hints: ['Live and test share one host — the key prefix (rzp_test_/rzp_live_) decides the mode.']
       },
       { key: 'keyId', label: 'Key ID', required: true, placeholder: 'rzp_live_…' },
-      { key: 'keySecret', label: 'Key Secret', secret: true, required: true }
+      { key: 'keySecret', label: 'Key Secret', secret: true, required: true },
+      TRANSACTION_FEE_FIELD
     ]
   },
   {
@@ -68,7 +87,8 @@ export const INTEGRATIONS = [
       },
       { key: 'applicationId', label: 'Application ID' },
       { key: 'accessToken', label: 'Access Token', secret: true, required: true },
-      { key: 'applicationSecret', label: 'Application Secret', secret: true }
+      { key: 'applicationSecret', label: 'Application Secret', secret: true },
+      TRANSACTION_FEE_FIELD
     ]
   },
   {
@@ -87,7 +107,8 @@ export const INTEGRATIONS = [
       },
       { key: 'applicationLoginId', label: 'API Login ID', required: true },
       { key: 'transactionKey', label: 'Transaction Key', secret: true, required: true },
-      { key: 'signatureKey', label: 'Signature Key', secret: true }
+      { key: 'signatureKey', label: 'Signature Key', secret: true },
+      TRANSACTION_FEE_FIELD
     ]
   },
 
