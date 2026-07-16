@@ -18,34 +18,6 @@
 
         <q-space />
 
-        <q-btn-dropdown
-          v-if="tenant.hasMultipleTenants"
-          flat
-          no-caps
-          class="tenant-switcher q-mr-sm"
-          icon="o_business"
-          :label="activeTenantLabel"
-        >
-          <q-list style="min-width: 220px">
-            <q-item-label header class="text-caption">Switch tenant</q-item-label>
-            <q-item
-              v-for="assignment in tenant.assignments"
-              :key="assignment.tenantId"
-              v-close-popup
-              clickable
-              @click="onSwitchTenant(assignment.tenantId)"
-            >
-              <q-item-section>{{ assignment.tenantName }}</q-item-section>
-              <q-item-section
-                v-if="String(assignment.tenantId) === String(tenant.activeTenantId)"
-                side
-              >
-                <q-icon name="o_check" color="primary" />
-              </q-item-section>
-            </q-item>
-          </q-list>
-        </q-btn-dropdown>
-
         <q-btn
           flat
           no-caps
@@ -88,22 +60,19 @@
 <script setup>
 /*
  * Authenticated application shell (WO-94 Step 9). Header with menu toggle,
- * brand button, tenant switcher (when the user has multiple tenants) and the
- * user menu. A 292px left drawer (persisted to LocalStorage["leftDrawerOpen"])
- * hosts the aside header + navigation menu.
+ * brand button, Visit store and the user menu. A 292px left drawer (persisted
+ * to LocalStorage["leftDrawerOpen"]) hosts the aside header + navigation menu.
  */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useTenantStore } from 'stores/tenant'
 import { STORAGE_KEYS, getItem, setItem } from 'services/storage'
-import { useNotify } from 'composables/useNotify'
 import AppMenu from 'components/app_menu.vue'
 import AsideHeader from 'shared/aside_header.vue'
 import UserInfo from 'shared/user_info.vue'
 
 const tenant = useTenantStore()
 const router = useRouter()
-const notify = useNotify()
 
 // Absolute href to the public storefront (respects router base/history mode); opened in a new tab.
 const storeHref = router.resolve({ name: 'shop-home' }).href
@@ -117,15 +86,6 @@ function toggleDrawer () {
 
 function goHome () {
   router.push('/dashboard')
-}
-
-const activeTenantLabel = computed(() => tenant.activeTenant?.tenantName || 'Tenant')
-
-async function onSwitchTenant (tenantId) {
-  await tenant.switchTenant(tenantId)
-  // Broadcast so open pages can reload tenant-scoped data.
-  window.dispatchEvent(new CustomEvent('tenant-switched', { detail: { tenantId } }))
-  notify.info('Tenant switched')
 }
 
 onMounted(() => {

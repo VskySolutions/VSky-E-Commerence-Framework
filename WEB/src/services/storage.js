@@ -14,8 +14,6 @@ export const STORAGE_KEYS = Object.freeze({
   USER: 'user',
   PERMISSIONS: 'permissions',
   MUST_CHANGE_PASSWORD: 'mustChangePassword',
-  ACTIVE_TENANT_ID: 'activeTenantId',
-  TENANT_ASSIGNMENTS: 'tenantAssignments',
   LEFT_DRAWER_OPEN: 'leftDrawerOpen',
   FORM_DRAWER_WIDTH: 'formDrawerWidth',
 

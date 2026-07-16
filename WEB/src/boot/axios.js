@@ -3,9 +3,8 @@
  *
  * Creates TWO axios instances:
  *   - `http`  : authenticated instance (baseURL from env). A request
- *               interceptor injects Authorization: Bearer <token>, a per-request
- *               X-Correlation-Id (uuid v4) and the X-Site-* headers read from the
- *               persisted user object in LocalStorage.
+ *               interceptor injects Authorization: Bearer <token> and a
+ *               per-request X-Correlation-Id (uuid v4).
  *   - `http2` : anonymous instance (no auth header) for public endpoints
  *               (login, setup status, first-time setup, ...).
  *
@@ -13,7 +12,7 @@
  * so this file stays free of store/router coupling and can be imported anywhere.
  */
 import axios from 'axios'
-import { getStoredToken, getStoredUser } from 'src/services/storage'
+import { getStoredToken } from 'src/services/storage'
 
 const API_BASE_URL = process.env.API_BASE_URL || ''
 
@@ -51,18 +50,9 @@ function uuidV4 () {
   })
 }
 
-function browserTimeZone () {
-  try {
-    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-  } catch (e) {
-    return 'UTC'
-  }
-}
-
-// Attach the unified session token + per-request tracing id + site/tenant context. Shared by the
-// admin (`http`) and storefront customer (`http3`) instances so both send IDENTICAL auth/site
-// headers — WO-112 unified the session, so the storefront must carry the same X-Site-* context as
-// admin, or authenticated customer endpoints resolve no tenant and 401 ("session expired").
+// Attach the unified session token + per-request tracing id. Shared by the admin (`http`) and
+// storefront customer (`http3`) instances so both send identical auth headers — WO-112 unified
+// the session into a single login for all roles.
 function applyAuthContext (config) {
   config.headers = config.headers || {}
 
@@ -73,16 +63,6 @@ function applyAuthContext (config) {
 
   // Per-request correlation id for server-side tracing.
   config.headers['X-Correlation-Id'] = uuidV4()
-
-  // Site/tenant context, sourced from the persisted user object.
-  const user = getStoredUser() || {}
-  const siteId = user.siteId ?? user.tenantId ?? user.activeTenantId ?? null
-  const siteName = user.siteName ?? user.tenantName ?? null
-  const siteTz = user.siteTimezone ?? user.timezone ?? user.timeZone ?? browserTimeZone()
-
-  if (siteId != null) config.headers['X-Site-Id'] = String(siteId)
-  if (siteName != null) config.headers['X-Site-Name'] = String(siteName)
-  if (siteTz != null) config.headers['X-Site-Timezone'] = String(siteTz)
 
   return config
 }

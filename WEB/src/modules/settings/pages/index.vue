@@ -12,12 +12,6 @@
         </q-item>
         <q-item>
           <q-item-section>
-            <q-item-label>Active tenant</q-item-label>
-            <q-item-label caption>{{ tenant.activeTenant?.tenantName || '—' }}</q-item-label>
-          </q-item-section>
-        </q-item>
-        <q-item>
-          <q-item-section>
             <q-item-label>Write access</q-item-label>
             <q-item-label caption>{{ canWrite ? 'Yes' : 'Read-only' }}</q-item-label>
           </q-item-section>

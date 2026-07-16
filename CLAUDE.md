@@ -1,6 +1,6 @@
 # CLAUDE.md — VSky E-Commerce Framework
 
-Multi-tenant e-commerce platform. Two apps:
+Single-tenant, multi-store e-commerce platform. Two apps:
 - **API** — .NET 9 Clean Architecture, solution `API/VSky.ECommerce.sln`, SQL Server + EF Core.
 - **WEB** — Vue 3 + Quasar 2 **admin SPA** (`WEB/`), plain JS, Pinia, axios, Vuelidate. Includes a public **storefront** area under `/shop/*`.
 

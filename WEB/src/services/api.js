@@ -7,8 +7,8 @@
  *   helpers that normalise axios failures.
  * - unwrap()/envelope(): tolerate both bare payloads and { success, data }
  *   response envelopes.
- * - Resource groups: authApi (login/refresh/logout/logoutAll/switchTenant/
- *   profile) and widgetApi (the CRUD template other modules copy).
+ * - Resource groups: authApi (login/refresh/logout/logoutAll/profile) and
+ *   widgetApi (the CRUD template other modules copy).
  */
 import qs from 'qs'
 import { http, http2, http3 } from 'src/boot/axios'
@@ -171,12 +171,6 @@ export const authApi = {
   // No dedicated "logout everywhere" endpoint yet — same call as logout.
   async logoutAll (refreshToken) {
     return authApi.logout(refreshToken)
-  },
-
-  // The backend has no tenant-switch endpoint yet; return the current session
-  // untouched so the store's switchTenant()/refresh() flow still resolves.
-  async switchTenant (tenantId) {
-    return { tenantId, switched: false }
   },
 
   // No /me endpoint yet: reconstruct the profile from the JWT claims.

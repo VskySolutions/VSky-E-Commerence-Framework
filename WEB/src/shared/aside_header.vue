@@ -24,9 +24,6 @@
       <div class="text-subtitle1 text-weight-medium ellipsis">
         {{ tenant.brandName }}
       </div>
-      <div v-if="tenant.activeTenant" class="text-caption text-muted ellipsis">
-        {{ tenant.activeTenant.tenantName }}
-      </div>
     </div>
 
     <q-tooltip anchor="bottom middle" self="top middle">Visit the storefront</q-tooltip>
