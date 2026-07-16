@@ -627,29 +627,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("CategoryPictures", (string)null);
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.CategoryRoleRestriction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CategoryId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CustomerRoleId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CategoryId");
-
-                    b.HasIndex("CustomerRoleId");
-
-                    b.HasIndex("CategoryId", "CustomerRoleId")
-                        .IsUnique();
-
-                    b.ToTable("CategoryRoleRestrictions", (string)null);
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.ContentTranslation", b =>
                 {
                     b.Property<Guid>("Id")
@@ -770,6 +747,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CreatedOnUtc")
                         .HasColumnType("datetime2");
 
+                    b.Property<Guid?>("CustomerGroupId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<bool>("Deleted")
                         .HasColumnType("bit");
 
@@ -825,6 +805,8 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CustomerGroupId");
+
                     b.HasIndex("UserId")
                         .IsUnique();
 
@@ -879,34 +861,7 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("CustomerAddresses", (string)null);
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.CustomerGroupPrice", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CustomerRoleId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid?>("ProductVariantId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerRoleId");
-
-                    b.HasIndex("ProductId", "ProductVariantId");
-
-                    b.ToTable("CustomerGroupPrices", (string)null);
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.CustomerRole", b =>
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerGroup", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
@@ -953,30 +908,33 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("CustomerRoles", (string)null);
+                    b.ToTable("CustomerGroups", (string)null);
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.CustomerRoleAssignment", b =>
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerGroupPrice", b =>
                 {
                     b.Property<Guid>("Id")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("CustomerId")
+                    b.Property<Guid>("CustomerGroupId")
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid>("CustomerRoleId")
+                    b.Property<decimal>("Price")
+                        .HasPrecision(18, 2)
+                        .HasColumnType("decimal(18,2)");
+
+                    b.Property<Guid>("ProductId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("ProductVariantId")
                         .HasColumnType("uniqueidentifier");
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CustomerId");
-
-                    b.HasIndex("CustomerRoleId");
-
-                    b.HasIndex("CustomerId", "CustomerRoleId")
+                    b.HasIndex("CustomerGroupId", "ProductId", "ProductVariantId")
                         .IsUnique();
 
-                    b.ToTable("CustomerRoleAssignments", (string)null);
+                    b.ToTable("CustomerGroupPrices", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.DeliveryZone", b =>
@@ -2381,29 +2339,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.HasIndex("ProductId", "RelationshipType");
 
                     b.ToTable("ProductRelationships", (string)null);
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.ProductRoleRestriction", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("CustomerRoleId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("ProductId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("CustomerRoleId");
-
-                    b.HasIndex("ProductId");
-
-                    b.HasIndex("ProductId", "CustomerRoleId")
-                        .IsUnique();
-
-                    b.ToTable("ProductRoleRestrictions", (string)null);
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.ProductSpecificationValue", b =>
@@ -3887,6 +3822,86 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.ToTable("TaxCategories", (string)null);
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.TaxExemptionRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AdminNote")
+                        .HasMaxLength(1024)
+                        .HasColumnType("nvarchar(1024)");
+
+                    b.Property<string>("CertificateNumber")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<Guid?>("CreatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("CustomerId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("DeletedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("ReviewedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime?>("ReviewedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("SubmittedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("UpdatedById")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("UpdatedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("VatId")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("CustomerId", "SubmittedOnUtc");
+
+                    b.ToTable("TaxExemptionRequests", (string)null);
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.TaxExemptionRequestDocument", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("DisplayOrder")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("MediaId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("TaxExemptionRequestId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaxExemptionRequestId");
+
+                    b.ToTable("TaxExemptionRequestDocuments", (string)null);
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.TaxJarCredential", b =>
                 {
                     b.Property<Guid>("Id")
@@ -4637,17 +4652,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("Media");
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.CategoryRoleRestriction", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
-                        .WithMany()
-                        .HasForeignKey("CustomerRoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CustomerRole");
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.CouponCode", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Discount", "Discount")
@@ -4661,11 +4665,18 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("VSky.Domain.Entities.Customer", b =>
                 {
+                    b.HasOne("VSky.Domain.Entities.CustomerGroup", "CustomerGroup")
+                        .WithMany()
+                        .HasForeignKey("CustomerGroupId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("VSky.Domain.Entities.User", "User")
                         .WithOne("Customer")
                         .HasForeignKey("VSky.Domain.Entities.Customer", "UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("CustomerGroup");
 
                     b.Navigation("User");
                 });
@@ -4691,24 +4702,13 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
             modelBuilder.Entity("VSky.Domain.Entities.CustomerGroupPrice", b =>
                 {
-                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
+                    b.HasOne("VSky.Domain.Entities.CustomerGroup", "CustomerGroup")
                         .WithMany("GroupPrices")
-                        .HasForeignKey("CustomerRoleId")
+                        .HasForeignKey("CustomerGroupId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.Navigation("CustomerRole");
-                });
-
-            modelBuilder.Entity("VSky.Domain.Entities.CustomerRoleAssignment", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
-                        .WithMany()
-                        .HasForeignKey("CustomerRoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CustomerRole");
+                    b.Navigation("CustomerGroup");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.DeliveryZone", b =>
@@ -4957,17 +4957,6 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("RelatedProduct");
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.ProductRoleRestriction", b =>
-                {
-                    b.HasOne("VSky.Domain.Entities.CustomerRole", "CustomerRole")
-                        .WithMany()
-                        .HasForeignKey("CustomerRoleId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("CustomerRole");
-                });
-
             modelBuilder.Entity("VSky.Domain.Entities.ProductSpecificationValue", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Product", "Product")
@@ -5183,6 +5172,17 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("VSky.Domain.Entities.TaxExemptionRequestDocument", b =>
+                {
+                    b.HasOne("VSky.Domain.Entities.TaxExemptionRequest", "TaxExemptionRequest")
+                        .WithMany("Documents")
+                        .HasForeignKey("TaxExemptionRequestId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TaxExemptionRequest");
+                });
+
             modelBuilder.Entity("VSky.Domain.Entities.TenantBranding", b =>
                 {
                     b.HasOne("VSky.Domain.Entities.Media", "FaviconMedia")
@@ -5303,7 +5303,7 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Navigation("ProductCategories");
                 });
 
-            modelBuilder.Entity("VSky.Domain.Entities.CustomerRole", b =>
+            modelBuilder.Entity("VSky.Domain.Entities.CustomerGroup", b =>
                 {
                     b.Navigation("GroupPrices");
                 });
@@ -5423,6 +5423,11 @@ namespace VSky.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("VSky.Domain.Entities.TaxCategory", b =>
                 {
                     b.Navigation("Products");
+                });
+
+            modelBuilder.Entity("VSky.Domain.Entities.TaxExemptionRequest", b =>
+                {
+                    b.Navigation("Documents");
                 });
 
             modelBuilder.Entity("VSky.Domain.Entities.User", b =>

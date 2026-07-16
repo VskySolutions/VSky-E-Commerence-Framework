@@ -49,6 +49,9 @@ export const VARIABLE_CATALOG = {
   // Returns
   rejectionReason: { description: 'Reason a return was rejected.', sample: 'The item shows signs of use…' },
 
+  // Tax exemption
+  adminNote: { description: "Reviewer's note shown on a tax-exemption approval or rejection.", sample: 'Approved — certificate verified.' },
+
   // Marketing / catalog
   cartUrl: { description: "Link back to the customer's cart.", sample: 'https://example.com/cart' },
   reviewUrl: { description: 'Product-review link.', sample: 'https://example.com/orders/…/review' },

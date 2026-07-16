@@ -3,18 +3,12 @@ using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Features.CustomerAddresses;
+using VSky.Application.Features.CustomerGroups;
 using VSky.Application.Features.Orders;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.Customers;
-
-/// <summary>A customer role the customer belongs to, summarized for the detail view (WO-117).</summary>
-public class CustomerRoleBriefDto
-{
-    public Guid Id { get; set; }
-    public string Name { get; set; } = string.Empty;
-}
 
 /// <summary>One of a customer's orders, summarized for the detail view's order history (WO-117).</summary>
 public class CustomerOrderSummaryDto
@@ -29,8 +23,8 @@ public class CustomerOrderSummaryDto
 }
 
 /// <summary>
-/// Full admin view of a single customer (WO-117): profile, tax-exemption, assigned customer roles,
-/// saved address book and a summary of their order history (lifetime spend + most recent orders).
+/// Full admin view of a single customer (WO-117): profile, activation state, assigned pricing group,
+/// read-only tax-exemption status, saved address book and an order-history summary.
 /// </summary>
 public class CustomerDetailDto
 {
@@ -40,22 +34,40 @@ public class CustomerDetailDto
     public string Email { get; set; } = string.Empty;
     public string? PhoneNumber { get; set; }
     public bool EmailVerified { get; set; }
+    public bool IsActive { get; set; }
     public DateTime CreatedOnUtc { get; set; }
 
+    /// <summary>Effective exemption state — only ever set by an approved request (WO-126).</summary>
     public bool IsTaxExempt { get; set; }
     public string? TaxExemptionCertificate { get; set; }
     public string? VatId { get; set; }
 
+    /// <summary>
+    /// Read-only workflow status of the customer's latest tax-exemption request: NotSubmitted,
+    /// PendingReview, Approved or Rejected. Review actions live in the tax-exemption-requests queue,
+    /// not here (WO-117 out of scope / WO-126).
+    /// </summary>
+    public string TaxExemptionStatus { get; set; } = TaxExemptionStatusNames.NotSubmitted;
+    public Guid? LatestTaxExemptionRequestId { get; set; }
+    public DateTime? TaxExemptionSubmittedOnUtc { get; set; }
+
     public string? WhatsAppPhoneNumber { get; set; }
     public bool WhatsAppOptIn { get; set; }
 
-    public List<CustomerRoleBriefDto> Roles { get; set; } = new();
+    /// <summary>The single assigned pricing group, or null for base pricing (AC-CUS-003.2).</summary>
+    public CustomerGroupBriefDto? CustomerGroup { get; set; }
     public List<AddressDto> Addresses { get; set; } = new();
 
     public int OrderCount { get; set; }
     /// <summary>Lifetime value: the total of orders whose payment was captured (net of fully-refunded ones).</summary>
     public decimal TotalSpent { get; set; }
     public List<CustomerOrderSummaryDto> RecentOrders { get; set; } = new();
+}
+
+/// <summary>The four states the admin UI renders for tax exemption; "NotSubmitted" has no request row.</summary>
+public static class TaxExemptionStatusNames
+{
+    public const string NotSubmitted = "NotSubmitted";
 }
 
 /// <summary>Loads the full admin detail for one customer (WO-117).</summary>
@@ -71,15 +83,9 @@ public class GetCustomerDetailQueryHandler : IRequestHandler<GetCustomerDetailQu
     {
         var customer = await _db.Customers.AsNoTracking()
             .Include(c => c.User)
+            .Include(c => c.CustomerGroup)
             .FirstOrDefaultAsync(c => c.Id == request.Id, cancellationToken)
             ?? throw new NotFoundException(nameof(Customer), request.Id);
-
-        var roles = await _db.CustomerRoleAssignments.AsNoTracking()
-            .Where(a => a.CustomerId == request.Id)
-            .Join(_db.CustomerRoles, a => a.CustomerRoleId, r => r.Id,
-                (a, r) => new CustomerRoleBriefDto { Id = r.Id, Name = r.Name })
-            .OrderBy(r => r.Name)
-            .ToListAsync(cancellationToken);
 
         var addresses = await _db.CustomerAddresses.AsNoTracking()
             .Include(m => m.Address)
@@ -94,6 +100,13 @@ public class GetCustomerDetailQueryHandler : IRequestHandler<GetCustomerDetailQu
             .OrderByDescending(o => o.PlacedOnUtc)
             .ToListAsync(cancellationToken);
 
+        // Latest request drives the read-only status chip (WO-126 owns the review actions).
+        var latestRequest = await _db.TaxExemptionRequests.AsNoTracking()
+            .Where(r => r.CustomerId == request.Id)
+            .OrderByDescending(r => r.SubmittedOnUtc)
+            .Select(r => new { r.Id, r.Status, r.SubmittedOnUtc })
+            .FirstOrDefaultAsync(cancellationToken);
+
         return new CustomerDetailDto
         {
             Id = customer.Id,
@@ -102,13 +115,19 @@ public class GetCustomerDetailQueryHandler : IRequestHandler<GetCustomerDetailQu
             Email = customer.User?.Email ?? string.Empty,
             PhoneNumber = customer.PhoneNumber,
             EmailVerified = customer.User?.EmailVerified ?? false,
+            IsActive = customer.User?.IsActive ?? false,
             CreatedOnUtc = customer.CreatedOnUtc,
             IsTaxExempt = customer.IsTaxExempt,
             TaxExemptionCertificate = customer.TaxExemptionCertificate,
             VatId = customer.VatId,
+            TaxExemptionStatus = latestRequest is null
+                ? TaxExemptionStatusNames.NotSubmitted
+                : latestRequest.Status.ToString(),
+            LatestTaxExemptionRequestId = latestRequest?.Id,
+            TaxExemptionSubmittedOnUtc = latestRequest?.SubmittedOnUtc,
             WhatsAppPhoneNumber = customer.WhatsAppPhoneNumber,
             WhatsAppOptIn = customer.WhatsAppOptIn,
-            Roles = roles,
+            CustomerGroup = customer.CustomerGroup is null ? null : CustomerGroupBriefDto.From(customer.CustomerGroup),
             Addresses = addresses.Select(AddressDto.From).ToList(),
             OrderCount = orders.Count,
             TotalSpent = orders

@@ -1,4 +1,5 @@
 using VSky.Domain.Common;
+using VSky.Domain.Enums;
 
 namespace VSky.Domain.Entities;
 
@@ -16,6 +17,14 @@ public class Customer : AuditableEntity, ISoftDeletable
     /// <summary>Optional IANA timezone id chosen by the customer; overrides the tenant display zone for
     /// their own storefront views. Null = follow the tenant default.</summary>
     public string? PreferredTimeZone { get; set; }
+
+    /// <summary>
+    /// The customer's pricing group (AC-CUS-003.2) — at most one; null = base pricing. Assigning a new
+    /// group simply replaces this value. Independent of the <see cref="RoleType.Customer"/> RBAC role
+    /// that every registered shopper carries.
+    /// </summary>
+    public Guid? CustomerGroupId { get; set; }
+    public CustomerGroup? CustomerGroup { get; set; }
 
     public bool IsTaxExempt { get; set; }
     public string? TaxExemptionCertificate { get; set; }

@@ -79,12 +79,13 @@ public interface IApplicationDbContext
     DbSet<CustomerAddress> CustomerAddresses { get; }
     DbSet<UserToken> UserTokens { get; }
 
-    // Customer roles + group pricing (WO-22)
-    DbSet<CustomerRole> CustomerRoles { get; }
-    DbSet<CustomerRoleAssignment> CustomerRoleAssignments { get; }
+    // Customer groups + group pricing (WO-22). The group is assigned via Customer.CustomerGroupId.
+    DbSet<CustomerGroup> CustomerGroups { get; }
     DbSet<CustomerGroupPrice> CustomerGroupPrices { get; }
-    DbSet<ProductRoleRestriction> ProductRoleRestrictions { get; }
-    DbSet<CategoryRoleRestriction> CategoryRoleRestrictions { get; }
+
+    // Customer tax exemption requests (WO-126)
+    DbSet<TaxExemptionRequest> TaxExemptionRequests { get; }
+    DbSet<TaxExemptionRequestDocument> TaxExemptionRequestDocuments { get; }
 
     // Orders & store fulfilment (WO-51, WO-52)
     DbSet<Order> Orders { get; }

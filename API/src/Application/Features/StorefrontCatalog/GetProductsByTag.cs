@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -20,8 +21,13 @@ public record GetProductsByTagQuery(
 public class GetProductsByTagQueryHandler : IRequestHandler<GetProductsByTagQuery, PaginatedList<StorefrontProductSummaryDto>>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ICustomerGroupService _groups;
 
-    public GetProductsByTagQueryHandler(IApplicationDbContext db) => _db = db;
+    public GetProductsByTagQueryHandler(IApplicationDbContext db, ICustomerGroupService groups)
+    {
+        _db = db;
+        _groups = groups;
+    }
 
     public async Task<PaginatedList<StorefrontProductSummaryDto>> Handle(GetProductsByTagQuery request, CancellationToken cancellationToken)
     {
@@ -42,6 +48,18 @@ public class GetProductsByTagQueryHandler : IRequestHandler<GetProductsByTagQuer
 
         var page = await PaginatedList<Product>.CreateAsync(productsQuery, request.Page, request.PageSize, cancellationToken);
         var items = page.Items.Select(StorefrontProductSummaryDto.From).ToList();
+
+        // A group member must see their price while browsing, not just in the cart (AC-CUS-003.5). Overlaid
+        // on the projected page in one batch; a no-op for guests, so the anonymous path is unchanged.
+        // Summaries are product-level cards, so there is no variant to key on.
+        var groupId = await _groups.GetCurrentGroupIdAsync(cancellationToken);
+        await _groups.ApplyGroupPricingAsync(
+            items,
+            groupId,
+            i => i.Price is decimal price ? new GroupPriceRequest(i.Id, null, price) : null,
+            (i, price) => i.Price = price,
+            cancellationToken);
+
         return new PaginatedList<StorefrontProductSummaryDto>(items, page.TotalCount, page.PageNumber, page.PageSize);
     }
 }

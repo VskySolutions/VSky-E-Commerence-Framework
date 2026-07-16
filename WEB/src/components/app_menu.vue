@@ -88,6 +88,8 @@ const sections = [
     header: 'Access Management',
     items: [
       { label: 'Customers', icon: 'o_people', to: '/customers', permissions: [Permissions.UsersRead] },
+      { label: 'Customer Groups', icon: 'o_sell', to: '/customer-groups', permissions: [Permissions.UsersRead] },
+      { label: 'Tax Exemptions', icon: 'o_verified', to: '/tax-exemption-requests', permissions: [Permissions.UsersRead] },
       { label: 'Users', icon: 'o_group', to: '/users', permissions: [Permissions.UsersRead] },
       { label: 'Roles', icon: 'o_admin_panel_settings', to: '/roles', permissions: [Permissions.RolesRead] }
     ]

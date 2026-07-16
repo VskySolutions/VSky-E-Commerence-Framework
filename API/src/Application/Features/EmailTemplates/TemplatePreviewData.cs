@@ -51,6 +51,9 @@ public static class TemplatePreviewData
         // Returns
         ["rejectionReason"] = "The item shows signs of use beyond inspection.",
 
+        // Tax exemption
+        ["adminNote"] = "Approved — certificate verified.",
+
         // Marketing / catalog
         ["cartUrl"] = "https://example.com/cart",
         ["reviewUrl"] = "https://example.com/orders/ORD-20260101120000/review",

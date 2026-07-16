@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 
 namespace VSky.Application.Features.StorefrontCatalog;
@@ -14,8 +15,13 @@ public record GetRecentlyViewedQuery(List<Guid> ProductIds) : IRequest<IReadOnly
 public class GetRecentlyViewedQueryHandler : IRequestHandler<GetRecentlyViewedQuery, IReadOnlyList<StorefrontProductSummaryDto>>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ICustomerGroupService _groups;
 
-    public GetRecentlyViewedQueryHandler(IApplicationDbContext db) => _db = db;
+    public GetRecentlyViewedQueryHandler(IApplicationDbContext db, ICustomerGroupService groups)
+    {
+        _db = db;
+        _groups = groups;
+    }
 
     public async Task<IReadOnlyList<StorefrontProductSummaryDto>> Handle(GetRecentlyViewedQuery request, CancellationToken cancellationToken)
     {
@@ -45,6 +51,17 @@ public class GetRecentlyViewedQueryHandler : IRequestHandler<GetRecentlyViewedQu
             if (seen.Add(id) && byId.TryGetValue(id, out var dto))
                 result.Add(dto);
         }
+
+        // A group member must see their price while browsing, not just in the cart (AC-CUS-003.5). Overlaid
+        // on the de-duplicated result in one batch; a no-op for guests, so the anonymous path is unchanged.
+        // Summaries are product-level cards, so there is no variant to key on.
+        var groupId = await _groups.GetCurrentGroupIdAsync(cancellationToken);
+        await _groups.ApplyGroupPricingAsync(
+            result,
+            groupId,
+            i => i.Price is decimal price ? new GroupPriceRequest(i.Id, null, price) : null,
+            (i, price) => i.Price = price,
+            cancellationToken);
 
         return result;
     }

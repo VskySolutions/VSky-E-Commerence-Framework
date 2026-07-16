@@ -13,60 +13,47 @@
     </AppListHeader>
 
     <AppFilterDrawer v-model="filtersOpen" title="Filter customers" @clear="clearFilters">
-      <AppSelect v-model="verifiedFilter" label="Email verified" :options="verifiedOptions" @update:model-value="reload" />
+      <AppSelect v-model="groupFilter" label="Customer group" :options="groupFilterOptions" @update:model-value="reload" />
       <AppSelect v-model="activeFilter" label="Account status" :options="activeOptions" @update:model-value="reload" />
-      <AppSelect v-model="taxExemptFilter" label="Tax exempt" :options="taxExemptOptions" @update:model-value="reload" />
+      <AppSelect v-model="verifiedFilter" label="Email verified" :options="verifiedOptions" @update:model-value="reload" />
+      <div>
+        <AppFieldLabel label="Registered from" />
+        <q-input v-model="regFrom" dense outlined type="date" @update:model-value="reload" />
+      </div>
+      <div>
+        <AppFieldLabel label="Registered to" />
+        <q-input v-model="regTo" dense outlined type="date" @update:model-value="reload" />
+      </div>
     </AppFilterDrawer>
 
     <AppDataTable page-key="admin-customers" row-key="id" title="All customers" :rows="rows" :columns="columns" :loading="loading" :pagination="pagination" show-actions @request="onRequest" @refresh="reload">
       <template #body-cell-name="cell"><q-td :props="cell"><a class="text-primary cursor-pointer text-weight-medium" @click="view(cell.row)">{{ cell.row.firstName }} {{ cell.row.lastName }}</a></q-td></template>
+      <template #body-cell-customerGroupName="cell"><q-td :props="cell"><q-badge v-if="cell.row.customerGroupName" color="indigo" outline :label="cell.row.customerGroupName" /><span v-else class="text-grey-6">—</span></q-td></template>
+      <template #body-cell-totalSpent="cell"><q-td :props="cell" class="text-right">{{ formatMoney(cell.row.totalSpent) }}</q-td></template>
       <template #body-cell-emailVerified="cell"><q-td :props="cell"><q-badge :color="cell.row.emailVerified ? 'positive' : 'orange'" :label="cell.row.emailVerified ? 'Verified' : 'Unverified'" /></q-td></template>
+      <template #body-cell-isActive="cell"><q-td :props="cell"><q-badge :color="cell.row.isActive ? 'positive' : 'grey'" :label="cell.row.isActive ? 'Active' : 'Inactive'" /></q-td></template>
       <template #body-cell-createdOnUtc="cell"><q-td :props="cell">{{ formatDate(cell.row.createdOnUtc) }}</q-td></template>
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_visibility" @click="view(row)"><q-tooltip>View</q-tooltip></q-btn>
-        <q-btn flat round dense icon="o_manage_accounts" @click="manage(row)"><q-tooltip>Quick manage</q-tooltip></q-btn>
+        <q-btn flat round dense icon="o_tune" @click="view(row)"><q-tooltip>View / edit</q-tooltip></q-btn>
       </template>
     </AppDataTable>
-
-    <!-- Manage dialog: roles + tax exemption -->
-    <q-dialog v-model="dialog.open">
-      <q-card style="min-width: 460px; max-width: 95vw">
-        <q-card-section class="text-subtitle1 text-weight-medium">{{ dialog.customer?.firstName }} {{ dialog.customer?.lastName }}</q-card-section>
-        <q-separator />
-        <q-card-section>
-          <q-inner-loading :showing="dialog.loading" />
-          <AppFieldLabel label="Customer roles (group pricing)" />
-          <q-select v-model="dialog.roleIds" multiple use-chips dense outlined emit-value map-options :options="roleOptions" placeholder="Assign roles" class="q-mb-md" />
-
-          <q-separator class="q-my-md" />
-          <q-toggle v-model="dialog.exemption.isTaxExempt" label="Tax exempt" color="primary" />
-          <template v-if="dialog.exemption.isTaxExempt">
-            <AppTextField v-model="dialog.exemption.certificateNumber" label="Exemption certificate #" placeholder="Optional" />
-            <AppTextField v-model="dialog.exemption.vatId" label="VAT ID" placeholder="Optional" />
-          </template>
-        </q-card-section>
-        <q-separator />
-        <q-card-actions align="right">
-          <q-btn flat no-caps label="Cancel" v-close-popup />
-          <q-btn color="primary" unelevated no-caps label="Save" :loading="dialog.saving" @click="save" />
-        </q-card-actions>
-      </q-card>
-    </q-dialog>
   </q-page>
 </template>
 
 <script setup>
-/* Admin customer management (WO-117): list + role assignment + tax exemption. */
-import { ref, reactive, computed, onMounted } from 'vue'
+/* Admin customer list (WO-117): search + advanced filters (single Customer Group, status,
+ * email-verified, registration-date range) with server-side paging/sort. The detail page is
+ * the only editor — group assignment, activate/deactivate and read-only tax status live there. */
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
-import { customerAdminApi, customerRoleApi } from 'modules/customers/api'
+import { customerAdminApi, customerGroupOptionsApi } from 'modules/customers/api'
 import { formatDateTime as formatDate } from 'src/utils/datetime'
+import { formatMoney } from 'modules/orders/api'
 import AppListHeader from 'components/common/AppListHeader.vue'
 import AppDataTable from 'components/common/AppDataTable.vue'
 import AppFieldLabel from 'components/common/AppFieldLabel.vue'
-import AppTextField from 'components/common/AppTextField.vue'
 
 const notify = useNotify()
 const router = useRouter()
@@ -76,10 +63,16 @@ function view (row) { router.push({ name: 'admin-customer-detail', params: { id:
 const columns = [
   { name: 'name', label: 'Name', field: 'firstName', align: 'left', sortable: true },
   { name: 'email', label: 'Email', field: 'email', align: 'left', sortable: true },
-  { name: 'phoneNumber', label: 'Phone', field: (r) => r.phoneNumber || '—', align: 'left', sortable: true },
-  { name: 'createdOnUtc', label: 'Joined', field: 'createdOnUtc', align: 'left', sortable: true },
-  { name: 'emailVerified', label: 'Email', field: 'emailVerified', align: 'center', sortable: true }
+  { name: 'customerGroupName', label: 'Customer group', field: (r) => r.customerGroupName || '—', align: 'left', sortable: true },
+  { name: 'orderCount', label: 'Orders', field: 'orderCount', align: 'center' },
+  { name: 'totalSpent', label: 'Total spend', field: (r) => formatMoney(r.totalSpent), align: 'right' },
+  { name: 'emailVerified', label: 'Verified', field: 'emailVerified', align: 'center', sortable: true },
+  { name: 'isActive', label: 'Active', field: 'isActive', align: 'center', sortable: true },
+  { name: 'createdOnUtc', label: 'Joined', field: 'createdOnUtc', align: 'left', sortable: true }
 ]
+
+// Sentinel for the "No group (base pricing)" filter story → hasCustomerGroup=false.
+const NO_GROUP = '__none__'
 
 const verifiedOptions = [
   { label: 'All', value: null },
@@ -91,35 +84,40 @@ const activeOptions = [
   { label: 'Active', value: true },
   { label: 'Inactive', value: false }
 ]
-const taxExemptOptions = [
-  { label: 'All', value: null },
-  { label: 'Tax exempt', value: true },
-  { label: 'Not exempt', value: false }
-]
+const groupOptions = ref([]) // active groups as { label, value }
+const groupFilterOptions = computed(() => [
+  { label: 'All groups', value: null },
+  { label: 'No group (base pricing)', value: NO_GROUP },
+  ...groupOptions.value
+])
 
 const rows = ref([])
 const loading = ref(false)
 const search = ref('')
 const verifiedFilter = ref(null)
 const activeFilter = ref(null)
-const taxExemptFilter = ref(null)
+const groupFilter = ref(null)
+const regFrom = ref('')
+const regTo = ref('')
 const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 20, rowsNumber: 0 })
-const roleOptions = ref([])
 
 const activeFilterCount = computed(() =>
-  (verifiedFilter.value !== null ? 1 : 0) + (activeFilter.value !== null ? 1 : 0) + (taxExemptFilter.value !== null ? 1 : 0)
+  (verifiedFilter.value !== null ? 1 : 0) +
+  (activeFilter.value !== null ? 1 : 0) +
+  (groupFilter.value !== null ? 1 : 0) +
+  (regFrom.value ? 1 : 0) +
+  (regTo.value ? 1 : 0)
 )
 
 function clearFilters () {
   verifiedFilter.value = null
   activeFilter.value = null
-  taxExemptFilter.value = null
+  groupFilter.value = null
+  regFrom.value = ''
+  regTo.value = ''
   reload()
 }
-
-const dialog = reactive({ open: false, loading: false, saving: false, customer: null, roleIds: [], exemption: { isTaxExempt: false, certificateNumber: '', vatId: '' } })
-
 
 async function fetch (props) {
   const p = props?.pagination || pagination.value
@@ -131,7 +129,10 @@ async function fetch (props) {
       search: search.value || undefined,
       emailVerified: verifiedFilter.value === null ? undefined : verifiedFilter.value,
       isActive: activeFilter.value === null ? undefined : activeFilter.value,
-      isTaxExempt: taxExemptFilter.value === null ? undefined : taxExemptFilter.value,
+      customerGroupId: (groupFilter.value && groupFilter.value !== NO_GROUP) ? groupFilter.value : undefined,
+      hasCustomerGroup: groupFilter.value === NO_GROUP ? false : undefined,
+      registeredFromUtc: regFrom.value || undefined,
+      registeredToUtc: regTo.value || undefined,
       sortBy: p.sortBy || undefined,
       sortDescending: !!p.descending
     })
@@ -142,45 +143,13 @@ async function fetch (props) {
 function onRequest (props) { fetch(props) }
 function reload () { fetch({ pagination: { ...pagination.value, page: 1 } }) }
 
-async function loadRoleOptions () {
+async function loadGroupOptions () {
   try {
-    const r = await customerRoleApi.list({ page: 1, pageSize: 200 })
+    const r = await customerGroupOptionsApi.listActive()
     const items = Array.isArray(r) ? r : r?.items || []
-    roleOptions.value = items.map((x) => ({ label: x.name, value: x.id }))
-  } catch (e) { roleOptions.value = [] }
+    groupOptions.value = items.map((g) => ({ label: g.name, value: g.id }))
+  } catch (e) { groupOptions.value = [] }
 }
 
-async function manage (row) {
-  dialog.customer = row
-  dialog.open = true
-  dialog.loading = true
-  try {
-    const [roles, exemption] = await Promise.all([
-      customerAdminApi.getRoles(row.id).catch(() => []),
-      customerAdminApi.getTaxExemption(row.id).catch(() => null)
-    ])
-    dialog.roleIds = (Array.isArray(roles) ? roles : []).map((r) => r.id)
-    dialog.exemption = {
-      isTaxExempt: exemption?.isTaxExempt || false,
-      certificateNumber: exemption?.certificateNumber || '',
-      vatId: exemption?.vatId || ''
-    }
-  } catch (e) { notify.error(getApiErrorMessage(e)) } finally { dialog.loading = false }
-}
-
-async function save () {
-  dialog.saving = true
-  try {
-    await customerAdminApi.setRoles(dialog.customer.id, dialog.roleIds)
-    await customerAdminApi.setTaxExemption(dialog.customer.id, {
-      isTaxExempt: dialog.exemption.isTaxExempt,
-      certificateNumber: dialog.exemption.certificateNumber || null,
-      vatId: dialog.exemption.vatId || null
-    })
-    notify.success('Customer updated')
-    dialog.open = false
-  } catch (e) { notify.error(getApiErrorMessage(e)) } finally { dialog.saving = false }
-}
-
-onMounted(() => { fetch(); loadRoleOptions() })
+onMounted(() => { fetch(); loadGroupOptions() })
 </script>

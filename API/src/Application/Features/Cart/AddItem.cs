@@ -31,11 +31,13 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
+    private readonly ICustomerGroupService _groups;
 
-    public AddItemCommandHandler(IApplicationDbContext db, ICurrentUserService current)
+    public AddItemCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
     {
         _db = db;
         _current = current;
+        _groups = groups;
     }
 
     public async Task<CartDto> Handle(AddItemCommand request, CancellationToken cancellationToken)
@@ -65,6 +67,9 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
         }
 
         // Snapshot the price at the moment of adding (AC-CHK-001.1): variant price wins, else product price, else 0.
+        // This snapshot stays the BASE price — Customer Group pricing is overlaid at projection time
+        // (AC-CUS-003.5) and re-resolved from this same base at checkout, so persisting a group price here
+        // would apply a percentage rule twice (and would freeze a member's price against later group changes).
         var unitPrice = variantPrice ?? product.Price ?? 0m;
 
         var cart = await CartResolver.ResolveOrCreateAsync(_db, _current, request.SessionId, cancellationToken);
@@ -88,6 +93,6 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return await CartResolver.BuildDtoAsync(_db, cart, cancellationToken);
+        return await CartResolver.BuildDtoAsync(_db, _groups, cart, cancellationToken);
     }
 }

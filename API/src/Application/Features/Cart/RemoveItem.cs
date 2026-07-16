@@ -12,11 +12,13 @@ public class RemoveItemCommandHandler : IRequestHandler<RemoveItemCommand, CartD
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
+    private readonly ICustomerGroupService _groups;
 
-    public RemoveItemCommandHandler(IApplicationDbContext db, ICurrentUserService current)
+    public RemoveItemCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
     {
         _db = db;
         _current = current;
+        _groups = groups;
     }
 
     public async Task<CartDto> Handle(RemoveItemCommand request, CancellationToken cancellationToken)
@@ -30,6 +32,6 @@ public class RemoveItemCommandHandler : IRequestHandler<RemoveItemCommand, CartD
         _db.CartItems.Remove(item);
 
         await _db.SaveChangesAsync(cancellationToken);
-        return await CartResolver.BuildDtoAsync(_db, cart, cancellationToken);
+        return await CartResolver.BuildDtoAsync(_db, _groups, cart, cancellationToken);
     }
 }

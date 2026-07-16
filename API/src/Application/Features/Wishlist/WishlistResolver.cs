@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Entities;
 using WishlistEntity = VSky.Domain.Entities.Wishlist;
@@ -56,8 +57,18 @@ internal static class WishlistResolver
         return customer.Id;
     }
 
-    /// <summary>Projects a wishlist into a DTO, resolving each item against the live catalog (newest first).</summary>
-    public static async Task<WishlistDto> BuildDtoAsync(IApplicationDbContext db, WishlistEntity wishlist, CancellationToken ct)
+    /// <summary>
+    /// Projects a wishlist into a DTO, resolving each item against the live catalog (newest first).
+    /// <para>
+    /// Customer Group pricing is overlaid at projection time (AC-CUS-003.5) so a member sees the same price
+    /// on their wishlist as while browsing, in the cart and at checkout — a wishlist showing list price
+    /// against a cart showing the member price is exactly the inconsistency that AC exists to prevent.
+    /// Nothing is persisted: a <see cref="WishlistItem"/> stores no price of its own, so the base price is
+    /// re-read from the catalog on every projection and the overlay cannot leak into stored data.
+    /// </para>
+    /// </summary>
+    public static async Task<WishlistDto> BuildDtoAsync(
+        IApplicationDbContext db, ICustomerGroupService groups, WishlistEntity wishlist, CancellationToken ct)
     {
         var items = wishlist.Items.OrderByDescending(i => i.CreatedOnUtc).ToList();
 
@@ -95,6 +106,20 @@ internal static class WishlistResolver
 
             itemDtos.Add(WishlistItemDto.From(item, name, sku, price, available));
         }
+
+        // One batch resolve for the whole wishlist; a no-op for customers with no group (AC-CUS-003.5).
+        // A saved variant keys on its own id so a variant-specific fixed group price overrides the
+        // product-level one (AC-CUS-003.4). Only rows that resolved against a live, purchasable catalog
+        // entry are priced: an item whose product is gone projects as a 0.00 "Unavailable product"
+        // placeholder, and a fixed group-price row can outlive the soft-deleted product it points at, so
+        // pricing those would put a real price on a row the buyer cannot act on.
+        var groupId = await groups.GetCurrentGroupIdAsync(ct);
+        await groups.ApplyGroupPricingAsync(
+            itemDtos,
+            groupId,
+            i => i.Available ? new GroupPriceRequest(i.ProductId, i.ProductVariantId, i.Price) : null,
+            (i, price) => i.Price = price,
+            ct);
 
         return WishlistDto.From(wishlist, itemDtos);
     }

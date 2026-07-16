@@ -103,6 +103,14 @@ public static class DefaultEmailTemplates
             "Update on your return for {{orderNumber}}",
             "Return could not be approved",
             "<p>Hi {{customerName}},</p><p>Unfortunately your return request for order {{orderNumber}} could not be approved. Reason: {{rejectionReason}}.</p>"),
+        new("tax-exemption.approved", "Tax Exemption Approved", NotificationCategory.Transactional,
+            "Your tax exemption has been approved",
+            "Tax exemption approved",
+            "<p>Hi {{customerName}},</p><p>Your tax exemption request has been approved. Tax will no longer be charged on your orders.</p><p>{{adminNote}}</p>"),
+        new("tax-exemption.rejected", "Tax Exemption Rejected", NotificationCategory.Transactional,
+            "Update on your tax exemption request",
+            "Tax exemption could not be approved",
+            "<p>Hi {{customerName}},</p><p>Your tax exemption request could not be approved, so tax will continue to apply to your orders. You're welcome to submit a new request.</p><p>{{adminNote}}</p>"),
 
         // ---- Marketing ----
         new("cart.abandoned", "Abandoned Cart Recovery", NotificationCategory.Marketing,

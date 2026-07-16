@@ -3,11 +3,11 @@ using VSky.Application.Common.Authorization;
 using VSky.API.Authorization;
 using VSky.Application.Common.Models;
 using VSky.Application.Features.Customers;
-using VSky.Application.Features.CustomerRoles;
+using VSky.Application.Features.CustomerGroups;
 
 namespace VSky.API.Controllers;
 
-/// <summary>Admin customer management: list, tax-exemption configuration (REQ-TAX-003) and role assignment (REQ-CUS-003).</summary>
+/// <summary>Admin customer management: list/detail, activation, tax exemption (REQ-TAX-003) and pricing-group assignment (REQ-CUS-003).</summary>
 [Route("api/admin/customers")]
 [RequireModule(Modules.Customers)]
 public class AdminCustomersController : ApiControllerBase
@@ -44,13 +44,21 @@ public class AdminCustomersController : ApiControllerBase
     public async Task<ActionResult<StoreCreditDto>> IssueStoreCredit(Guid id, [FromBody] IssueStoreCreditCommand command)
         => Ok(await Mediator.Send(command with { CustomerId = id }));
 
-    /// <summary>Get the customer's assigned customer roles.</summary>
-    [HttpGet("{id:guid}/roles")]
-    public async Task<ActionResult<List<CustomerRoleDto>>> GetRoles(Guid id)
-        => Ok(await Mediator.Send(new GetCustomerRolesQuery(id)));
+    /// <summary>Get the customer's assigned pricing group, or null when they are on base pricing.</summary>
+    [HttpGet("{id:guid}/group")]
+    public async Task<ActionResult<CustomerGroupBriefDto?>> GetGroup(Guid id)
+        => Ok(await Mediator.Send(new GetCustomerGroupForCustomerQuery(id)));
 
-    /// <summary>Replace the customer's assigned customer roles.</summary>
-    [HttpPut("{id:guid}/roles")]
-    public async Task<ActionResult<List<CustomerRoleDto>>> SetRoles(Guid id, [FromBody] AssignCustomerRolesCommand command)
+    /// <summary>
+    /// Assign the customer's single pricing group, replacing any previous one (AC-CUS-003.2).
+    /// Send customerGroupId = null to clear it and revert the customer to base pricing.
+    /// </summary>
+    [HttpPut("{id:guid}/group")]
+    public async Task<ActionResult<CustomerGroupBriefDto?>> SetGroup(Guid id, [FromBody] AssignCustomerGroupCommand command)
+        => Ok(await Mediator.Send(command with { CustomerId = id }));
+
+    /// <summary>Activate or deactivate the customer's login (User.IsActive) — WO-117.</summary>
+    [HttpPut("{id:guid}/active")]
+    public async Task<ActionResult<CustomerDetailDto>> SetActive(Guid id, [FromBody] SetCustomerActiveCommand command)
         => Ok(await Mediator.Send(command with { CustomerId = id }));
 }

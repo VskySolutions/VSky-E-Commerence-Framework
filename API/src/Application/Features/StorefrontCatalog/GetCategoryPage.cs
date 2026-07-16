@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -21,8 +22,13 @@ public record GetCategoryPageQuery(
 public class GetCategoryPageQueryHandler : IRequestHandler<GetCategoryPageQuery, CategoryPageDto>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ICustomerGroupService _groups;
 
-    public GetCategoryPageQueryHandler(IApplicationDbContext db) => _db = db;
+    public GetCategoryPageQueryHandler(IApplicationDbContext db, ICustomerGroupService groups)
+    {
+        _db = db;
+        _groups = groups;
+    }
 
     public async Task<CategoryPageDto> Handle(GetCategoryPageQuery request, CancellationToken cancellationToken)
     {
@@ -45,6 +51,18 @@ public class GetCategoryPageQueryHandler : IRequestHandler<GetCategoryPageQuery,
         var page = await PaginatedList<Product>.CreateAsync(productsQuery, request.Page, request.PageSize, cancellationToken);
         var filters = await BuildFiltersAsync(category.Id, cancellationToken);
 
+        // A group member must see their price while browsing, not just in the cart (AC-CUS-003.5). Overlaid
+        // on the projected page in one batch; a no-op for guests, so the anonymous path is unchanged.
+        // Summaries are product-level cards, so there is no variant to key on.
+        var items = page.Items.Select(StorefrontProductSummaryDto.From).ToList();
+        var groupId = await _groups.GetCurrentGroupIdAsync(cancellationToken);
+        await _groups.ApplyGroupPricingAsync(
+            items,
+            groupId,
+            i => i.Price is decimal price ? new GroupPriceRequest(i.Id, null, price) : null,
+            (i, price) => i.Price = price,
+            cancellationToken);
+
         return new CategoryPageDto
         {
             CategoryId = category.Id,
@@ -55,7 +73,7 @@ public class GetCategoryPageQueryHandler : IRequestHandler<GetCategoryPageQuery,
             MetaTitle = category.MetaTitle,
             MetaDescription = category.MetaDescription,
             MetaKeywords = category.MetaKeywords,
-            Items = page.Items.Select(StorefrontProductSummaryDto.From).ToList(),
+            Items = items,
             PageNumber = page.PageNumber,
             PageSize = page.PageSize,
             TotalPages = page.TotalPages,

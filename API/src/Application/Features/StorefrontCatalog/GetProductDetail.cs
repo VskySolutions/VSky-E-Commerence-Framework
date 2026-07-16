@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
@@ -18,8 +19,13 @@ public record GetProductDetailQuery(string IdOrSlug) : IRequest<StorefrontProduc
 public class GetProductDetailQueryHandler : IRequestHandler<GetProductDetailQuery, StorefrontProductDetailDto>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ICustomerGroupService _groups;
 
-    public GetProductDetailQueryHandler(IApplicationDbContext db) => _db = db;
+    public GetProductDetailQueryHandler(IApplicationDbContext db, ICustomerGroupService groups)
+    {
+        _db = db;
+        _groups = groups;
+    }
 
     public async Task<StorefrontProductDetailDto> Handle(GetProductDetailQuery request, CancellationToken cancellationToken)
     {
@@ -46,6 +52,28 @@ public class GetProductDetailQueryHandler : IRequestHandler<GetProductDetailQuer
 
         var dto = StorefrontProductDetailDto.From(product);
 
+        // A group member must see their price on the detail page, not just in the cart (AC-CUS-003.5).
+        // The group is resolved once here and reused for the product, its variants and the relationship
+        // sections below; every overlay is a no-op for guests, so the anonymous path is unchanged.
+        var groupId = await _groups.GetCurrentGroupIdAsync(cancellationToken);
+
+        // The product's own (product-level) price: no variant to key on.
+        await _groups.ApplyGroupPricingAsync(
+            new[] { dto },
+            groupId,
+            d => d.Price is decimal price ? new GroupPriceRequest(d.Id, null, price) : null,
+            (d, price) => d.Price = price,
+            cancellationToken);
+
+        // Each variant keys on its own id so a variant-specific fixed group price overrides the
+        // product-level one (AC-CUS-003.4).
+        await _groups.ApplyGroupPricingAsync(
+            dto.Variants,
+            groupId,
+            v => v.Price is decimal price ? new GroupPriceRequest(product.Id, v.Id, price) : null,
+            (v, price) => v.Price = price,
+            cancellationToken);
+
         // Resolve relationship targets to published summaries; unpublished/soft-deleted targets drop out.
         var relatedIds = product.Relationships.Select(r => r.RelatedProductId).Distinct().ToList();
         if (relatedIds.Count > 0)
@@ -58,6 +86,16 @@ public class GetProductDetailQueryHandler : IRequestHandler<GetProductDetailQuer
                 .ToListAsync(cancellationToken);
 
             var byId = targets.ToDictionary(p => p.Id, StorefrontProductSummaryDto.From);
+
+            // The related/cross-sell/up-sell cards are the same summaries the listing pages show, so they
+            // carry the same overlay. Applied over byId (not per section) so a product appearing in two
+            // sections — the sections share the DTO instance — is resolved once.
+            await _groups.ApplyGroupPricingAsync(
+                byId.Values,
+                groupId,
+                i => i.Price is decimal price ? new GroupPriceRequest(i.Id, null, price) : null,
+                (i, price) => i.Price = price,
+                cancellationToken);
 
             List<StorefrontProductSummaryDto> Section(ProductRelationshipType type) => product.Relationships
                 .Where(r => r.RelationshipType == type && byId.ContainsKey(r.RelatedProductId))

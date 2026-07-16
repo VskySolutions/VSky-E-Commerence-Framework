@@ -36,6 +36,8 @@ import shippingRoutes from 'modules/shipping/routes'
 import reportsRoutes from 'modules/reports/routes'
 import taxRoutes from 'modules/tax/routes'
 import customersRoutes from 'modules/customers/routes'
+import customerGroupsRoutes from 'modules/customer-groups/routes'
+import taxExemptionRoutes from 'modules/tax-exemption/routes'
 import storefrontRoutes from 'modules/storefront/routes'
 import emailLogRoutes from 'modules/email-log/routes'
 import adminAlertsRoutes from 'modules/admin-alerts/routes'
@@ -60,6 +62,8 @@ const moduleChildren = [
   ...reportsRoutes,
   ...taxRoutes,
   ...customersRoutes,
+  ...customerGroupsRoutes,
+  ...taxExemptionRoutes,
   ...emailLogRoutes,
   ...adminAlertsRoutes,
   ...webhooksRoutes

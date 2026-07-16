@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
@@ -26,8 +27,13 @@ public class SearchProductsQueryHandler : IRequestHandler<SearchProductsQuery, S
     private const int MaxPageSize = 100;
 
     private readonly IApplicationDbContext _db;
+    private readonly ICustomerGroupService _groups;
 
-    public SearchProductsQueryHandler(IApplicationDbContext db) => _db = db;
+    public SearchProductsQueryHandler(IApplicationDbContext db, ICustomerGroupService groups)
+    {
+        _db = db;
+        _groups = groups;
+    }
 
     public async Task<SearchResultsDto> Handle(SearchProductsQuery request, CancellationToken cancellationToken)
     {
@@ -93,9 +99,21 @@ public class SearchProductsQueryHandler : IRequestHandler<SearchProductsQuery, S
 
         var pageResult = await PaginatedList<Product>.CreateAsync(sorted, page, pageSize, cancellationToken);
 
+        // A group member must see their price in search results, not just in the cart (AC-CUS-003.5).
+        // Overlaid on the projected page in one batch; a no-op for guests, so the anonymous path is
+        // unchanged. Rows are product-level cards, so there is no variant to key on.
+        var items = pageResult.Items.Select(SearchResultItemDto.From).ToList();
+        var groupId = await _groups.GetCurrentGroupIdAsync(cancellationToken);
+        await _groups.ApplyGroupPricingAsync(
+            items,
+            groupId,
+            i => i.Price is decimal price ? new GroupPriceRequest(i.Id, null, price) : null,
+            (i, price) => i.Price = price,
+            cancellationToken);
+
         return new SearchResultsDto
         {
-            Items = pageResult.Items.Select(SearchResultItemDto.From).ToList(),
+            Items = items,
             TotalCount = pageResult.TotalCount,
             Page = pageResult.PageNumber,
             PageSize = pageResult.PageSize,

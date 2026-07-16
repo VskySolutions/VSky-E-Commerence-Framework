@@ -15,7 +15,7 @@
 
     <template v-if="customer">
       <div class="row q-col-gutter-md">
-        <!-- Left column: profile + roles/tax -->
+        <!-- Left column: profile + account + pricing/tax -->
         <div class="col-12 col-md-5">
           <AppSection title="Profile">
             <div class="text-h6 q-mb-xs">{{ fullName }}</div>
@@ -27,26 +27,66 @@
             </q-list>
           </AppSection>
 
-          <AppSection title="Group roles &amp; tax exemption">
-            <template #actions>
-              <q-btn v-if="canWrite" color="primary" unelevated no-caps dense :loading="saving" label="Save" @click="save" />
-            </template>
-            <AppFieldLabel label="Customer roles (group pricing)" />
-            <q-select
-              v-model="form.roleIds"
-              multiple use-chips dense outlined emit-value map-options
-              :options="roleOptions"
-              :disable="!canWrite"
-              placeholder="Assign roles"
-              hint="Roles drive group pricing and catalog visibility"
-              class="q-mb-md"
+          <AppSection title="Account">
+            <div class="row items-center justify-between no-wrap">
+              <div class="col">
+                <div class="text-body2">Account active</div>
+                <div class="text-caption text-grey-6">{{ customer.isActive ? 'Customer can sign in and place orders.' : 'Sign-in is disabled for this customer.' }}</div>
+              </div>
+              <q-toggle
+                :model-value="customer.isActive"
+                :disable="!canWrite || activeSaving"
+                color="primary"
+                @update:model-value="onToggleActive"
+              />
+            </div>
+          </AppSection>
+
+          <AppSection title="Pricing group">
+            <AppSelect
+              :model-value="groupId"
+              label="Customer group"
+              :options="groupOptions"
+              :disable="!canWrite || groupSaving"
+              :loading="groupSaving"
+              clearable
+              placeholder="Base pricing (no group)"
+              hint="Assign a single pricing group, or clear for base pricing."
+              @update:model-value="onChangeGroup"
             />
-            <q-separator class="q-my-md" />
-            <q-toggle v-model="form.isTaxExempt" :disable="!canWrite" label="Tax exempt" color="primary" />
-            <template v-if="form.isTaxExempt">
-              <AppTextField v-model="form.certificateNumber" label="Exemption certificate #" placeholder="e.g. TX-99213" hint="Reference for the exemption certificate on file" :disable="!canWrite" />
-              <AppTextField v-model="form.vatId" label="VAT ID" placeholder="e.g. GB123456789" hint="Buyer's VAT / tax registration id" :disable="!canWrite" />
-            </template>
+            <div v-if="groupRuleHint" class="row items-center text-caption text-grey-7 q-mt-xs">
+              <q-icon name="o_sell" size="14px" class="q-mr-xs" />{{ groupRuleHint }}
+            </div>
+          </AppSection>
+
+          <AppSection title="Tax exemption">
+            <div class="row items-center q-gutter-sm q-mb-xs">
+              <q-chip square dense :color="taxStatus.color" text-color="white" :label="taxStatus.label" />
+              <router-link
+                v-if="customer.latestTaxExemptionRequestId"
+                :to="{ name: 'admin-tax-exemption-requests' }"
+                class="text-primary text-caption"
+              >View request</router-link>
+            </div>
+            <q-list v-if="customer.isTaxExempt" dense>
+              <q-item v-if="customer.taxExemptionCertificate" class="q-px-none">
+                <q-item-section avatar><q-icon name="o_verified" color="grey-7" /></q-item-section>
+                <q-item-section>
+                  <q-item-label caption>Exemption certificate</q-item-label>
+                  <q-item-label>{{ customer.taxExemptionCertificate }}</q-item-label>
+                </q-item-section>
+              </q-item>
+              <q-item v-if="customer.vatId" class="q-px-none">
+                <q-item-section avatar><q-icon name="o_badge" color="grey-7" /></q-item-section>
+                <q-item-section>
+                  <q-item-label caption>VAT ID</q-item-label>
+                  <q-item-label>{{ customer.vatId }}</q-item-label>
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <div class="row items-center text-caption text-grey-6 q-mt-sm">
+              <q-icon name="o_info" size="14px" class="q-mr-xs" />Managed in Tax Exemptions
+            </div>
           </AppSection>
 
           <AppSection title="Store credit">
@@ -158,20 +198,20 @@
 
 <script setup>
 /*
- * Customer detail (WO-117): full admin view of a single customer — profile, editable group roles +
- * tax exemption, lifetime order stats, recent order history (links to the order detail) and the
- * saved address book. Reuses the same role/tax-exemption endpoints as the list's quick-manage flow.
+ * Customer detail (WO-117): full admin view of a single customer — profile, account
+ * activate/deactivate, single Customer Group (pricing) assignment, read-only tax-exemption
+ * status, lifetime order stats, recent order history (links to the order detail), the saved
+ * address book and store credit. Tax-exemption review lives in its own module (WO-126).
  */
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
-import { customerAdminApi, customerRoleApi } from 'modules/customers/api'
+import { customerAdminApi, customerGroupOptionsApi } from 'modules/customers/api'
 import { formatMoney, formatDate, orderStatusColor as statusColor } from 'modules/orders/api'
 import AppDetailHeader from 'components/common/AppDetailHeader.vue'
 import AppSection from 'components/common/AppSection.vue'
-import AppFieldLabel from 'components/common/AppFieldLabel.vue'
 import AppTextField from 'components/common/AppTextField.vue'
 
 const route = useRoute()
@@ -182,9 +222,12 @@ const canWrite = computed(() => has('Users.Write'))
 
 const customer = ref(null)
 const loading = ref(false)
-const saving = ref(false)
-const roleOptions = ref([])
-const form = reactive({ roleIds: [], isTaxExempt: false, certificateNumber: '', vatId: '' })
+const activeSaving = ref(false)
+
+// Single Customer Group (pricing) assignment.
+const groups = ref([]) // active groups: [{ id, name, pricingRuleType, discountPercent }]
+const groupId = ref(null)
+const groupSaving = ref(false)
 
 const storeCredit = ref({ balance: 0, currencyCode: 'USD', transactions: [] })
 const grantDialog = ref(false)
@@ -193,17 +236,82 @@ const grantForm = reactive({ amount: null, reason: '' })
 
 const fullName = computed(() => customer.value ? `${customer.value.firstName} ${customer.value.lastName}`.trim() : '')
 
+// Read-only tax-exemption status chip mapping.
+const TAX_STATUS = {
+  NotSubmitted: { label: 'Not submitted', color: 'grey' },
+  PendingReview: { label: 'Pending review', color: 'orange' },
+  Approved: { label: 'Approved', color: 'positive' },
+  Rejected: { label: 'Rejected', color: 'negative' }
+}
+const taxStatus = computed(() =>
+  TAX_STATUS[customer.value?.taxExemptionStatus] || { label: customer.value?.taxExemptionStatus || 'Not submitted', color: 'grey' }
+)
+
+// Options include the customer's current group even if it is no longer active, so the select
+// never shows a blank for an assigned-but-inactive group.
+const groupOptions = computed(() => {
+  const opts = groups.value.map((g) => ({ label: g.name, value: g.id }))
+  const cur = customer.value?.customerGroup
+  if (cur && cur.id && !opts.some((o) => o.value === cur.id)) {
+    opts.unshift({ label: `${cur.name} (inactive)`, value: cur.id })
+  }
+  return opts
+})
+
+const currentGroup = computed(() => {
+  if (!groupId.value) return null
+  return groups.value.find((g) => g.id === groupId.value) ||
+    (customer.value?.customerGroup?.id === groupId.value ? customer.value.customerGroup : null)
+})
+const groupRuleHint = computed(() => {
+  const g = currentGroup.value
+  if (!g) return ''
+  if (g.pricingRuleType === 'PercentageDiscount') return `${g.name} — ${g.discountPercent || 0}% off`
+  if (g.pricingRuleType === 'FixedGroupPrice') return `${g.name} — fixed group prices`
+  return `${g.name} — base price`
+})
+
 async function load () {
   loading.value = true
   try {
     const c = await customerAdminApi.get(route.params.id)
     customer.value = c
-    form.roleIds = (c.roles || []).map((r) => r.id)
-    form.isTaxExempt = c.isTaxExempt || false
-    form.certificateNumber = c.taxExemptionCertificate || ''
-    form.vatId = c.vatId || ''
+    groupId.value = c.customerGroup?.id || null
     loadStoreCredit()
   } catch (e) { notify.error(getApiErrorMessage(e)) } finally { loading.value = false }
+}
+
+async function loadGroups () {
+  try {
+    const r = await customerGroupOptionsApi.listActive()
+    groups.value = Array.isArray(r) ? r : r?.items || []
+  } catch (e) { groups.value = [] }
+}
+
+async function onToggleActive (val) {
+  activeSaving.value = true
+  try {
+    customer.value = await customerAdminApi.setActive(customer.value.id, val)
+    notify.success(val ? 'Account activated' : 'Account deactivated')
+  } catch (e) { notify.error(getApiErrorMessage(e)) } finally { activeSaving.value = false }
+}
+
+async function onChangeGroup (val) {
+  const prev = groupId.value
+  const next = val || null
+  if (next === prev) return
+  groupId.value = next // optimistic; reverted on failure
+  groupSaving.value = true
+  try {
+    await customerAdminApi.setGroup(customer.value.id, next)
+    if (customer.value) {
+      customer.value.customerGroup = next ? (groups.value.find((g) => g.id === next) || customer.value.customerGroup) : null
+    }
+    notify.success(next ? 'Pricing group updated' : 'Pricing group cleared — base pricing applies')
+  } catch (e) {
+    groupId.value = prev
+    notify.error(getApiErrorMessage(e))
+  } finally { groupSaving.value = false }
 }
 
 async function loadStoreCredit () {
@@ -225,29 +333,7 @@ async function grant () {
   } catch (e) { notify.error(getApiErrorMessage(e)) } finally { granting.value = false }
 }
 
-async function loadRoleOptions () {
-  try {
-    const r = await customerRoleApi.list({ page: 1, pageSize: 200 })
-    const items = Array.isArray(r) ? r : r?.items || []
-    roleOptions.value = items.map((x) => ({ label: x.name, value: x.id }))
-  } catch (e) { roleOptions.value = [] }
-}
-
-async function save () {
-  saving.value = true
-  try {
-    await customerAdminApi.setRoles(customer.value.id, form.roleIds)
-    await customerAdminApi.setTaxExemption(customer.value.id, {
-      isTaxExempt: form.isTaxExempt,
-      certificateNumber: form.certificateNumber || null,
-      vatId: form.vatId || null
-    })
-    notify.success('Customer updated')
-    load()
-  } catch (e) { notify.error(getApiErrorMessage(e)) } finally { saving.value = false }
-}
-
 function openOrder (o) { router.push({ name: 'admin-order-detail', params: { id: o.id } }) }
 
-onMounted(() => { load(); loadRoleOptions() })
+onMounted(() => { load(); loadGroups() })
 </script>

@@ -100,12 +100,13 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<CustomerAddress> CustomerAddresses => Set<CustomerAddress>();
     public DbSet<UserToken> UserTokens => Set<UserToken>();
 
-    // Customer roles + group pricing (WO-22)
-    public DbSet<CustomerRole> CustomerRoles => Set<CustomerRole>();
-    public DbSet<CustomerRoleAssignment> CustomerRoleAssignments => Set<CustomerRoleAssignment>();
+    // Customer groups + group pricing (WO-22). The group is assigned via Customer.CustomerGroupId.
+    public DbSet<CustomerGroup> CustomerGroups => Set<CustomerGroup>();
     public DbSet<CustomerGroupPrice> CustomerGroupPrices => Set<CustomerGroupPrice>();
-    public DbSet<ProductRoleRestriction> ProductRoleRestrictions => Set<ProductRoleRestriction>();
-    public DbSet<CategoryRoleRestriction> CategoryRoleRestrictions => Set<CategoryRoleRestriction>();
+
+    // Customer tax exemption requests (WO-126)
+    public DbSet<TaxExemptionRequest> TaxExemptionRequests => Set<TaxExemptionRequest>();
+    public DbSet<TaxExemptionRequestDocument> TaxExemptionRequestDocuments => Set<TaxExemptionRequestDocument>();
 
     // Orders & store fulfilment (WO-51, WO-52)
     public DbSet<Order> Orders => Set<Order>();

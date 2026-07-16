@@ -42,6 +42,8 @@ public static class RecordAuditRegistry
             ["user"] = (typeof(User), Modules.Users),
             ["role"] = (typeof(Role), Modules.Roles),
             ["customer"] = (typeof(Customer), Modules.Customers),
+            ["customer-group"] = (typeof(CustomerGroup), Modules.Customers),
+            ["tax-exemption-request"] = (typeof(TaxExemptionRequest), Modules.Customers),
             ["order"] = (typeof(Order), Modules.Orders),
             ["rma"] = (typeof(Domain.Entities.Rma), Modules.Orders),
             ["currency"] = (typeof(SupportedCurrency), Modules.Currencies),

@@ -78,6 +78,14 @@ public class CustomerConfiguration : IEntityTypeConfiguration<Customer>
         b.Property(x => x.VatId).HasMaxLength(64);
         b.Property(x => x.WhatsAppPhoneNumber).HasMaxLength(50);
 
+        // Pricing group (AC-CUS-003.2): optional, at most one. Restrict — a lookup FK must never
+        // cascade a group delete into customer rows.
+        b.HasOne(x => x.CustomerGroup)
+            .WithMany()
+            .HasForeignKey(x => x.CustomerGroupId)
+            .OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.CustomerGroupId);
+
         b.HasQueryFilter(x => !x.Deleted);
     }
 }

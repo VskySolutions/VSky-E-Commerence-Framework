@@ -31,8 +31,10 @@ public abstract class CatalogTestBase : IDisposable
     private static bool _initialized;
 
     private readonly SqlConnection _connection;
-    private readonly SqlTransaction _transaction;
-    private readonly DbContextOptions<AppDbContext> _options;
+    // Exposed to derived fixtures that need to build a context carrying a specific current user (e.g. to
+    // exercise audit stamping) while staying inside the test's rolled-back transaction.
+    protected readonly SqlTransaction _transaction;
+    protected readonly DbContextOptions<AppDbContext> _options;
 
     protected CatalogTestBase()
     {

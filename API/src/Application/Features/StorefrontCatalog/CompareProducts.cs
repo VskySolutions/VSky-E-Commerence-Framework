@@ -1,5 +1,6 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
+using VSky.Application.Common.Extensions;
 using VSky.Application.Common.Interfaces;
 
 namespace VSky.Application.Features.StorefrontCatalog;
@@ -14,8 +15,13 @@ public record CompareProductsQuery(List<Guid> ProductIds) : IRequest<ComparisonD
 public class CompareProductsQueryHandler : IRequestHandler<CompareProductsQuery, ComparisonDto>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ICustomerGroupService _groups;
 
-    public CompareProductsQueryHandler(IApplicationDbContext db) => _db = db;
+    public CompareProductsQueryHandler(IApplicationDbContext db, ICustomerGroupService groups)
+    {
+        _db = db;
+        _groups = groups;
+    }
 
     public async Task<ComparisonDto> Handle(CompareProductsQuery request, CancellationToken cancellationToken)
     {
@@ -66,6 +72,17 @@ public class CompareProductsQueryHandler : IRequestHandler<CompareProductsQuery,
                     .ToList(),
             });
         }
+
+        // A group member compares their prices, not list prices (AC-CUS-003.5). Overlaid on the projected
+        // columns in one batch; a no-op for guests. Comparison is product-level, so there is no variant to
+        // key on.
+        var groupId = await _groups.GetCurrentGroupIdAsync(cancellationToken);
+        await _groups.ApplyGroupPricingAsync(
+            comparisonProducts,
+            groupId,
+            c => c.Price is decimal price ? new GroupPriceRequest(c.Id, null, price) : null,
+            (c, price) => c.Price = price,
+            cancellationToken);
 
         // Union of the specification attributes present across the set, in attribute display order.
         var attributes = products

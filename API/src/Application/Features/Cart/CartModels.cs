@@ -60,9 +60,14 @@ public class CartItemDto
     /// <summary>False when the line's product/variant is missing, unpublished or out of stock (AC-CHK-001.5).</summary>
     public bool Available { get; set; }
 
+    /// <param name="unitPrice">
+    /// The effective unit price. Defaults to the cart's base snapshot; the caller passes the Customer Group
+    /// price when the buyer belongs to a group (AC-CUS-003.5).
+    /// </param>
     public static CartItemDto From(
         CartItemEntity item, string productName, string? sku, bool available,
-        string? imageUrl = null, int stockQuantity = 0, bool allowBackorder = false) => new()
+        string? imageUrl = null, int stockQuantity = 0, bool allowBackorder = false,
+        decimal? unitPrice = null) => new()
     {
         Id = item.Id,
         ProductId = item.ProductId,
@@ -70,8 +75,8 @@ public class CartItemDto
         ProductName = productName,
         Sku = sku,
         Quantity = item.Quantity,
-        UnitPrice = item.UnitPrice,
-        LineTotal = item.UnitPrice * item.Quantity,
+        UnitPrice = unitPrice ?? item.UnitPrice,
+        LineTotal = (unitPrice ?? item.UnitPrice) * item.Quantity,
         ImageUrl = imageUrl,
         StockQuantity = stockQuantity,
         AllowBackorder = allowBackorder,

@@ -25,11 +25,13 @@ public class AddWishlistItemCommandHandler : IRequestHandler<AddWishlistItemComm
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
+    private readonly ICustomerGroupService _groups;
 
-    public AddWishlistItemCommandHandler(IApplicationDbContext db, ICurrentUserService current)
+    public AddWishlistItemCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
     {
         _db = db;
         _current = current;
+        _groups = groups;
     }
 
     public async Task<WishlistDto> Handle(AddWishlistItemCommand request, CancellationToken cancellationToken)
@@ -68,6 +70,6 @@ public class AddWishlistItemCommandHandler : IRequestHandler<AddWishlistItemComm
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return await WishlistResolver.BuildDtoAsync(_db, wishlist, cancellationToken);
+        return await WishlistResolver.BuildDtoAsync(_db, _groups, wishlist, cancellationToken);
     }
 }

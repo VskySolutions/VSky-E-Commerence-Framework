@@ -32,7 +32,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly IDateTimeProvider _clock;
     private readonly IEmailTemplateSender _templates;
     private readonly IPublisher _publisher;
-    private readonly ICustomerRoleService _customerRoles;
+    private readonly ICustomerGroupService _customerGroups;
     private readonly IInventoryService _inventory;
 
     public CheckoutOrchestrator(
@@ -48,7 +48,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         IDateTimeProvider clock,
         IEmailTemplateSender templates,
         IPublisher publisher,
-        ICustomerRoleService customerRoles,
+        ICustomerGroupService customerGroups,
         IInventoryService inventory)
     {
         _db = db;
@@ -63,7 +63,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _clock = clock;
         _templates = templates;
         _publisher = publisher;
-        _customerRoles = customerRoles;
+        _customerGroups = customerGroups;
         _inventory = inventory;
     }
 
@@ -869,34 +869,33 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     }
 
     /// <summary>
-    /// Applies the authenticated customer's role-based group pricing to each line (WO-22, AC-CUS-003.3),
+    /// Applies the authenticated customer's Customer Group pricing to each line (WO-22, AC-CUS-003.5),
     /// running before the subtotal so discounts, tax and the total all derive from the member price. A
-    /// no-op for guests and customers with no pricing role — <see cref="ICustomerRoleService.ResolvePriceAsync"/>
-    /// returns the base price — so the common checkout path is unchanged.
+    /// no-op for guests and customers with no group — <see cref="ICustomerGroupService.ResolvePricesAsync"/>
+    /// echoes the base price back — so the common checkout path is unchanged.
     /// </summary>
     private async Task<List<LineWork>> ApplyGroupPricingAsync(List<LineWork> lines, CancellationToken ct)
     {
-        if (_current.UserId is not Guid userId || lines.Count == 0)
+        if (lines.Count == 0)
             return lines;
 
-        var customerId = await _db.Customers
-            .AsNoTracking()
-            .Where(c => c.UserId == userId)
-            .Select(c => (Guid?)c.Id)
-            .FirstOrDefaultAsync(ct);
-        if (customerId is not Guid cid)
+        var groupId = await _customerGroups.GetCurrentGroupIdAsync(ct);
+        if (groupId is null)
             return lines;
 
-        var roleIds = await _customerRoles.GetCustomerRoleIdsAsync(cid, ct);
-        if (roleIds.Count == 0)
-            return lines;
+        // Resolved in one batch: a per-line call would issue two queries per cart line.
+        var requests = lines
+            .Select(l => new GroupPriceRequest(l.ProductId, l.ProductVariantId, l.UnitPrice))
+            .ToList();
+        var prices = await _customerGroups.ResolvePricesAsync(requests, groupId, ct);
 
         var adjusted = new List<LineWork>(lines.Count);
         foreach (var line in lines)
         {
-            var price = await _customerRoles.ResolvePriceAsync(
-                line.ProductId, line.ProductVariantId, line.UnitPrice, roleIds, ct);
-            adjusted.Add(price < line.UnitPrice ? line with { UnitPrice = price } : line);
+            var price = prices.TryGetValue(new GroupPriceKey(line.ProductId, line.ProductVariantId), out var p)
+                ? p
+                : line.UnitPrice;
+            adjusted.Add(price != line.UnitPrice ? line with { UnitPrice = price } : line);
         }
 
         return adjusted;

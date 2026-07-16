@@ -15,12 +15,15 @@ public class MoveWishlistItemToCartCommandHandler : IRequestHandler<MoveWishlist
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
+    private readonly ICustomerGroupService _groups;
     private readonly ISender _mediator;
 
-    public MoveWishlistItemToCartCommandHandler(IApplicationDbContext db, ICurrentUserService current, ISender mediator)
+    public MoveWishlistItemToCartCommandHandler(
+        IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups, ISender mediator)
     {
         _db = db;
         _current = current;
+        _groups = groups;
         _mediator = mediator;
     }
 
@@ -41,6 +44,6 @@ public class MoveWishlistItemToCartCommandHandler : IRequestHandler<MoveWishlist
         wishlist.Items.Remove(item);
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await WishlistResolver.BuildDtoAsync(_db, wishlist, cancellationToken);
+        return await WishlistResolver.BuildDtoAsync(_db, _groups, wishlist, cancellationToken);
     }
 }

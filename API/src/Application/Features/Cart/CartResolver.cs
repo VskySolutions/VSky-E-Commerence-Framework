@@ -87,8 +87,15 @@ internal static class CartResolver
     /// catalog: lines whose product/variant is missing, unpublished or out of stock are flagged
     /// <c>Available = false</c> with a matching warning (AC-CHK-001.5), and a line whose quantity exceeds
     /// the available (non-backorder) stock stays available but raises a best-effort warning (AC-CHK-001.6).
+    /// <para>
+    /// Customer Group pricing is overlaid at projection time (AC-CUS-003.5) so the cart shows the same price
+    /// the buyer will pay at checkout, and so a group change is reflected immediately. The stored
+    /// <see cref="CartItemEntity.UnitPrice"/> snapshot stays the BASE price — checkout re-resolves the group
+    /// price from it, and discounting a discounted snapshot would apply the rule twice.
+    /// </para>
     /// </summary>
-    public static async Task<CartDto> BuildDtoAsync(IApplicationDbContext db, CartEntity cart, CancellationToken ct)
+    public static async Task<CartDto> BuildDtoAsync(
+        IApplicationDbContext db, ICustomerGroupService groups, CartEntity cart, CancellationToken ct)
     {
         var items = cart.Items.OrderBy(i => i.CreatedOnUtc).ToList();
 
@@ -112,6 +119,14 @@ internal static class CartResolver
                 .Include(v => v.InventoryLevels)
                 .ToDictionaryAsync(v => v.Id, ct);
 
+        // One batch resolve for the whole cart; empty (and free) for guests and non-group members.
+        var groupId = await groups.GetCurrentGroupIdAsync(ct);
+        var memberPrices = groupId is null || items.Count == 0
+            ? new Dictionary<GroupPriceKey, decimal>()
+            : await groups.ResolvePricesAsync(
+                items.Select(i => new GroupPriceRequest(i.ProductId, i.ProductVariantId, i.UnitPrice)).ToList(),
+                groupId, ct);
+
         var itemDtos = new List<CartItemDto>(items.Count);
         var warnings = new List<string>();
 
@@ -123,8 +138,12 @@ internal static class CartResolver
                 variants.TryGetValue(variantId, out variant);
 
             var (available, name, sku, stock, allowBackorder) = Evaluate(item, product, variant, warnings);
+            var unitPrice = memberPrices.TryGetValue(new GroupPriceKey(item.ProductId, item.ProductVariantId), out var mp)
+                ? mp
+                : item.UnitPrice;
+
             itemDtos.Add(CartItemDto.From(
-                item, name, sku, available, PrimaryImage(product, item.ProductVariantId), stock, allowBackorder));
+                item, name, sku, available, PrimaryImage(product, item.ProductVariantId), stock, allowBackorder, unitPrice));
         }
 
         return CartDto.From(cart, itemDtos, warnings);

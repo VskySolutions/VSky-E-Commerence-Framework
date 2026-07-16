@@ -10,11 +10,13 @@ public class RemoveWishlistItemCommandHandler : IRequestHandler<RemoveWishlistIt
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
+    private readonly ICustomerGroupService _groups;
 
-    public RemoveWishlistItemCommandHandler(IApplicationDbContext db, ICurrentUserService current)
+    public RemoveWishlistItemCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
     {
         _db = db;
         _current = current;
+        _groups = groups;
     }
 
     public async Task<WishlistDto> Handle(RemoveWishlistItemCommand request, CancellationToken cancellationToken)
@@ -28,6 +30,6 @@ public class RemoveWishlistItemCommandHandler : IRequestHandler<RemoveWishlistIt
             await _db.SaveChangesAsync(cancellationToken);
         }
 
-        return await WishlistResolver.BuildDtoAsync(_db, wishlist, cancellationToken);
+        return await WishlistResolver.BuildDtoAsync(_db, _groups, wishlist, cancellationToken);
     }
 }

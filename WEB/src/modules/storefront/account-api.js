@@ -15,6 +15,7 @@ const AUTH = '/api/customer/auth'
 const PROFILE = '/api/customer/profile'
 const ADDRESSES = '/api/customer/addresses'
 const ORDERS = '/api/customer/orders'
+const TAX_EXEMPTION = '/api/customer/tax-exemption'
 
 export const customerAuthApi = {
   // Create an account; a verification email is sent. Returns the new customer id.
@@ -94,6 +95,24 @@ export const accountApi = {
   // Download the order's invoice PDF (blob → browser download).
   downloadInvoice (id) {
     return downloadPdf(ORDERS + '/' + encodeURIComponent(id) + '/invoice', `invoice-${id}.pdf`)
+  },
+
+  // ---- Tax exemption (WO-126) ----
+  // Current status + latest request: { status, isTaxExempt, canSubmit, latestRequest }.
+  taxExemption () {
+    return customerApi.get(TAX_EXEMPTION).then(unwrap)
+  },
+  // Upload one supporting document (multipart). Returns { mediaId, fileName, url }.
+  uploadTaxDocument (file) {
+    const form = new FormData()
+    form.append('file', file)
+    return customerApi.post(TAX_EXEMPTION + '/documents', form, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    }).then(unwrap)
+  },
+  // Submit/re-submit a request: { certificateNumber, vatId, documentMediaIds:[] }.
+  submitTaxExemption (payload) {
+    return customerApi.post(TAX_EXEMPTION + '/request', payload).then(unwrap)
   }
 }
 

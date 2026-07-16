@@ -13,11 +13,13 @@ public class GetCartQueryHandler : IRequestHandler<GetCartQuery, CartDto>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
+    private readonly ICustomerGroupService _groups;
 
-    public GetCartQueryHandler(IApplicationDbContext db, ICurrentUserService current)
+    public GetCartQueryHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
     {
         _db = db;
         _current = current;
+        _groups = groups;
     }
 
     public async Task<CartDto> Handle(GetCartQuery request, CancellationToken cancellationToken)
@@ -27,6 +29,6 @@ public class GetCartQueryHandler : IRequestHandler<GetCartQuery, CartDto>
         // Persists a newly created cart so it can be restored later; a no-op when the cart already existed.
         await _db.SaveChangesAsync(cancellationToken);
 
-        return await CartResolver.BuildDtoAsync(_db, cart, cancellationToken);
+        return await CartResolver.BuildDtoAsync(_db, _groups, cart, cancellationToken);
     }
 }

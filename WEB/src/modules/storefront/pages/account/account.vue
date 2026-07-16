@@ -20,6 +20,7 @@
       <q-route-tab name="profile" label="Profile" icon="o_person" :to="{ name: 'shop-account-profile' }" />
       <q-route-tab name="addresses" label="Addresses" icon="o_location_on" :to="{ name: 'shop-account-addresses' }" />
       <q-route-tab name="orders" label="Orders" icon="o_receipt_long" :to="{ name: 'shop-account-orders' }" />
+      <q-route-tab name="tax-exemption" label="Tax exemption" icon="o_receipt_long" :to="{ name: 'shop-account-tax-exemption' }" />
     </q-tabs>
 
     <router-view />
