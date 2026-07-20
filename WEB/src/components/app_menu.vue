@@ -57,7 +57,6 @@ const sections = [
       { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
       { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
       // { label: 'Reports', icon: 'o_bar_chart', to: '/reports', permissions: [Permissions.StoresRead] },
-      // { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] }
     ]
   },
   {
@@ -99,6 +98,7 @@ const sections = [
     items: [
       { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] },
       { label: 'Integrations', icon: 'o_extension', to: '/integrations', permissions: [Permissions.CredentialsRead] },
+      { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] },
       { label: 'Admin Alerts', icon: 'o_notification_important', to: '/alerts', permissions: [Permissions.AlertsRead] }
     ]
   },

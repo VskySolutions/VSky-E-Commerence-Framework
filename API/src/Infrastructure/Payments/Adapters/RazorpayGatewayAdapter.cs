@@ -19,13 +19,20 @@ namespace VSky.Infrastructure.Payments.Adapters;
 /// <c>key_id:key_secret</c> (sent as HTTP Basic auth). <see cref="AuthorizeAsync"/> creates a Razorpay
 /// order and hands the storefront the public key + order id to open the widget; the buyer pays inside it,
 /// and <see cref="VerifyClientPaymentAsync"/> verifies the returned signature server-side and captures.
-/// Amounts are billed in the minor unit (paise). <see cref="CaptureMode"/> maps to the order's
+/// Amounts are billed in the currency's minor unit (e.g. cents/paise). <see cref="CaptureMode"/> maps to the order's
 /// <c>payment_capture</c> flag (auto-capture vs. capture-on-verify).
 /// </summary>
 public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
 {
-    public RazorpayGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ILogger<RazorpayGatewayAdapter> logger)
-        : base(vault, httpClientFactory, logger) { }
+    // Razorpay currently transacts in INR only (the account has no international-payment capability), so every
+    // order is billed in the INR equivalent of the order's base-currency amount, converted at the exchange
+    // rate held in the currency master. Hard-coded to INR for now; revisit if Razorpay is enabled for USD.
+    private const string RazorpayCurrency = "INR";
+
+    private readonly ICurrencyService _currency;
+
+    public RazorpayGatewayAdapter(ICredentialVault vault, IHttpClientFactory httpClientFactory, ICurrencyService currency, ILogger<RazorpayGatewayAdapter> logger)
+        : base(vault, httpClientFactory, logger) => _currency = currency;
 
     public override PaymentMethodType Method => PaymentMethodType.Razorpay;
 
@@ -37,20 +44,32 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
                 return PaymentResult.Failed("Razorpay is not configured — set Key ID, Key Secret and Base URL on the Razorpay integration.");
             var (basic, keyId, _, baseUrl) = auth.Value;
 
+            // Razorpay is charged in INR: convert the order's amount to its INR equivalent (rate from the
+            // currency master) and bill that. The same currency + amount are handed to the widget below —
+            // Razorpay Checkout must open against the currency and amount its provider order was created with.
+            var currency = RazorpayCurrency;
+
             // Create the order the on-site Checkout widget charges against. payment_capture selects whether
             // Razorpay auto-captures once the buyer pays (AuthorizeAndCapture) or leaves it authorized for the
             // verify step to capture.
-            var minor = ToMinorUnits(req.Amount);
+            var minor = await InrMinorAsync(req.Amount, ct);
             var orderBody = JsonSerializer.Serialize(new
             {
                 amount = minor,
-                currency = req.CurrencyCode,
+                currency,
                 receipt = req.OrderNumber,
                 payment_capture = mode == CaptureMode.AuthorizeAndCapture,
             });
             using var resp = await SendAsync(HttpMethod.Post, basic, $"{baseUrl}/orders", orderBody, ct);
 
             var orderId = GetString(resp.Root, "id");
+
+            // Diagnostic (no secrets): exactly what we asked Razorpay to create and what it returned, so a
+            // gateway-side rejection — e.g. an account that does not accept the currency — is visible in the logs.
+            Logger.LogInformation(
+                "Razorpay create-order: sentCurrency={Currency} sentAmountMinor={AmountMinor} → HTTP {Status} orderId={OrderId} body={Body}",
+                currency, minor, (int)resp.Status, orderId ?? "(none)", Snippet(resp.Raw));
+
             if (string.IsNullOrWhiteSpace(orderId))
                 return PaymentResult.Failed($"Razorpay could not create the payment order: {DescribeError(resp)}");
 
@@ -62,7 +81,7 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
                 ["provider"] = "razorpay",
                 ["keyId"] = keyId,
                 ["amount"] = minor.ToString(CultureInfo.InvariantCulture),
-                ["currency"] = req.CurrencyCode,
+                ["currency"] = currency,
             });
         });
 
@@ -80,7 +99,8 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
             if (string.IsNullOrWhiteSpace(paymentId))
                 return PaymentResult.Failed("Razorpay capture requires the payment id.");
 
-            var body = JsonSerializer.Serialize(new { amount = ToMinorUnits(amount), currency = payment.CurrencyCode });
+            // Capture the INR equivalent — the payment settled in INR.
+            var body = JsonSerializer.Serialize(new { amount = await InrMinorAsync(amount, ct), currency = RazorpayCurrency });
             using var resp = await SendAsync(HttpMethod.Post, basic, $"{baseUrl}/payments/{paymentId}/capture", body, ct);
             return MapCapture(resp, amount, paymentId!);
         });
@@ -97,7 +117,9 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
             if (string.IsNullOrWhiteSpace(paymentId))
                 return PaymentResult.Failed("Razorpay refund requires the payment id.");
 
-            var body = JsonSerializer.Serialize(new { amount = ToMinorUnits(amount) });
+            // Refund the INR equivalent (the payment settled in INR); the body carries no currency — Razorpay
+            // refunds in the payment's own currency.
+            var body = JsonSerializer.Serialize(new { amount = await InrMinorAsync(amount, ct) });
             using var resp = await SendAsync(HttpMethod.Post, basic, $"{baseUrl}/payments/{paymentId}/refund", body, ct);
             var refundId = GetString(resp.Root, "id");
 
@@ -144,7 +166,8 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
 
             var status = GetString(get.Root, "status");
             var paidMinor = GetInt64(get.Root, "amount");
-            var expectedMinor = ToMinorUnits(payment.Amount);
+            // The payment settled in INR, so compare against the INR equivalent of the order amount.
+            var expectedMinor = await InrMinorAsync(payment.Amount, ct);
             if (paidMinor is not null && paidMinor.Value != expectedMinor)
                 return PaymentResult.Failed(
                     $"Razorpay amount mismatch — expected {expectedMinor}, received {paidMinor}.", PaymentStatus.Pending);
@@ -155,7 +178,7 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
 
             if (string.Equals(status, "authorized", StringComparison.OrdinalIgnoreCase))
             {
-                var body = JsonSerializer.Serialize(new { amount = expectedMinor, currency = payment.CurrencyCode });
+                var body = JsonSerializer.Serialize(new { amount = expectedMinor, currency = RazorpayCurrency });
                 using var cap = await SendAsync(HttpMethod.Post, basic, $"{baseUrl}/payments/{paymentId}/capture", body, ct);
                 return MapCapture(cap, payment.Amount, paymentId!, orderId);
             }
@@ -196,6 +219,17 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
         var basic = Convert.ToBase64String(Encoding.UTF8.GetBytes(resolved.Value));
         return (basic, parts[0], parts[1], RequireBaseUrl(resolved));
     }
+
+    /// <summary>
+    /// The INR minor-unit (paise) amount for a base-currency <paramref name="baseAmount"/>: convert to INR at
+    /// the exchange rate held in the currency master (<see cref="ICurrencyService"/>), then to the smallest
+    /// unit. Razorpay is billed in INR, so this feeds every amount sent to it — order creation, capture, refund
+    /// and the <see cref="VerifyClientPaymentAsync"/> amount cross-check — keeping them all in agreement. Throws
+    /// (surfaced as a failed result via <see cref="PaymentGatewayAdapterBase.GuardAsync"/>) when no INR currency
+    /// is configured in the currency master.
+    /// </summary>
+    private async Task<long> InrMinorAsync(decimal baseAmount, CancellationToken ct)
+        => ToMinorUnits(await _currency.ConvertAsync(baseAmount, RazorpayCurrency, ct));
 
     private async Task<GatewayResponse> SendAsync(HttpMethod method, string basic, string url, string? json, CancellationToken ct)
     {
@@ -241,6 +275,13 @@ public class RazorpayGatewayAdapter : PaymentGatewayAdapterBase
         return string.IsNullOrWhiteSpace(snippet)
             ? $"HTTP {(int)resp.Status} {resp.Status} with an empty response."
             : $"HTTP {(int)resp.Status} {resp.Status}: {snippet}";
+    }
+
+    /// <summary>A trimmed, length-capped copy of a raw gateway body for diagnostic logging.</summary>
+    private static string Snippet(string? raw)
+    {
+        var s = (raw ?? string.Empty).Trim();
+        return s.Length > 600 ? s[..600] + "…" : s;
     }
 
     private static string? Value(IReadOnlyDictionary<string, string> data, string key)

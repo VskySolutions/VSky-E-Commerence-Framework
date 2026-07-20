@@ -120,7 +120,13 @@ public record PlaceCheckoutRequest(
     string? CouponCode,
     string? RecaptchaToken = null,
     bool PickupInStore = false,
-    Guid? PickupStoreId = null);
+    Guid? PickupStoreId = null,
+    /// <summary>
+    /// The instrument the <see cref="PaymentToken"/> tokenizes, when the gateway offers more than one on the
+    /// same credential — "BankAccount" for an Authorize.Net ACH/eCheck payment, else null/"Card". Ignored by
+    /// every other gateway. See <see cref="Domain.Common.PaymentInstruments"/>.
+    /// </summary>
+    string? PaymentInstrument = null);
 
 /// <summary>
 /// The outcome of placing a checkout: the created order's id/number/status and grand total, the

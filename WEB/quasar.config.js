@@ -116,7 +116,11 @@ export default function (/* ctx */) {
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devserver
     devServer: {
       open: false,
-      port: 9000
+      port: 9000,
+      // HTTPS is required for the Authorize.Net Accept.js card-tokenization flow — the SDK refuses to run on an
+      // http:// page. Quasar auto-generates a self-signed cert for localhost:9000 (accept it once in the
+      // browser). The API is called over https (see config/env.dev.cjs) so there is no mixed-content block.
+      https: true
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework

@@ -491,6 +491,136 @@
               No payment methods are available for this order.
             </q-banner>
 
+            <!-- Square on-site card entry: the Web Payments SDK renders a hosted field here and tokenizes the
+                 card into a nonce on Place order (the store never sees the card number). Kept in the DOM via
+                 v-show so switching payment methods doesn't tear the mounted field down. -->
+            <div v-show="paymentMethod === 'Square'" class="q-mt-md">
+              <q-banner v-if="squareNotConfigured" dense class="bg-red-1 text-negative rounded-borders">
+                <template #avatar><q-icon name="o_error_outline" color="negative" /></template>
+                Square card payment isn't fully set up. Please choose another payment method.
+              </q-banner>
+              <template v-else>
+                <div class="text-caption text-grey-7 q-mb-xs">Card details</div>
+                <div id="sq-card-container" class="sf-square-card"></div>
+                <div class="row items-center text-caption text-grey-6 q-mt-xs no-wrap">
+                  <q-icon name="o_lock" size="14px" class="q-mr-xs" />
+                  Entered securely in a Square field — the store never sees your card number.
+                </div>
+                <q-banner v-if="squareCardError" dense class="bg-red-1 text-negative rounded-borders q-mt-sm">
+                  {{ squareCardError }}
+                </q-banner>
+              </template>
+            </div>
+
+            <!-- Authorize.Net on-site entry: plain fields tokenized by Accept.js into a single-use nonce on
+                 Place order (the store never sees the card or bank account number). Buyers choose the
+                 instrument — credit/debit card or bank account (ACH/eCheck) — both charged via the same nonce. -->
+            <div v-if="paymentMethod === 'AuthorizeNet'" class="q-mt-md">
+              <q-banner v-if="authNetNotConfigured" dense class="bg-red-1 text-negative rounded-borders">
+                <template #avatar><q-icon name="o_error_outline" color="negative" /></template>
+                Payment isn't fully set up. Please choose another payment method.
+              </q-banner>
+              <template v-else>
+                <q-btn-toggle
+                  v-model="authNetInstrument"
+                  class="q-mb-md sf-instrument-toggle"
+                  no-caps
+                  unelevated
+                  spread
+                  toggle-color="primary"
+                  color="grey-2"
+                  text-color="grey-8"
+                  :options="authNetInstrumentOptions"
+                />
+
+                <!-- Card -->
+                <template v-if="authNetInstrument === 'card'">
+                  <div class="text-caption text-grey-7 q-mb-xs">Card details</div>
+                  <q-input
+                    v-model="authNetCard.number"
+                    outlined dense
+                    inputmode="numeric"
+                    maxlength="23"
+                    label="Card number"
+                    placeholder="1234 5678 9012 3456"
+                    class="q-mb-sm"
+                  />
+                  <div class="row q-col-gutter-sm">
+                    <div class="col-6">
+                      <q-input
+                        v-model="authNetCard.expiry"
+                        outlined dense
+                        mask="##/##"
+                        label="Expiry (MM/YY)"
+                        placeholder="MM/YY"
+                      />
+                    </div>
+                    <div class="col-6">
+                      <q-input
+                        v-model="authNetCard.cvc"
+                        outlined dense
+                        inputmode="numeric"
+                        maxlength="4"
+                        label="CVC"
+                        placeholder="123"
+                      />
+                    </div>
+                  </div>
+                  <div class="row items-center text-caption text-grey-6 q-mt-xs no-wrap">
+                    <q-icon name="o_lock" size="14px" class="q-mr-xs" />
+                    Tokenized securely by Authorize.Net — the store never sees your card number.
+                  </div>
+                </template>
+
+                <!-- Bank account (ACH / eCheck) -->
+                <template v-else>
+                  <div class="text-caption text-grey-7 q-mb-xs">Bank account details</div>
+                  <q-input
+                    v-model="authNetBank.nameOnAccount"
+                    outlined dense
+                    label="Name on account"
+                    placeholder="Full name as it appears on the account"
+                    class="q-mb-sm"
+                  />
+                  <div class="row q-col-gutter-sm q-mb-sm">
+                    <div class="col-12 col-sm-6">
+                      <q-input
+                        v-model="authNetBank.routingNumber"
+                        outlined dense
+                        inputmode="numeric"
+                        mask="#########"
+                        unmasked-value
+                        label="Routing number"
+                        placeholder="9 digits"
+                      />
+                    </div>
+                    <div class="col-12 col-sm-6">
+                      <q-input
+                        v-model="authNetBank.accountNumber"
+                        outlined dense
+                        inputmode="numeric"
+                        maxlength="17"
+                        label="Account number"
+                        placeholder="Account number"
+                      />
+                    </div>
+                  </div>
+                  <q-select
+                    v-model="authNetBank.accountType"
+                    outlined dense
+                    emit-value
+                    map-options
+                    :options="authNetAccountTypes"
+                    label="Account type"
+                  />
+                  <div class="row items-center text-caption text-grey-6 q-mt-xs no-wrap">
+                    <q-icon name="o_lock" size="14px" class="q-mr-xs" />
+                    Tokenized securely by Authorize.Net (eCheck) — the store never sees your account number.
+                  </div>
+                </template>
+              </template>
+            </div>
+
             <div v-if="paymentMethods.length" class="row items-center text-caption text-grey-6 q-mt-sm no-wrap">
               <q-icon name="o_lock" size="16px" class="q-mr-xs" />
               Payments are processed securely — the storefront never stores your card details.
@@ -673,7 +803,7 @@
  * the quote reports guest ordering is not allowed, the buyer is prompted to sign
  * in instead (AC-CHK-003.2 / AC-STR-001.5).
  */
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, computed, watch, onMounted, nextTick } from 'vue'
 import { LocalStorage } from 'quasar'
 import { useRouter, useRoute } from 'vue-router'
 import AppAddressForm from 'components/common/AppAddressForm.vue'
@@ -687,12 +817,16 @@ import { useCustomerAuthStore } from 'stores/customerAuth'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
 import { useRecaptcha } from 'modules/storefront/composables/useRecaptcha'
+import { useSquarePayment } from 'modules/storefront/composables/useSquarePayment'
+import { useAuthorizeNetPayment } from 'modules/storefront/composables/useAuthorizeNetPayment'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
 
 const { sessionId, cart, items, subtotal, appliedCouponCode, loading, refresh } = useCart()
 const { format, load: loadCurrencies } = useCurrency()
 const { getToken: getRecaptchaToken } = useRecaptcha()
+const square = useSquarePayment()
+const authNet = useAuthorizeNetPayment()
 const notify = useNotify()
 const router = useRouter()
 const route = useRoute()
@@ -1152,6 +1286,9 @@ watch(quoteSignature, () => {
   quote.value = null
   quoteError.value = ''
   selectedShippingMethodId.value = null
+  // The payment section (and the Square card's container) unmounts with the quote — drop the card field so a
+  // fresh quote re-attaches a new one rather than leaving it bound to a removed element.
+  square.destroy()
 })
 
 // Selecting a different shipping method re-quotes immediately for real-time totals.
@@ -1198,6 +1335,64 @@ watch(paymentMethods, (methods) => {
   else if (!methods.some((m) => m.value === paymentMethod.value)) paymentMethod.value = methods[0].value
 }, { immediate: true })
 
+// ---- Square on-site card field (Web Payments SDK) ---------------------------
+// Square takes the card on-site: a hosted field is rendered here and tokenized into a single-use nonce on
+// Place order (the nonce is sent as the paymentToken; the store never sees the card number).
+const squareConfig = square.config
+const squareCardError = ref('')
+// The quote offers Square as soon as its credential exists, but on-site card entry also needs the public
+// Application Id + Location Id. When those are missing the field can't render, so placement is blocked.
+const squareNotConfigured = computed(
+  () => paymentMethod.value === 'Square' && !!squareConfig.value && squareConfig.value.configured === false
+)
+
+// Mount the card field once Square is the chosen method and the payment section is on screen.
+async function ensureSquareCard () {
+  if (paymentMethod.value !== 'Square' || !canCollectDetails.value) return
+  squareCardError.value = ''
+  await nextTick()
+  const ok = await square.mount('#sq-card-container')
+  // A not-configured integration is surfaced by squareNotConfigured; only report an actual load failure here.
+  if (!ok && !(squareConfig.value && squareConfig.value.configured === false)) {
+    squareCardError.value = 'Could not load the Square card field. Check your connection and try again.'
+  }
+}
+
+watch([paymentMethod, canCollectDetails], ensureSquareCard)
+
+// ---- Authorize.Net on-site card fields (Accept.js) --------------------------
+// Authorize.Net takes the card in plain fields; on Place order Accept.js tokenizes them into a single-use
+// nonce (sent as the paymentToken) in the browser, so the raw card number never reaches our server.
+const authNetConfig = authNet.config
+const authNetCard = ref({ number: '', expiry: '', cvc: '' })
+// Authorize.Net offers two instruments on the same credential: a card or a bank account (ACH/eCheck). The
+// buyer picks one; both tokenize through Accept.js into the same kind of nonce and the server is told which.
+const authNetInstrument = ref('card') // 'card' | 'ach'
+const authNetInstrumentOptions = [
+  { label: 'Credit / debit card', value: 'card', icon: 'o_credit_card' },
+  { label: 'Bank account (ACH)', value: 'ach', icon: 'o_account_balance' }
+]
+// Labels shown to the buyer → the accountType values Accept.js expects for bankData.
+const authNetAccountTypes = [
+  { label: 'Checking', value: 'checking' },
+  { label: 'Savings', value: 'savings' },
+  { label: 'Business checking', value: 'businessChecking' }
+]
+const authNetBank = ref({ nameOnAccount: '', routingNumber: '', accountNumber: '', accountType: 'checking' })
+// Offered as soon as its credential exists, but on-site entry also needs the public API Login ID + Client Key.
+// When those are missing Accept.js can't tokenize, so placement is blocked (mirrors squareNotConfigured).
+const authNetNotConfigured = computed(
+  () => paymentMethod.value === 'AuthorizeNet' && !!authNetConfig.value && authNetConfig.value.configured === false
+)
+
+// Start loading Accept.js as soon as Authorize.Net is chosen and the payment section is on screen, so the
+// library is fully initialised before Place order tokenizes (mirrors Square mounting its field on select).
+async function ensureAuthNetSdk () {
+  if (paymentMethod.value !== 'AuthorizeNet' || !canCollectDetails.value) return
+  authNet.preload().catch(() => {})
+}
+watch([paymentMethod, canCollectDetails], ensureAuthNetSdk)
+
 // ---- Place ------------------------------------------------------------------
 const placing = ref(false)
 const placeError = ref('')
@@ -1215,6 +1410,8 @@ const canPlace = computed(
     items.value.length > 0 &&
     !!selectedShippingMethodId.value &&
     !!paymentMethod.value &&
+    !squareNotConfigured.value &&
+    !authNetNotConfigured.value &&
     !placing.value
 )
 
@@ -1228,6 +1425,33 @@ async function placeOrder () {
     if (!isPickup.value && isAuthed.value && selectedAddressId.value === 'new' && saveNewAddress.value) {
       await saveCurrentAddress().catch(() => {})
     }
+    // Square: tokenize the entered card into a single-use nonce (source id) before placing — the server
+    // charges this token. A tokenization error (empty/invalid card) stops placement with a clear message;
+    // the finally block resets `placing` on the early return.
+    let paymentToken = null
+    if (paymentMethod.value === 'Square') {
+      try {
+        paymentToken = await square.tokenize()
+      } catch (e) {
+        placeError.value = e.message || 'Please check your card details and try again.'
+        notify.error(placeError.value)
+        return
+      }
+    }
+    // Authorize.Net: tokenize the entered card OR bank account into an Accept.js nonce before placing — the
+    // server charges this token. A tokenization error (empty/invalid details) stops placement with a clear
+    // message. The instrument chosen here is sent alongside so the server applies the right (card/eCheck) rules.
+    if (paymentMethod.value === 'AuthorizeNet') {
+      try {
+        paymentToken = authNetInstrument.value === 'ach'
+          ? await authNet.tokenizeBank(authNetBank.value)
+          : await authNet.tokenize(authNetCard.value)
+      } catch (e) {
+        placeError.value = e.message || 'Please check your payment details and try again.'
+        notify.error(placeError.value)
+        return
+      }
+    }
     // reCAPTCHA token for the guest-checkout form (no-op when reCAPTCHA is disabled/unconfigured).
     const recaptchaToken = await getRecaptchaToken('guestCheckout')
     const result = await checkoutApi.place({
@@ -1236,7 +1460,10 @@ async function placeOrder () {
       shipTo: buildShipTo(),
       selectedShippingMethodId: selectedShippingMethodId.value,
       paymentMethod: paymentMethod.value,
-      paymentToken: null,
+      paymentToken,
+      // Only Authorize.Net distinguishes instruments; 'BankAccount' selects the ACH/eCheck path server-side.
+      paymentInstrument:
+        paymentMethod.value === 'AuthorizeNet' && authNetInstrument.value === 'ach' ? 'BankAccount' : null,
       couponCode: null,
       recaptchaToken,
       pickupInStore: isPickup.value,
@@ -1335,7 +1562,10 @@ async function openClientPaymentWidget (placeResult) {
     }
   })
   rzp.on('payment.failed', (response) => {
-    const msg = (response && response.error && response.error.description) || 'Your payment could not be processed.'
+    const err = (response && response.error) || {}
+    // Full gateway error (code / step / reason / source) pinpoints a rejection; description is buyer-facing.
+    console.error('Razorpay payment.failed:', err)
+    const msg = err.description || 'Your payment could not be processed.'
     notify.error(msg)
     retryState.value = { orderId: placeResult.orderId, message: msg }
   })
@@ -1443,6 +1673,10 @@ onMounted(() => {
   handlePaymentReturn()
   // Which stores allow collection — decides whether the fulfilment choice is offered at all.
   loadPickupStores()
+  // Warm the public Square config so the card field (or the not-configured notice) resolves without a click.
+  square.isConfigured().catch(() => {})
+  // Same for Authorize.Net, so its card fields (or the not-configured notice) resolve without a click.
+  authNet.isConfigured().catch(() => {})
   // Signed-in buyers get their profile + saved addresses (pick-or-add); guests restore any draft.
   if (isAuthed.value) loadAccountAddresses()
   else restoreContact()
@@ -1499,6 +1733,16 @@ body.body--dark .sf-payment-option--active {
 }
 body.body--dark .sf-payment-icon {
   background: rgba(255, 255, 255, 0.08);
+}
+
+.sf-square-card {
+  border: 1px solid rgba(0, 0, 0, 0.16);
+  border-radius: 6px;
+  padding: 8px 12px;
+  min-height: 44px;
+}
+body.body--dark .sf-square-card {
+  border-color: rgba(255, 255, 255, 0.22);
 }
 
 .confirm-card {

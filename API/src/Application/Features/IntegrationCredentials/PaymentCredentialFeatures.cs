@@ -283,6 +283,7 @@ public class SquareCredentialDto
     public bool IsProduction { get; set; }
     public string? BaseUrl { get; set; }
     public string? ApplicationId { get; set; }
+    public string? LocationId { get; set; }
     public string? AccessToken { get; set; }
     public string? ApplicationSecret { get; set; }
     public decimal? TransactionFeePercent { get; set; }
@@ -292,7 +293,8 @@ public class SquareCredentialDto
     public static SquareCredentialDto From(SquareCredential e) => new()
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
-        BaseUrl = e.BaseUrl, ApplicationId = e.ApplicationId, AccessToken = e.AccessToken, ApplicationSecret = e.ApplicationSecret,
+        BaseUrl = e.BaseUrl, ApplicationId = e.ApplicationId, LocationId = e.LocationId,
+        AccessToken = e.AccessToken, ApplicationSecret = e.ApplicationSecret,
         TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
@@ -321,7 +323,7 @@ public class GetSquareCredentialQueryHandler : IRequestHandler<GetSquareCredenti
 
 public record SaveSquareCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
-    string? BaseUrl, string? ApplicationId, string? AccessToken, string? ApplicationSecret,
+    string? BaseUrl, string? ApplicationId, string? LocationId, string? AccessToken, string? ApplicationSecret,
     decimal? TransactionFeePercent = null) : IRequest<SquareCredentialDto>;
 
 public class SaveSquareCredentialCommandValidator : AbstractValidator<SaveSquareCredentialCommand>
@@ -346,6 +348,7 @@ public class SaveSquareCredentialCommandHandler : IRequestHandler<SaveSquareCred
         var e = await IntegrationCredentialSupport.UpsertAsync(_db.SquareCredentials, request.Id, request.Name, request.Active, request.IsProduction, ct);
         e.BaseUrl = IntegrationCredentialSupport.Norm(request.BaseUrl);
         e.ApplicationId = IntegrationCredentialSupport.Norm(request.ApplicationId);
+        e.LocationId = IntegrationCredentialSupport.Norm(request.LocationId);
         e.AccessToken = IntegrationCredentialSupport.Norm(request.AccessToken);
         e.ApplicationSecret = IntegrationCredentialSupport.Norm(request.ApplicationSecret);
         e.TransactionFeePercent = request.TransactionFeePercent;
@@ -376,6 +379,7 @@ public class AuthorizeNetCredentialDto
     public string? ApplicationLoginId { get; set; }
     public string? TransactionKey { get; set; }
     public string? SignatureKey { get; set; }
+    public string? PublicClientKey { get; set; }
     public decimal? TransactionFeePercent { get; set; }
     public DateTime CreatedOnUtc { get; set; }
     public DateTime UpdatedOnUtc { get; set; }
@@ -384,6 +388,7 @@ public class AuthorizeNetCredentialDto
     {
         Id = e.Id, Name = e.Name, Active = e.Active, IsProduction = e.IsProduction,
         BaseUrl = e.BaseUrl, ApplicationLoginId = e.ApplicationLoginId, TransactionKey = e.TransactionKey, SignatureKey = e.SignatureKey,
+        PublicClientKey = e.PublicClientKey,
         TransactionFeePercent = e.TransactionFeePercent,
         CreatedOnUtc = e.CreatedOnUtc, UpdatedOnUtc = e.UpdatedOnUtc,
     };
@@ -413,7 +418,7 @@ public class GetAuthorizeNetCredentialQueryHandler : IRequestHandler<GetAuthoriz
 public record SaveAuthorizeNetCredentialCommand(
     Guid? Id, string Name, bool Active, bool IsProduction,
     string? BaseUrl, string? ApplicationLoginId, string? TransactionKey, string? SignatureKey,
-    decimal? TransactionFeePercent = null) : IRequest<AuthorizeNetCredentialDto>;
+    string? PublicClientKey = null, decimal? TransactionFeePercent = null) : IRequest<AuthorizeNetCredentialDto>;
 
 public class SaveAuthorizeNetCredentialCommandValidator : AbstractValidator<SaveAuthorizeNetCredentialCommand>
 {
@@ -425,6 +430,9 @@ public class SaveAuthorizeNetCredentialCommandValidator : AbstractValidator<Save
             .WithMessage("Base URL must be an absolute http(s) URL, e.g. https://apitest.authorize.net/xml/v1/request.api");
         RuleFor(x => x.ApplicationLoginId).NotEmpty();
         RuleFor(x => x.TransactionKey).NotEmpty();
+        // The storefront's Accept.js flow tokenizes the card with the API Login ID + Public Client Key, so the
+        // gateway cannot take a payment without it — require it rather than let checkout fail at charge time.
+        RuleFor(x => x.PublicClientKey).NotEmpty();
         RuleFor(x => x.TransactionFeePercent).InclusiveBetween(0m, 100m).When(x => x.TransactionFeePercent.HasValue);
     }
 }
@@ -440,6 +448,7 @@ public class SaveAuthorizeNetCredentialCommandHandler : IRequestHandler<SaveAuth
         e.ApplicationLoginId = IntegrationCredentialSupport.Norm(request.ApplicationLoginId);
         e.TransactionKey = IntegrationCredentialSupport.Norm(request.TransactionKey);
         e.SignatureKey = IntegrationCredentialSupport.Norm(request.SignatureKey);
+        e.PublicClientKey = IntegrationCredentialSupport.Norm(request.PublicClientKey);
         e.TransactionFeePercent = request.TransactionFeePercent;
         await _db.SaveChangesAsync(ct);
         return AuthorizeNetCredentialDto.From(e);

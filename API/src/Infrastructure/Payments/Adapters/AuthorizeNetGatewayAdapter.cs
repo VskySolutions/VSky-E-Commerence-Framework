@@ -5,6 +5,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
+using VSky.Domain.Common;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
 
@@ -31,7 +32,22 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
             if (auth is null)
                 return PaymentResult.Failed("Authorize.Net credentials are not configured (format 'apiLoginId:transactionKey').");
 
-            var type = mode == CaptureMode.AuthorizeOnly ? "authOnlyTransaction" : "authCaptureTransaction";
+            // The card OR bank account is tokenized in the browser by Accept.js into this opaque-data nonce
+            // (bankData tokenizes to the same descriptor as cardData). Without it there is nothing to charge —
+            // the gateway would reject the empty token with a generic error, so fail here with a message that
+            // names the real cause instead of surfacing an opaque "declined".
+            var isBankAccount = IsBankAccount(req);
+            if (string.IsNullOrWhiteSpace(req.PaymentToken))
+                return PaymentResult.Failed(isBankAccount
+                    ? "Authorize.Net requires your bank account details. Please enter them and try again."
+                    : "Authorize.Net requires card details. Please enter your card and try again.");
+
+            // ACH/eCheck settles as a single authCapture — Authorize.Net rejects authOnly for a bank account —
+            // so a bank-account payment always captures, ignoring an authorize-only capture mode. Cards honour
+            // the configured mode.
+            var type = mode == CaptureMode.AuthorizeOnly && !isBankAccount
+                ? "authOnlyTransaction"
+                : "authCaptureTransaction";
             var transactionRequest = new Dictionary<string, object?>
             {
                 ["transactionType"] = type,
@@ -81,12 +97,18 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
                 return PaymentResult.Failed("Authorize.Net refund requires the settled transaction id.");
 
             const string type = "refundTransaction";
+            // A linked refund (by refTransId) still echoes the original instrument. An eCheck/ACH charge must be
+            // refunded against a bank account, a card against a card — sending the wrong element is rejected. The
+            // real account/PAN was never on our servers (it was tokenized), so masked placeholders are used, as
+            // the gateway matches the refund on refTransId.
+            object paymentElement = PaymentInstruments.IsBankAccount(payment.PaymentInstrument)
+                ? new { bankAccount = new { accountType = "checking", routingNumber = "XXXX", accountNumber = "XXXX", nameOnAccount = "XXXX" } }
+                : new { creditCard = new { cardNumber = "XXXX", expirationDate = "XXXX" } };
             var transactionRequest = new Dictionary<string, object?>
             {
                 ["transactionType"] = type,
                 ["amount"] = Money(amount),
-                // A live refund echoes the masked card of the original charge; stored masked PAN is used there.
-                ["payment"] = new { creditCard = new { cardNumber = "XXXX", expirationDate = "XXXX" } },
+                ["payment"] = paymentElement,
                 ["refTransId"] = transId,
             };
 
@@ -96,15 +118,23 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
 
     private PaymentResult Map(JsonElement root, string transactionType, decimal amount)
     {
-        if (!root.TryGetProperty("transactionResponse", out var txn) || txn.ValueKind != JsonValueKind.Object)
-            return PaymentResult.Failed($"Authorize.Net: {DescribeError(root)}");
-
-        var responseCode = GetString(txn, "responseCode");
-        var transId = GetString(txn, "transId");
+        var hasTxn = root.TryGetProperty("transactionResponse", out var txn) && txn.ValueKind == JsonValueKind.Object;
+        // responseCode "1" = approved. Anything else (or a missing transactionResponse) is a failure.
+        var responseCode = hasTxn ? ReadCode(txn, "responseCode") : null;
 
         if (responseCode != "1")
-            return PaymentResult.Failed($"Authorize.Net declined (code {responseCode}): {DescribeTxnError(txn)}");
+        {
+            var reason = DescribeFailure(root, hasTxn ? txn : (JsonElement?)null);
+            // Log the raw response so the real cause (invalid token, auth failure, AVS/CVV decline, …) is
+            // diagnosable server-side — the buyer-facing string is necessarily terse.
+            Logger.LogWarning("Authorize.Net {Type} not approved (code '{Code}'): {Reason}. Raw: {Raw}",
+                transactionType, responseCode ?? string.Empty, reason, root.GetRawText());
+            return PaymentResult.Failed(string.IsNullOrEmpty(responseCode)
+                ? $"Authorize.Net error: {reason}"
+                : $"Authorize.Net declined (code {responseCode}): {reason}");
+        }
 
+        var transId = GetString(txn, "transId");
         return transactionType switch
         {
             "authOnlyTransaction" => PaymentResult.Authorized(transId, transId),
@@ -157,11 +187,39 @@ public class AuthorizeNetGatewayAdapter : PaymentGatewayAdapterBase
 
     private static string Money(decimal amount) => amount.ToString("0.00", CultureInfo.InvariantCulture);
 
-    private static string DescribeTxnError(JsonElement txn)
+    /// <summary>True when the request's instrument metadata marks this as an ACH/eCheck bank-account payment.</summary>
+    private static bool IsBankAccount(PaymentRequest req)
+        => req.Metadata is { } m
+           && m.TryGetValue(PaymentInstruments.MetadataKey, out var instrument)
+           && PaymentInstruments.IsBankAccount(instrument);
+
+    /// <summary>
+    /// The most specific human-readable failure reason available: the transaction-level error text if present,
+    /// else the top-level Authorize.Net message (auth failures, invalid Accept.js tokens, and validation errors
+    /// surface there rather than under transactionResponse), else a generic fallback.
+    /// </summary>
+    private static string DescribeFailure(JsonElement root, JsonElement? txn)
     {
-        if (txn.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array && errors.GetArrayLength() > 0)
-            return GetString(errors[0], "errorText") ?? "declined";
-        return "declined";
+        if (txn is { } t
+            && t.TryGetProperty("errors", out var errors)
+            && errors.ValueKind == JsonValueKind.Array && errors.GetArrayLength() > 0)
+        {
+            var text = GetString(errors[0], "errorText");
+            if (!string.IsNullOrWhiteSpace(text)) return text!;
+        }
+        return DescribeError(root);
+    }
+
+    /// <summary>Authorize.Net returns responseCode as a JSON string ("1"), but tolerate a numeric 1 as well.</summary>
+    private static string? ReadCode(JsonElement element, string name)
+    {
+        if (!element.TryGetProperty(name, out var value)) return null;
+        return value.ValueKind switch
+        {
+            JsonValueKind.String => value.GetString(),
+            JsonValueKind.Number => value.TryGetInt64(out var n) ? n.ToString(CultureInfo.InvariantCulture) : value.GetRawText(),
+            _ => null,
+        };
     }
 
     private static string DescribeError(JsonElement root)

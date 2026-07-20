@@ -62,14 +62,20 @@ public sealed class SquareCredentialConfig : IntegrationCredentialConfig<SquareC
 {
     protected override string TableName => "Credentials_Square";
     protected override void ConfigureFields(EntityTypeBuilder<SquareCredential> b)
-        => b.Property(x => x.ApplicationId).HasMaxLength(200);
+    {
+        b.Property(x => x.ApplicationId).HasMaxLength(200);
+        b.Property(x => x.LocationId).HasMaxLength(100);
+    }
 }
 
 public sealed class AuthorizeNetCredentialConfig : IntegrationCredentialConfig<AuthorizeNetCredential>
 {
     protected override string TableName => "Credentials_AuthorizeNet";
     protected override void ConfigureFields(EntityTypeBuilder<AuthorizeNetCredential> b)
-        => b.Property(x => x.ApplicationLoginId).HasMaxLength(200);
+    {
+        b.Property(x => x.ApplicationLoginId).HasMaxLength(200);
+        b.Property(x => x.PublicClientKey).HasMaxLength(200);
+    }
 }
 
 // ---- Tax providers ---------------------------------------------------------

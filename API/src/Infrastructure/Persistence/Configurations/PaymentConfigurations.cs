@@ -13,6 +13,7 @@ public class PaymentRecordConfiguration : IEntityTypeConfiguration<PaymentRecord
         b.Property(x => x.Method).HasConversion<int>();
         b.Property(x => x.Status).HasConversion<int>();
         b.Property(x => x.GatewayName).HasMaxLength(100);
+        b.Property(x => x.PaymentInstrument).HasMaxLength(20);
         b.Property(x => x.Amount).HasPrecision(18, 2);
         b.Property(x => x.RefundedAmount).HasPrecision(18, 2);
         b.Property(x => x.CurrencyCode).HasMaxLength(3);

@@ -40,7 +40,7 @@ public class CredentialVault : ICredentialVault
             "stripe"       => Resolve(await ActiveAsync(_db.StripeCredentials, cancellationToken), c => Json(new { secretKey = c.SecretKey, returnUrl = c.ReturnUrl })),
             "paypal"       => Resolve(await ActiveAsync(_db.PayPalCredentials, cancellationToken), c => Pair(c.ClientId, c.SecretKey), c => c.BaseUrl, c => c.ReturnUrl),
             "razorpay"     => Resolve(await ActiveAsync(_db.RazorpayCredentials, cancellationToken), c => Pair(c.KeyId, c.KeySecret), c => c.BaseUrl),
-            "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), c => c.AccessToken, c => c.BaseUrl),
+            "square"       => Resolve(await ActiveAsync(_db.SquareCredentials, cancellationToken), SquareValue, c => c.BaseUrl),
             "authorizenet" => Resolve(await ActiveAsync(_db.AuthorizeNetCredentials, cancellationToken), c => Pair(c.ApplicationLoginId, c.TransactionKey), c => c.BaseUrl),
             // Tax providers
             "taxjar"       => Resolve(await ActiveAsync(_db.TaxJarCredentials, cancellationToken), c => c.SecretKey, c => c.BaseUrl),
@@ -85,6 +85,16 @@ public class CredentialVault : ICredentialVault
     /// <summary>Colon-joined "id:secret" pair; null unless both halves are present.</summary>
     private static string? Pair(string? left, string? right)
         => string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right) ? null : $"{left}:{right}";
+
+    /// <summary>
+    /// Square's runtime value: a small JSON envelope of the access token plus the (optional) Location id, so
+    /// the adapter can both authenticate and stamp the charge with the location. Null — so the gateway is not
+    /// offered — unless the access token is present, matching the "configured means usable" rule of the others.
+    /// </summary>
+    private static string? SquareValue(SquareCredential c)
+        => string.IsNullOrWhiteSpace(c.AccessToken)
+            ? null
+            : Json(new { accessToken = c.AccessToken, locationId = c.LocationId });
 
     /// <summary>Serializes the projected shape (using its runtime type so its members are emitted).</summary>
     private static string Json(object shape) => JsonSerializer.Serialize(shape, shape.GetType());

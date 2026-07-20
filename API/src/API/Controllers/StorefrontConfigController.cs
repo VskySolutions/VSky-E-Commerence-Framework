@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VSky.Application.Features.Payments;
 using VSky.Application.Features.Recaptcha;
 
 namespace VSky.API.Controllers;
@@ -13,4 +14,14 @@ public class StorefrontConfigController : ApiControllerBase
     [HttpGet("recaptcha")]
     public async Task<ActionResult<PublicRecaptchaConfigDto>> Recaptcha()
         => Ok(await Mediator.Send(new GetPublicRecaptchaConfigQuery()));
+
+    /// <summary>Public Square Web Payments SDK config (Application Id, Location Id, environment) — never secrets.</summary>
+    [HttpGet("square")]
+    public async Task<ActionResult<PublicSquareConfigDto>> Square()
+        => Ok(await Mediator.Send(new GetPublicSquareConfigQuery()));
+
+    /// <summary>Public Authorize.Net Accept.js config (API Login ID, Public Client Key, environment) — never secrets.</summary>
+    [HttpGet("authorizenet")]
+    public async Task<ActionResult<PublicAuthorizeNetConfigDto>> AuthorizeNet()
+        => Ok(await Mediator.Send(new GetPublicAuthorizeNetConfigQuery()));
 }

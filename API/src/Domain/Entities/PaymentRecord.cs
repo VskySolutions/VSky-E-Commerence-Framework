@@ -14,6 +14,16 @@ public class PaymentRecord : AuditableEntity
 
     public PaymentMethodType Method { get; set; }
     public string? GatewayName { get; set; }
+
+    /// <summary>
+    /// The payment instrument within the gateway, when the gateway supports more than one on the same
+    /// credential — currently "BankAccount" for an Authorize.Net ACH/eCheck payment, else null/"Card".
+    /// Persisted because eCheck and card diverge on capture/refund (ACH is capture-only, and an eCheck
+    /// refund references a bank account rather than a credit card) — the stored value tells the later
+    /// capture/refund which path to take. See <see cref="Common.PaymentInstruments"/>.
+    /// </summary>
+    public string? PaymentInstrument { get; set; }
+
     public PaymentStatus Status { get; set; } = PaymentStatus.Pending;
 
     public decimal Amount { get; set; }

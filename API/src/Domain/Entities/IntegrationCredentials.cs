@@ -70,7 +70,20 @@ public class SquareCredential : IntegrationCredentialBase
 {
     /// <summary>API host this credential belongs to — sandbox and live have different hosts. Required.</summary>
     public string? BaseUrl { get; set; }
+
+    /// <summary>
+    /// The Square Application ID. Public (not a secret): the storefront's Web Payments SDK needs it — with
+    /// the <see cref="LocationId"/> — to render the card field and tokenize the card into a nonce.
+    /// </summary>
     public string? ApplicationId { get; set; }
+
+    /// <summary>
+    /// The Square Location payments are taken at. Public: the Web Payments SDK needs it to initialise, and it
+    /// is sent on CreatePayment so the charge is attributed to the right location. Optional — omitting it
+    /// charges the account's main location.
+    /// </summary>
+    public string? LocationId { get; set; }
+
     [Encrypted] public string? AccessToken { get; set; }
     [Encrypted] public string? ApplicationSecret { get; set; }
 }
@@ -83,6 +96,14 @@ public class AuthorizeNetCredential : IntegrationCredentialBase
     public string? ApplicationLoginId { get; set; }
     [Encrypted] public string? TransactionKey { get; set; }
     [Encrypted] public string? SignatureKey { get; set; }
+
+    /// <summary>
+    /// The Accept.js Public Client Key. Public (not a secret): the storefront's Accept.js library needs it —
+    /// with the <see cref="ApplicationLoginId"/> — to tokenize the entered card into an opaque-data nonce in
+    /// the browser, so the raw card number never reaches the server. Generated in the Authorize.Net Merchant
+    /// Interface (Account → Settings → Manage Public Client Key); distinct from the Transaction/Signature keys.
+    /// </summary>
+    public string? PublicClientKey { get; set; }
 }
 
 // ---- Tax providers ---------------------------------------------------------

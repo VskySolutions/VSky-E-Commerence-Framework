@@ -7,6 +7,7 @@ using VSky.Application.Common.Interfaces;
 using VSky.Application.Common.Models;
 using VSky.Application.Features.Checkout;
 using VSky.Application.Features.OrderRouting;
+using VSky.Domain.Common;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
 
@@ -236,11 +237,16 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         await _db.SaveChangesAsync(ct);
 
         // 8b. Create a payment record and authorize it through the gateway router (applies the gateway's capture mode).
+        // The instrument is only meaningful for a gateway that charges more than one on the same credential
+        // (Authorize.Net: card vs. ACH/eCheck); it stays null for every other method. It is both stored on the
+        // record (so a later capture/refund knows) and passed to the adapter via the request metadata.
+        var instrument = ResolvePaymentInstrument(req.PaymentMethod, req.PaymentInstrument);
         var payment = new PaymentRecord
         {
             OrderId = order.Id,
             Method = req.PaymentMethod,
             GatewayName = req.PaymentMethod.ToString(),
+            PaymentInstrument = instrument,
             Amount = grandTotal,
             CurrencyCode = order.CurrencyCode,
             Status = PaymentStatus.Pending,
@@ -249,7 +255,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         var payResult = await _payments.AuthorizeAsync(
             new PaymentRequest(order.Id, req.PaymentMethod, grandTotal, order.CurrencyCode, req.PaymentToken,
-                OrderNumber: order.OrderNumber),
+                OrderNumber: order.OrderNumber, Metadata: InstrumentMetadata(instrument)),
             ct);
 
         payment.Status = payResult.Status;
@@ -469,10 +475,10 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             .FirstOrDefaultAsync(ct);
         var method = payment?.Method ?? PaymentMethodType.Stripe;
 
-        // Re-open a payment session for the same pending order.
+        // Re-open a payment session for the same pending order (carry the original instrument forward).
         var payResult = await _payments.AuthorizeAsync(
             new PaymentRequest(order.Id, method, order.TotalAmount, order.CurrencyCode, null,
-                OrderNumber: order.OrderNumber), ct);
+                OrderNumber: order.OrderNumber, Metadata: InstrumentMetadata(payment?.PaymentInstrument)), ct);
 
         if (payResult.RedirectUrl is not null)
         {
@@ -507,6 +513,24 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         return OrderResult(order, success: false,
             error: payResult.ErrorMessage ?? "Could not start payment. Please try again.", redirectUrl: null);
     }
+
+    /// <summary>
+    /// Normalizes the client-supplied instrument into the value stored on the payment record. Only
+    /// Authorize.Net distinguishes instruments (card vs. ACH/eCheck): "BankAccount" when the buyer chose
+    /// ACH, otherwise "Card". Every other method has a single instrument, so this is null for them.
+    /// </summary>
+    private static string? ResolvePaymentInstrument(PaymentMethodType method, string? requested)
+    {
+        if (method != PaymentMethodType.AuthorizeNet)
+            return null;
+        return PaymentInstruments.IsBankAccount(requested) ? PaymentInstruments.BankAccount : PaymentInstruments.Card;
+    }
+
+    /// <summary>Wraps a resolved instrument as payment-request metadata (null when there is no instrument to carry).</summary>
+    private static IDictionary<string, string>? InstrumentMetadata(string? instrument)
+        => string.IsNullOrEmpty(instrument)
+            ? null
+            : new Dictionary<string, string> { [PaymentInstruments.MetadataKey] = instrument };
 
     /// <summary>
     /// The side-effects raised once an order is both placed AND paid: redeem the coupon, publish the

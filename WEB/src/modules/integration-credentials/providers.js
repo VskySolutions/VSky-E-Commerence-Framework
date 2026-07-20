@@ -76,7 +76,7 @@ export const INTEGRATIONS = [
   },
   {
     key: 'square', kind: 'credential', label: 'Square', category: 'Payments', icon: 'o_qr_code_2',
-    description: 'Square payments.',
+    description: 'Square payments (on-site card entry via the Web Payments SDK).',
     fields: [
       {
         key: 'baseUrl',
@@ -85,7 +85,14 @@ export const INTEGRATIONS = [
         placeholder: 'https://connect.squareupsandbox.com/v2',
         hints: ['Sandbox: https://connect.squareupsandbox.com/v2', 'Live: https://connect.squareup.com/v2']
       },
-      { key: 'applicationId', label: 'Application ID' },
+      {
+        key: 'applicationId', label: 'Application ID', placeholder: 'sandbox-sq0idb-… / sq0idp-…',
+        hints: ['Public app id the storefront card field (Web Payments SDK) uses — required to take card payments.']
+      },
+      {
+        key: 'locationId', label: 'Location ID', placeholder: 'e.g. L1A2B3C4D5E6F',
+        hints: ['The Square Location payments are taken at — required by the storefront card field and stamped on each charge.']
+      },
       { key: 'accessToken', label: 'Access Token', secret: true, required: true },
       { key: 'applicationSecret', label: 'Application Secret', secret: true },
       TRANSACTION_FEE_FIELD
@@ -108,6 +115,15 @@ export const INTEGRATIONS = [
       { key: 'applicationLoginId', label: 'API Login ID', required: true },
       { key: 'transactionKey', label: 'Transaction Key', secret: true, required: true },
       { key: 'signatureKey', label: 'Signature Key', secret: true },
+      {
+        key: 'publicClientKey',
+        label: 'Public Client Key',
+        required: true,
+        hints: [
+          'Public key the storefront uses to tokenize the card (Accept.js). Not a secret.',
+          'Authorize.Net Merchant Interface → Account → Settings → Manage Public Client Key.'
+        ]
+      },
       TRANSACTION_FEE_FIELD
     ]
   },
