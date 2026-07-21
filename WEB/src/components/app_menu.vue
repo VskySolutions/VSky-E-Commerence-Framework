@@ -1,24 +1,11 @@
 <template>
   <q-list padding class="app-menu">
-    <!-- Collapse / expand all groups. -->
-    <div class="app-menu__tools row items-center justify-end q-px-sm q-pb-xs">
-      <q-btn
-        flat
-        dense
-        no-caps
-        size="sm"
-        color="grey-7"
-        :icon="allCollapsed ? 'o_unfold_more' : 'o_unfold_less'"
-        :label="allCollapsed ? 'Expand all' : 'Collapse all'"
-        @click="toggleAll"
-      />
-    </div>
-
     <template v-for="(section, si) in visibleSections" :key="si">
-      <!-- Header-less section (Dashboard): always visible, never collapsible. -->
+      <!-- Header-less section (Dashboard): always visible, never collapsible. The
+           collapse/expand-all control is merged into the Dashboard row, on the right. -->
       <template v-if="!section.header">
         <q-item
-          v-for="item in section.items"
+          v-for="(item, ii) in section.items"
           :key="item.to"
           v-ripple
           clickable
@@ -29,6 +16,22 @@
             <q-icon :name="item.icon" />
           </q-item-section>
           <q-item-section>{{ item.label }}</q-item-section>
+          <q-item-section v-if="ii === 0" side>
+            <q-btn
+              flat
+              dense
+              round
+              size="sm"
+              color="grey-6"
+              :icon="allCollapsed ? 'o_unfold_more' : 'o_unfold_less'"
+              :aria-label="allCollapsed ? 'Expand all menu groups' : 'Collapse all menu groups'"
+              @click.stop.prevent="toggleAll"
+            >
+              <q-tooltip anchor="center right" self="center left">
+                {{ allCollapsed ? 'Expand all groups' : 'Collapse all groups' }}
+              </q-tooltip>
+            </q-btn>
+          </q-item-section>
         </q-item>
         <q-separator v-if="si < visibleSections.length - 1" class="q-my-sm" />
       </template>
@@ -239,10 +242,6 @@ function toggleAll () {
 </script>
 
 <style scoped lang="scss">
-.app-menu__tools {
-  min-height: 28px;
-}
-
 // Keep the collapsible group header visually identical to the previous static caption header
 // (compact, uppercase, muted) — just now clickable with a chevron.
 .app-menu :deep(.app-menu__header) {
