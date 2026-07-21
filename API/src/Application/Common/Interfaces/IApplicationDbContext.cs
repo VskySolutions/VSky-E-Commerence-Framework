@@ -127,6 +127,10 @@ public interface IApplicationDbContext
     DbSet<Language> Languages { get; }
     DbSet<ContentTranslation> ContentTranslations { get; }
 
+    // Phase 5 — catalog engagement (WO-14 reviews, WO-58 Q&A)
+    DbSet<ProductReview> ProductReviews { get; }
+    DbSet<ProductQuestion> ProductQuestions { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

@@ -33,6 +33,11 @@ public static class Modules
     public const string Webhooks = "Webhooks";
     public const string Languages = "Languages";
     public const string EmailLog = "EmailLog";
+    // Phase 5
+    public const string Cms = "Cms";
+    public const string Dashboard = "Dashboard";
+    public const string Logs = "Logs";
+    public const string AuditTrail = "AuditTrail";
 
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
@@ -60,6 +65,10 @@ public static class Modules
         new(Webhooks, "Webhooks"),
         new(Languages, "Languages & Translations"),
         new(EmailLog, "Email Log"),
+        new(Cms, "CMS / Content"),
+        new(Dashboard, "Dashboard & Reports"),
+        new(Logs, "Application Logs"),
+        new(AuditTrail, "Audit Trail"),
     };
 
     private static readonly HashSet<string> Keys = new(All.Select(m => m.Key), StringComparer.Ordinal);

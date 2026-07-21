@@ -148,6 +148,10 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<Language> Languages => Set<Language>();
     public DbSet<ContentTranslation> ContentTranslations => Set<ContentTranslation>();
 
+    // Phase 5 — catalog engagement (WO-14 reviews, WO-58 Q&A)
+    public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
+    public DbSet<ProductQuestion> ProductQuestions => Set<ProductQuestion>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
