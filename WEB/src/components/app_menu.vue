@@ -1,25 +1,67 @@
 <template>
   <q-list padding class="app-menu">
+    <!-- Collapse / expand all groups. -->
+    <div class="app-menu__tools row items-center justify-end q-px-sm q-pb-xs">
+      <q-btn
+        flat
+        dense
+        no-caps
+        size="sm"
+        color="grey-7"
+        :icon="allCollapsed ? 'o_unfold_more' : 'o_unfold_less'"
+        :label="allCollapsed ? 'Expand all' : 'Collapse all'"
+        @click="toggleAll"
+      />
+    </div>
+
     <template v-for="(section, si) in visibleSections" :key="si">
-      <q-item-label v-if="section.header" header class="text-uppercase text-caption text-grey-7">
-        {{ section.header }}
-      </q-item-label>
+      <!-- Header-less section (Dashboard): always visible, never collapsible. -->
+      <template v-if="!section.header">
+        <q-item
+          v-for="item in section.items"
+          :key="item.to"
+          v-ripple
+          clickable
+          :to="item.to"
+          exact
+        >
+          <q-item-section avatar>
+            <q-icon :name="item.icon" />
+          </q-item-section>
+          <q-item-section>{{ item.label }}</q-item-section>
+        </q-item>
+        <q-separator v-if="si < visibleSections.length - 1" class="q-my-sm" />
+      </template>
 
-      <q-item
-        v-for="item in section.items"
-        :key="item.to"
-        v-ripple
-        clickable
-        :to="item.to"
-        exact
-      >
-        <q-item-section avatar>
-          <q-icon :name="item.icon" />
-        </q-item-section>
-        <q-item-section>{{ item.label }}</q-item-section>
-      </q-item>
-
-      <q-separator v-if="si < visibleSections.length - 1" class="q-my-sm" />
+      <!-- Collapsible grouped section: click the header to expand/collapse; state persisted. -->
+      <template v-else>
+        <q-expansion-item
+          :model-value="isOpen(section.header)"
+          :label="section.header"
+          dense
+          dense-toggle
+          :duration="180"
+          header-class="app-menu__header text-uppercase text-caption text-grey-7"
+          expand-icon-class="app-menu__chevron"
+          :content-inset-level="0"
+          @update:model-value="(val) => setOpen(section.header, val)"
+        >
+          <q-item
+            v-for="item in section.items"
+            :key="item.to"
+            v-ripple
+            clickable
+            :to="item.to"
+            exact
+          >
+            <q-item-section avatar>
+              <q-icon :name="item.icon" />
+            </q-item-section>
+            <q-item-section>{{ item.label }}</q-item-section>
+          </q-item>
+        </q-expansion-item>
+        <q-separator v-if="si < visibleSections.length - 1" class="q-my-sm" />
+      </template>
     </template>
   </q-list>
 </template>
@@ -31,10 +73,15 @@
  * a section or item may carry a `roles` array to gate by role. Platform-infrastructure lives
  * in a SuperAdmin-only "Platform" section; the store-operations sections are shared by
  * SuperAdmin and the store admin (TenantAdmin). Sections whose items all filter out are dropped.
+ *
+ * Each headed group is COLLAPSIBLE (q-expansion-item); the open/closed state is persisted per
+ * header to LocalStorage so it survives navigation and reloads. The header-less first group
+ * (Dashboard) is always visible.
  */
-import { computed } from 'vue'
+import { computed, reactive } from 'vue'
 import { usePermissions, Permissions } from 'composables/usePermissions'
 import { useAuthStore } from 'stores/auth'
+import { STORAGE_KEYS, getItem, setItem } from 'services/storage'
 
 const { hasAny } = usePermissions()
 const auth = useAuthStore()
@@ -152,4 +199,59 @@ const visibleSections = computed(() =>
     .map((section) => ({ ...section, items: section.items.filter(isVisible) }))
     .filter((section) => section.items.length > 0)
 )
+
+// Persisted collapsed state, keyed by section header ({ [header]: true = collapsed }).
+// Default: every group expanded, so the menu behaves as before until the user collapses one.
+const storedCollapsed = getItem(STORAGE_KEYS.MENU_COLLAPSED, {})
+const collapsed = reactive(
+  storedCollapsed && typeof storedCollapsed === 'object' && !Array.isArray(storedCollapsed)
+    ? { ...storedCollapsed }
+    : {}
+)
+
+function persist () {
+  setItem(STORAGE_KEYS.MENU_COLLAPSED, { ...collapsed })
+}
+
+function isOpen (header) {
+  return collapsed[header] !== true
+}
+
+function setOpen (header, open) {
+  collapsed[header] = !open
+  persist()
+}
+
+// The collapsible (headed) groups currently visible.
+const collapsibleHeaders = computed(() =>
+  visibleSections.value.filter((s) => s.header).map((s) => s.header)
+)
+
+const allCollapsed = computed(() =>
+  collapsibleHeaders.value.length > 0 && collapsibleHeaders.value.every((h) => collapsed[h] === true)
+)
+
+function toggleAll () {
+  const collapse = !allCollapsed.value
+  for (const h of collapsibleHeaders.value) collapsed[h] = collapse
+  persist()
+}
 </script>
+
+<style scoped lang="scss">
+.app-menu__tools {
+  min-height: 28px;
+}
+
+// Keep the collapsible group header visually identical to the previous static caption header
+// (compact, uppercase, muted) — just now clickable with a chevron.
+.app-menu :deep(.app-menu__header) {
+  min-height: 34px;
+  letter-spacing: 0.4px;
+  padding-right: 8px;
+}
+
+.app-menu :deep(.app-menu__chevron) {
+  color: var(--q-grey-6, #9e9e9e);
+}
+</style>

@@ -16,6 +16,7 @@ export const STORAGE_KEYS = Object.freeze({
   MUST_CHANGE_PASSWORD: 'mustChangePassword',
   LEFT_DRAWER_OPEN: 'leftDrawerOpen',
   FORM_DRAWER_WIDTH: 'formDrawerWidth',
+  MENU_COLLAPSED: 'menuCollapsed',
 
   // Storefront customer session — a SEPARATE namespace from the admin session
   // above, so a shopper's login never collides with an admin's (isolated auth).
