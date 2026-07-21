@@ -56,7 +56,7 @@ const sections = [
       { label: 'Tax', icon: 'o_receipt', to: '/tax', permissions: [Permissions.SettingsRead] },
       { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
       { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
-      // { label: 'Reports', icon: 'o_bar_chart', to: '/reports', permissions: [Permissions.StoresRead] },
+      { label: 'Subscriptions', icon: 'o_autorenew', to: '/subscriptions', permissions: [Permissions.OrdersRead] },
     ]
   },
   {
@@ -66,7 +66,26 @@ const sections = [
       { label: 'Categories', icon: 'o_account_tree', to: '/catalog/categories', permissions: [Permissions.CatalogRead] },
       { label: 'Products', icon: 'o_inventory_2', to: '/catalog/products', permissions: [Permissions.CatalogRead] },
       { label: 'Attributes', icon: 'o_tune', to: '/catalog/attributes', permissions: [Permissions.CatalogRead] },
-      { label: 'Promotions', icon: 'o_local_offer', to: '/promotions', permissions: [Permissions.CatalogRead] }
+      { label: 'Promotions', icon: 'o_local_offer', to: '/promotions', permissions: [Permissions.CatalogRead] },
+      { label: 'Reviews', icon: 'o_reviews', to: '/catalog/reviews', permissions: [Permissions.CatalogRead] },
+      { label: 'Loyalty Points', icon: 'o_loyalty', to: '/loyalty', permissions: [Permissions.CatalogRead] }
+    ]
+  },
+  {
+    header: 'CMS',
+    items: [
+      { label: 'Pages', icon: 'o_description', to: '/cms/pages', permissions: [Permissions.CmsRead] },
+      { label: 'Page Groups', icon: 'o_folder', to: '/cms/page-groups', permissions: [Permissions.CmsRead] },
+      { label: 'Blog', icon: 'o_article', to: '/cms/blog', permissions: [Permissions.CmsRead] },
+      { label: 'Banners', icon: 'o_view_carousel', to: '/cms/banners', permissions: [Permissions.CmsRead] },
+      { label: 'Home Sections', icon: 'o_dashboard_customize', to: '/cms/home-sections', permissions: [Permissions.CmsRead] },
+      { label: 'Collections', icon: 'o_collections_bookmark', to: '/cms/collections', permissions: [Permissions.CmsRead] },
+      { label: 'Featured', icon: 'o_star', to: '/cms/featured', permissions: [Permissions.CmsRead] },
+      { label: 'Category Config', icon: 'o_category', to: '/cms/category-config', permissions: [Permissions.CmsRead] },
+      { label: 'Search Content', icon: 'o_search', to: '/cms/search-content', permissions: [Permissions.CmsRead] },
+      { label: 'Product Q&A', icon: 'o_forum', to: '/cms/product-qa', permissions: [Permissions.CmsRead] },
+      { label: 'Newsletter', icon: 'o_email', to: '/cms/newsletter', permissions: [Permissions.CmsRead] },
+      { label: 'SEO', icon: 'o_travel_explore', to: '/cms/seo', permissions: [Permissions.CmsRead] }
     ]
   },
   {
@@ -90,6 +109,15 @@ const sections = [
     items: [
       { label: 'Email Templates', icon: 'o_mail', to: '/email-templates', permissions: [Permissions.EmailTemplatesRead] },
       { label: 'Email Log', icon: 'o_history', to: '/email-log', permissions: [Permissions.EmailLogRead] }
+    ]
+  },
+  {
+    header: 'Reports & Logs',
+    items: [
+      { label: 'Analytics', icon: 'o_insights', to: '/analytics', permissions: [Permissions.DashboardRead] },
+      { label: 'Reports', icon: 'o_bar_chart', to: '/operational-reports', permissions: [Permissions.DashboardRead] },
+      { label: 'Logs', icon: 'o_bug_report', to: '/logs', permissions: [Permissions.LogsRead] },
+      { label: 'Audit Trail', icon: 'o_fact_check', to: '/audit-trail', permissions: [Permissions.AuditTrailRead] }
     ]
   },
   {

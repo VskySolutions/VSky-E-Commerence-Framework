@@ -42,6 +42,19 @@ import storefrontRoutes from 'modules/storefront/routes'
 import emailLogRoutes from 'modules/email-log/routes'
 import adminAlertsRoutes from 'modules/admin-alerts/routes'
 import webhooksRoutes from 'modules/webhooks/routes'
+// Phase 5 admin modules
+import reviewsRoutes from 'modules/reviews/routes'
+import productQaRoutes from 'modules/product-qa/routes'
+import loyaltyRoutes from 'modules/loyalty/routes'
+import subscriptionsRoutes from 'modules/subscriptions/routes'
+import cmsRoutes from 'modules/cms/routes'
+import cmsContentRoutes from 'modules/cms-content/routes'
+import cmsDynamicRoutes from 'modules/cms-dynamic/routes'
+import cmsSeoRoutes from 'modules/cms-seo/routes'
+import analyticsRoutes from 'modules/analytics/routes'
+import logViewerRoutes from 'modules/log-viewer/routes'
+import auditTrailRoutes from 'modules/audit-trail/routes'
+import operationalReportsRoutes from 'modules/reports/operational-routes'
 
 // Append every app-module child route under the authenticated shell.
 const moduleChildren = [
@@ -66,7 +79,19 @@ const moduleChildren = [
   ...taxExemptionRoutes,
   ...emailLogRoutes,
   ...adminAlertsRoutes,
-  ...webhooksRoutes
+  ...webhooksRoutes,
+  ...reviewsRoutes,
+  ...productQaRoutes,
+  ...loyaltyRoutes,
+  ...subscriptionsRoutes,
+  ...cmsRoutes,
+  ...cmsContentRoutes,
+  ...cmsDynamicRoutes,
+  ...cmsSeoRoutes,
+  ...analyticsRoutes,
+  ...logViewerRoutes,
+  ...auditTrailRoutes,
+  ...operationalReportsRoutes
 ]
 appShellRoute.children.push(...moduleChildren)
 
