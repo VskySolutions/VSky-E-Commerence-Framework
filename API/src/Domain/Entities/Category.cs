@@ -26,6 +26,9 @@ public class Category : AuditableEntity, ISoftDeletable
     public int DisplayOrder { get; set; }
     public bool IsEnabled { get; set; } = true;
 
+    /// <summary>Marks the category for the storefront "Featured Categories" showcase (WO-98).</summary>
+    public bool IsFeatured { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 

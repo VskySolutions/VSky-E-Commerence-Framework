@@ -38,6 +38,7 @@ public class CategoryConfiguration : IEntityTypeConfiguration<Category>
 
         b.HasIndex(x => x.ParentId);
         b.HasIndex(x => x.Slug).IsUnique().HasFilter("[Slug] IS NOT NULL AND [Deleted] = 0");
+        b.HasIndex(x => x.IsFeatured);
         b.HasQueryFilter(x => !x.Deleted);
     }
 }

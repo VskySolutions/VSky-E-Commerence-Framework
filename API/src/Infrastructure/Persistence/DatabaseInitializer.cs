@@ -40,6 +40,7 @@ public class DatabaseInitializer
         await SeedEmailTemplatesAsync(cancellationToken);
         await SeedBaseCurrencyAsync(cancellationToken);
         await SeedTaxCategoriesAsync(cancellationToken);
+        await SeedCmsContentAsync(cancellationToken);
     }
 
     private async Task SeedRolesAsync(CancellationToken ct)
@@ -165,6 +166,37 @@ public class DatabaseInitializer
         });
         await _db.SaveChangesAsync(ct);
         _logger.LogInformation("Seeded default tax category (Standard).");
+    }
+
+    /// <summary>
+    /// Seeds the pre-configured CMS page groups and informational pages (WO-54). Idempotent by slug:
+    /// groups are inserted first (pages reference them by fixed Guid), then pages that don't already exist.
+    /// </summary>
+    private async Task SeedCmsContentAsync(CancellationToken ct)
+    {
+        var seedGroups = DefaultCmsContent.BuildGroups();
+        var existingGroupSlugs = await _db.CMSPageGroups.Select(g => g.Slug).ToListAsync(ct);
+        var groupsToAdd = seedGroups.Where(g => !existingGroupSlugs.Contains(g.Slug)).ToList();
+        if (groupsToAdd.Count > 0)
+        {
+            await _db.CMSPageGroups.AddRangeAsync(groupsToAdd, ct);
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("Seeded {Count} CMS page groups.", groupsToAdd.Count);
+        }
+
+        // Re-read the live groups so pages bind to the real rows by slug (robust to any pre-existing group).
+        var liveGroups = await _db.CMSPageGroups.AsNoTracking().ToListAsync(ct);
+
+        var existingPageSlugs = await _db.CMSPages.Select(p => p.Slug).ToListAsync(ct);
+        var pagesToAdd = DefaultCmsContent.BuildPages(liveGroups)
+            .Where(p => !existingPageSlugs.Contains(p.Slug))
+            .ToList();
+        if (pagesToAdd.Count > 0)
+        {
+            await _db.CMSPages.AddRangeAsync(pagesToAdd, ct);
+            await _db.SaveChangesAsync(ct);
+            _logger.LogInformation("Seeded {Count} default CMS pages.", pagesToAdd.Count);
+        }
     }
 }
 

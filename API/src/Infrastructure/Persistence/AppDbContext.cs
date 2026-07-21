@@ -152,6 +152,19 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<ProductReview> ProductReviews => Set<ProductReview>();
     public DbSet<ProductQuestion> ProductQuestions => Set<ProductQuestion>();
 
+    // Phase 5 — CMS / Content & Marketing (WO-54/55/56/96/97/99/105)
+    public DbSet<CMSPageGroup> CMSPageGroups => Set<CMSPageGroup>();
+    public DbSet<CMSPage> CMSPages => Set<CMSPage>();
+    public DbSet<CMSBlogPost> CMSBlogPosts => Set<CMSBlogPost>();
+    public DbSet<CMSBanner> CMSBanners => Set<CMSBanner>();
+    public DbSet<CMSProductCollection> CMSProductCollections => Set<CMSProductCollection>();
+    public DbSet<CMSProductCollectionItem> CMSProductCollectionItems => Set<CMSProductCollectionItem>();
+    public DbSet<CMSHomePageSection> CMSHomePageSections => Set<CMSHomePageSection>();
+    public DbSet<CMSCategoryPageConfig> CMSCategoryPageConfigs => Set<CMSCategoryPageConfig>();
+    public DbSet<CMSCategoryPinnedProduct> CMSCategoryPinnedProducts => Set<CMSCategoryPinnedProduct>();
+    public DbSet<CMSSearchPageContent> CMSSearchPageContents => Set<CMSSearchPageContent>();
+    public DbSet<CMSNewsletterSubscription> CMSNewsletterSubscriptions => Set<CMSNewsletterSubscription>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

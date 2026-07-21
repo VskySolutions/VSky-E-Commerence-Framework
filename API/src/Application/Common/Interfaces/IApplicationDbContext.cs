@@ -131,6 +131,19 @@ public interface IApplicationDbContext
     DbSet<ProductReview> ProductReviews { get; }
     DbSet<ProductQuestion> ProductQuestions { get; }
 
+    // Phase 5 — CMS / Content & Marketing (WO-54/55/56/96/97/99/105)
+    DbSet<CMSPageGroup> CMSPageGroups { get; }
+    DbSet<CMSPage> CMSPages { get; }
+    DbSet<CMSBlogPost> CMSBlogPosts { get; }
+    DbSet<CMSBanner> CMSBanners { get; }
+    DbSet<CMSProductCollection> CMSProductCollections { get; }
+    DbSet<CMSProductCollectionItem> CMSProductCollectionItems { get; }
+    DbSet<CMSHomePageSection> CMSHomePageSections { get; }
+    DbSet<CMSCategoryPageConfig> CMSCategoryPageConfigs { get; }
+    DbSet<CMSCategoryPinnedProduct> CMSCategoryPinnedProducts { get; }
+    DbSet<CMSSearchPageContent> CMSSearchPageContents { get; }
+    DbSet<CMSNewsletterSubscription> CMSNewsletterSubscriptions { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
