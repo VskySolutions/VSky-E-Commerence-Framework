@@ -16,6 +16,9 @@ public class StorefrontProductSummaryDto
     public decimal? Price { get; set; }
     public Guid? ManufacturerId { get; set; }
 
+    /// <summary>Product type (Simple/Grouped/WithVariants/…); lets the storefront card route variation products to the detail page for option selection.</summary>
+    public ProductType ProductType { get; set; }
+
     /// <summary>
     /// URL of the primary product-level image. An actual image is preferred over a video entry
     /// (falling back to the video's thumbnail); null when the product has no product-level media.
@@ -31,6 +34,7 @@ public class StorefrontProductSummaryDto
         ShortDescription = p.ShortDescription,
         Price = p.Price,
         ManufacturerId = p.ManufacturerId,
+        ProductType = p.ProductType,
         PrimaryImageUrl = p.Pictures
             .Where(i => i.ProductVariantId == null && i.Media != null)
             .OrderBy(i => i.Media!.MediaType == MediaType.Image ? 0 : 1)

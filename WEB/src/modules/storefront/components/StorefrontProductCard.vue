@@ -55,12 +55,20 @@
       <div v-if="restockNote" class="text-caption text-orange-9">{{ restockNote }}</div>
 
       <div class="sf-card__cart">
-        <button class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding || buying" @click.prevent="addToCart">
+        <button v-if="!isVariation" class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding || buying" @click.prevent="addToCart">
           <q-icon v-if="!adding" name="o_add_shopping_cart" size="16px" />
           <q-spinner v-else size="14px" />
           Add to Cart
         </button>
-        <button class="sf-btn sf-btn--dark sf-btn--block" :disabled="adding || buying" @click.prevent="buyNow">
+        <button
+          v-if="isVariation"
+          class="sf-btn sf-btn--dark sf-btn--block"
+          @click.prevent="chooseOptions"
+        >
+          <q-icon name="o_tune" size="16px" />
+          Choose Options
+        </button>
+        <button v-else class="sf-btn sf-btn--dark sf-btn--block" :disabled="adding || buying" @click.prevent="buyNow">
           <q-icon v-if="!buying" name="o_bolt" size="16px" />
           <q-spinner v-else size="14px" />
           Buy Now
@@ -119,6 +127,13 @@ const rating = computed(() => {
 const reviewCount = computed(() => props.product.reviewCount ?? null)
 
 const inCompare = computed(() => has(props.product.id))
+
+// Variation and grouped products can't be added straight from a card — the customer
+// must pick options/items on the detail page first, so the primary action becomes
+// "Choose Options".
+const isVariation = computed(() =>
+  props.product.productType === 'WithVariants' || props.product.productType === 'Grouped'
+)
 
 // Badges: explicit product.badges[] if present, else derived from flags/sale.
 const badges = computed(() => {
@@ -180,6 +195,11 @@ async function buyNow () {
   } finally {
     buying.value = false
   }
+}
+
+// Variation products route to the detail page so the customer can pick a variant.
+function chooseOptions () {
+  router.push(detailTo.value)
 }
 
 function toggleCompare () {

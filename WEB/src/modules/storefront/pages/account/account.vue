@@ -21,6 +21,9 @@
       <q-route-tab name="addresses" label="Addresses" icon="o_location_on" :to="{ name: 'shop-account-addresses' }" />
       <q-route-tab name="orders" label="Orders" icon="o_receipt_long" :to="{ name: 'shop-account-orders' }" />
       <q-route-tab name="tax-exemption" label="Tax exemption" icon="o_receipt_long" :to="{ name: 'shop-account-tax-exemption' }" />
+      <q-route-tab name="subscriptions" label="Subscriptions" icon="o_autorenew" :to="{ name: 'shop-account-subscriptions' }" />
+      <q-route-tab name="rewards" label="Rewards" icon="o_loyalty" :to="{ name: 'shop-account-rewards' }" />
+      <q-route-tab name="privacy" label="Data & Privacy" icon="o_privacy_tip" :to="{ name: 'shop-account-privacy' }" />
     </q-tabs>
 
     <router-view />

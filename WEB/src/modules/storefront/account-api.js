@@ -16,6 +16,9 @@ const PROFILE = '/api/customer/profile'
 const ADDRESSES = '/api/customer/addresses'
 const ORDERS = '/api/customer/orders'
 const TAX_EXEMPTION = '/api/customer/tax-exemption'
+const GDPR = '/api/customer/gdpr'
+const SUBSCRIPTIONS = '/api/customer/subscriptions'
+const POINTS = '/api/customer/points'
 
 export const customerAuthApi = {
   // Create an account; a verification email is sent. Returns the new customer id.
@@ -117,13 +120,48 @@ export const accountApi = {
   // Submit/re-submit a request: { certificateNumber, vatId, documentMediaIds:[] }.
   submitTaxExemption (payload) {
     return customerApi.post(TAX_EXEMPTION + '/request', payload).then(unwrap)
+  },
+
+  // ---- Data & privacy / GDPR (WO-23) ----
+  // Request a full personal-data export (POST) and save it as a JSON file.
+  async exportData () {
+    const res = await customerApi.post(GDPR + '/export', null, { responseType: 'blob' })
+    saveBlob(res.data, 'my-data.json', 'application/json')
+  },
+  // Irreversibly anonymise the account. The caller signs the customer out afterwards.
+  deleteAccount () {
+    return customerApi.post(GDPR + '/delete-account').then(unwrap)
+  },
+
+  // ---- Subscriptions (WO-49) ----
+  // [{ id, productName, interval, status, nextOrderOnUtc, quantity }].
+  subscriptions () {
+    return customerApi.get(SUBSCRIPTIONS).then(unwrap)
+  },
+  pauseSubscription (id) {
+    return customerApi.post(SUBSCRIPTIONS + '/' + encodeURIComponent(id) + '/pause').then(unwrap)
+  },
+  resumeSubscription (id) {
+    return customerApi.post(SUBSCRIPTIONS + '/' + encodeURIComponent(id) + '/resume').then(unwrap)
+  },
+  // Change the delivery frequency: interval ∈ Weekly|BiWeekly|Monthly|Quarterly.
+  changeSubscriptionInterval (id, interval) {
+    return customerApi.put(SUBSCRIPTIONS + '/' + encodeURIComponent(id) + '/interval', { interval }).then(unwrap)
+  },
+  cancelSubscription (id) {
+    return customerApi.post(SUBSCRIPTIONS + '/' + encodeURIComponent(id) + '/cancel').then(unwrap)
+  },
+
+  // ---- Loyalty points (WO-27) ----
+  // { balance, transactions:[{ points, type, reason, createdOnUtc, balanceAfter }] }.
+  points () {
+    return customerApi.get(POINTS).then(unwrap)
   }
 }
 
-// Fetch a PDF as a blob (on the authenticated customer instance) and trigger a browser download.
-async function downloadPdf (url, filename) {
-  const res = await customerApi.get(url, { responseType: 'blob' })
-  const blob = new Blob([res.data], { type: 'application/pdf' })
+// Trigger a browser download from raw blob data (shared by the PDF + JSON exporters).
+function saveBlob (data, filename, mime) {
+  const blob = new Blob([data], { type: mime })
   const href = window.URL.createObjectURL(blob)
   const link = document.createElement('a')
   link.href = href
@@ -132,6 +170,12 @@ async function downloadPdf (url, filename) {
   link.click()
   link.remove()
   window.URL.revokeObjectURL(href)
+}
+
+// Fetch a PDF as a blob (on the authenticated customer instance) and trigger a browser download.
+async function downloadPdf (url, filename) {
+  const res = await customerApi.get(url, { responseType: 'blob' })
+  saveBlob(res.data, filename, 'application/pdf')
 }
 
 export default { customerAuthApi, accountApi }

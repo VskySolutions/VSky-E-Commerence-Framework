@@ -25,9 +25,12 @@ const props = defineProps({
 
 const rounded = computed(() => Math.round((props.value || 0) * 2) / 2)
 
+// MDI icons (mdi-v5 is loaded; the filled `material-icons` font is NOT, so bare
+// `star` ligatures would render broken). MDI carries distinct solid/half/outline
+// star glyphs, which the outlined-only material font cannot provide.
 function iconFor (n) {
-  if (rounded.value >= n) return 'star'
-  if (rounded.value >= n - 0.5) return 'star_half'
-  return 'star_border'
+  if (rounded.value >= n) return 'mdi-star'
+  if (rounded.value >= n - 0.5) return 'mdi-star-half-full'
+  return 'mdi-star-outline'
 }
 </script>

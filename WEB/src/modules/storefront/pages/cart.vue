@@ -32,7 +32,12 @@
         <div class="col-12 col-md-8">
           <q-card flat bordered>
             <q-list separator>
-              <q-item v-for="item in items" :key="item.id" class="q-py-md">
+              <q-item
+                v-for="item in items"
+                :key="item.id"
+                class="q-py-md"
+                :class="{ 'cart-line--backorder': isBackordered(item) }"
+              >
                 <!-- Thumbnail -->
                 <q-item-section avatar>
                   <router-link
@@ -55,6 +60,14 @@
                   <q-item-label caption>{{ format(item.unitPrice) }} each</q-item-label>
                   <q-item-label v-if="!item.available">
                     <q-badge color="negative" label="Unavailable" class="q-mt-xs" />
+                  </q-item-label>
+                  <!-- Orderable only via backorder (out of stock, but backorder allowed) — AC-CHK-001.7 -->
+                  <q-item-label v-else-if="isBackordered(item)" class="q-mt-xs row items-center q-gutter-x-sm">
+                    <span class="sf-badge sf-badge--backorder">Backordered</span>
+                    <span v-if="restockDate(item)" class="text-caption text-orange-9">
+                      Ships by {{ restockDate(item) }}
+                    </span>
+                    <span v-else class="text-caption text-orange-9">Ships when back in stock</span>
                   </q-item-label>
 
                   <!-- Quantity controls -->
@@ -231,6 +244,27 @@ function atMaxStock (item) {
   return !item.allowBackorder && item.stockQuantity != null && item.quantity >= item.stockQuantity
 }
 
+// A line is backordered when it is orderable ONLY via backorder: still purchasable (available), but out of
+// stock with backorder allowed. In-stock lines and hard-unavailable lines are both excluded (AC-CHK-001.7).
+function isBackordered (item) {
+  return (
+    !!item.allowBackorder &&
+    item.available !== false &&
+    item.stockQuantity != null &&
+    item.stockQuantity <= 0
+  )
+}
+
+// The estimated restock date is not part of the cart line DTO today, so this degrades to empty when absent
+// and only renders once the backend starts sending `estimatedRestockDate` on the line.
+function restockDate (item) {
+  const raw = item.estimatedRestockDate
+  if (!raw) return ''
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+
 async function changeQty (item, quantity) {
   if (quantity < 1 || rowBusy[item.id]) return
   if (!item.allowBackorder && item.stockQuantity != null && quantity > item.stockQuantity) return
@@ -319,5 +353,17 @@ onMounted(() => {
 
 .cart-qty {
   min-width: 32px;
+}
+
+// Backordered lines are visually set apart from in-stock lines with a warm accent strip + tint.
+.sf-badge--backorder {
+  background: var(--sf-badge-hot);
+}
+.cart-line--backorder {
+  background: rgba(249, 115, 22, 0.06);
+  box-shadow: inset 3px 0 0 var(--sf-badge-hot);
+}
+body.body--dark .cart-line--backorder {
+  background: rgba(249, 115, 22, 0.1);
 }
 </style>

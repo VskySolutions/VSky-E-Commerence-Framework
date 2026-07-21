@@ -225,8 +225,20 @@
             </div>
           </div>
 
-          <!-- Information (CMS links — static fallback; see WO-110 flag) -->
-          <div class="col-6 col-md-3">
+          <!-- Information — CMS Page Groups (WO-54). Falls back to the static links
+               below when the navigation API is empty or unreachable. -->
+          <template v-if="cmsNavGroups.length">
+            <div v-for="group in cmsNavGroups" :key="group.groupSlug || group.groupName" class="col-6 col-md-3">
+              <div class="sf-footer__title">{{ group.groupName }}</div>
+              <router-link
+                v-for="pg in group.pages"
+                :key="pg.slug"
+                class="sf-footer__link"
+                :to="{ name: 'shop-cms-page', params: { slug: pg.slug } }"
+              >{{ pg.title }}</router-link>
+            </div>
+          </template>
+          <div v-else class="col-6 col-md-3">
             <div class="sf-footer__title">Information</div>
             <a v-for="link in informationLinks" :key="link.label" class="sf-footer__link" :href="link.href">{{ link.label }}</a>
           </div>
@@ -281,6 +293,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { storefrontApi } from 'modules/storefront/api'
+import { cmsApi } from 'modules/storefront/cms-api'
 import { useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import { useAuthStore } from 'stores/auth'
 import { useCustomerAuthStore } from 'stores/customerAuth'
@@ -324,7 +337,23 @@ function onScroll (info) {
   else if (info.direction === 'up') chromeHidden.value = false
 }
 
-// Static footer "Information" links — no CMS Page Groups API exists yet (WO-110 flag).
+// Footer "Information" nav — CMS Page Groups (WO-54). Populated from the public
+// navigation endpoint on mount; the static links below are the fallback shown
+// when the endpoint returns nothing or is unreachable.
+const cmsNavGroups = ref([])
+async function loadFooterNav () {
+  try {
+    const groups = await cmsApi.navigation()
+    cmsNavGroups.value = Array.isArray(groups)
+      ? groups.filter((g) => g && Array.isArray(g.pages) && g.pages.length)
+      : []
+  } catch (e) {
+    cmsNavGroups.value = [] // keep the static fallback below
+  }
+}
+onMounted(loadFooterNav)
+
+// Static fallback links, used until (or when) the CMS navigation endpoint has data.
 const informationLinks = [
   { label: 'About Us', href: '#' },
   { label: 'Shipping & Returns', href: '#' },

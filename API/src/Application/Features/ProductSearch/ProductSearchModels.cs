@@ -15,6 +15,9 @@ public class SearchResultItemDto
     public decimal? Price { get; set; }
     public Guid? ManufacturerId { get; set; }
 
+    /// <summary>Product type (Simple/Grouped/WithVariants/…); lets the storefront card route variation products to the detail page for option selection.</summary>
+    public ProductType ProductType { get; set; }
+
     /// <summary>URL of the primary product-level image, or null when none is available.</summary>
     public string? ImageUrl { get; set; }
 
@@ -29,6 +32,7 @@ public class SearchResultItemDto
             .Where(v => v.IsEnabled && v.Price.HasValue)
             .Min(v => v.Price),
         ManufacturerId = p.ManufacturerId,
+        ProductType = p.ProductType,
         ImageUrl = p.Pictures
             .Where(i => i.ProductVariantId == null && i.Media != null && i.Media.MediaType == MediaType.Image)
             .OrderBy(i => i.DisplayOrder)

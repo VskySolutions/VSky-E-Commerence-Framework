@@ -9,6 +9,11 @@
       </q-banner>
 
       <template v-if="!notFound">
+        <!-- Configurable category banner (WO-101) — above the breadcrumb/description block -->
+        <div v-if="bannerImageUrl" class="sf-cat-banner q-mb-md">
+          <img :src="$media(bannerImageUrl)" :alt="(category.name || 'Category') + ' banner'" class="sf-cat-banner__img">
+        </div>
+
         <!-- Breadcrumb doubles as the page heading — no separate repeated title (REQ-CNT-012.3) -->
         <nav class="sf-crumbs" aria-label="Breadcrumb">
           <router-link class="sf-crumbs__link" :to="{ name: 'shop-home' }">
@@ -104,6 +109,10 @@
 
           <!-- ===== Main ===== -->
           <div class="col-12 col-md-9">
+            <!-- Configurable promotional description (WO-101) — above the product grid -->
+            <!-- eslint-disable-next-line vue/no-v-html -->
+            <div v-if="promoHtml" class="storefront-rich-text sf-cat-promo q-mb-md" v-html="promoHtml" />
+
             <!-- Top bar: count + sort + view toggle -->
             <div class="row items-center q-mb-md q-gutter-sm">
               <div class="text-body2 text-grey-7 col">
@@ -136,14 +145,14 @@
 
             <q-inner-loading :showing="loading" color="primary" />
 
-            <div v-if="!loading && !items.length" class="text-grey-6 q-py-xl text-center">
+            <div v-if="!loading && !displayItems.length" class="text-grey-6 q-py-xl text-center">
               No products match your selection.
             </div>
 
-            <!-- Grid view -->
+            <!-- Grid view — pinned products (WO-101) lead, then the regular page -->
             <div v-if="view !== 'list'" class="row q-col-gutter-md">
               <div
-                v-for="p in items"
+                v-for="p in displayItems"
                 :key="p.id"
                 :class="view === 'grid3' ? 'col-6 col-sm-4' : 'col-6 col-sm-4 col-md-3'"
               >
@@ -153,7 +162,7 @@
 
             <!-- List view -->
             <div v-else class="q-gutter-md">
-              <q-card v-for="p in items" :key="p.id" flat bordered class="row no-wrap sf-list-row">
+              <q-card v-for="p in displayItems" :key="p.id" flat bordered class="row no-wrap sf-list-row">
                 <router-link :to="productTo(p)" class="sf-list-row__media">
                   <img v-if="productImage(p)" :src="$media(productImage(p))" :alt="p.name">
                   <div v-else class="full-height row items-center justify-center bg-grey-2 text-grey-5"><q-icon name="o_image" size="36px" /></div>
@@ -182,10 +191,11 @@
           </div>
         </div>
 
-        <!-- YMAL rail (REQ-CNT-012.5) — sourced from recently-viewed (no recommendation API yet) -->
-        <div v-if="ymal.length" class="sf-section">
+        <!-- YMAL rail (REQ-CNT-012.5) — configured YMAL collection (WO-101) when present,
+             otherwise the recently-viewed fallback -->
+        <div v-if="ymalDisplay.length" class="sf-section">
           <div class="sf-section__head"><h2 class="sf-section__title">You May Also Like</h2></div>
-          <ProductCarousel :products="ymal" />
+          <ProductCarousel :products="ymalDisplay" />
         </div>
       </template>
     </div>
@@ -201,14 +211,18 @@
  * endpoint can't filter by spec, so an active facet selection re-queries the
  * faceted search endpoint scoped to the resolved categoryId.
  *
- * Deferred (no backend yet, flagged on WO-111): category page banner (REQ-CNT-012.1)
- * and pinned products (REQ-CNT-012.2) — no CategoryPageConfig API. The YMAL rail
- * falls back to recently-viewed until a recommendation API exists.
+ * WO-101 wires in the CategoryPageConfig content (GET /api/storefront/category-config/{id}):
+ * a top banner (REQ-CNT-012.1), a promotional HTML description above the grid, pinned
+ * products (REQ-CNT-012.2) that lead the listing ahead of the regular page regardless of
+ * sort, and a configured "You May Also Like" collection. Each element renders only when
+ * configured; with nothing configured the page is exactly the plain WO-111 grid, and the
+ * YMAL rail falls back to recently-viewed.
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { storefrontApi, normalizeFacets, listingSortOptions, formatPrice, productImage, productRouteParam } from 'modules/storefront/api'
+import { catalogCmsApi, sanitizeCmsHtml } from 'modules/storefront/catalog-cms-api'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
 import { useCategories } from 'modules/storefront/composables/useCategories'
@@ -245,7 +259,33 @@ const notFound = ref(false)
 const filtersOpen = ref(false)
 const ymal = ref([])
 
+// WO-101 configurable category content (banner / promo / pinned / YMAL). Keyed by
+// resolved categoryId so it is fetched once per category, not on every page/sort/filter.
+const categoryConfig = ref(null)
+const configCategoryId = ref(null)
+
 const totalPages = computed(() => Math.max(1, Math.ceil(totalCount.value / PAGE_SIZE)))
+
+const bannerImageUrl = computed(() => (categoryConfig.value && categoryConfig.value.bannerImageUrl) || null)
+const promoHtml = computed(() => sanitizeCmsHtml(categoryConfig.value && categoryConfig.value.promotionalDescription))
+const pinnedProducts = computed(() =>
+  Array.isArray(categoryConfig.value && categoryConfig.value.pinnedProducts) ? categoryConfig.value.pinnedProducts : []
+)
+
+// Pinned products lead the listing (page 1 only) ahead of the regular grid regardless of
+// the active sort; de-duped so a pinned product never also appears in the normal results.
+const displayItems = computed(() => {
+  const pinned = page.value === 1 ? pinnedProducts.value : []
+  if (!pinned.length) return items.value
+  const pinnedIds = new Set(pinned.map((p) => p.id))
+  return [...pinned, ...items.value.filter((p) => !pinnedIds.has(p.id))]
+})
+
+// A configured YMAL collection wins; otherwise fall back to the recently-viewed rail.
+const ymalConfigured = computed(() =>
+  Array.isArray(categoryConfig.value && categoryConfig.value.ymalProducts) ? categoryConfig.value.ymalProducts : []
+)
+const ymalDisplay = computed(() => (ymalConfigured.value.length ? ymalConfigured.value : ymal.value))
 
 const facetGroups = computed(() => {
   if (!searchFacets.value.length) return baseFacets.value
@@ -299,6 +339,8 @@ async function loadCategory () {
     searchFacets.value = []
     items.value = Array.isArray(res?.items) ? res.items : []
     totalCount.value = res?.totalCount || 0
+    // Fetch the configurable content once the category id is known (guarded per category).
+    loadCategoryConfig()
   } catch (err) {
     notFound.value = true
     category.value = {}
@@ -307,6 +349,25 @@ async function loadCategory () {
     notify.error(getApiErrorMessage(err))
   } finally {
     loading.value = false
+  }
+}
+
+// WO-101: load the category's configurable content (banner/promo/pinned/YMAL). Guarded
+// so it fetches only when the resolved categoryId changes; degrades to a plain grid on
+// an unconfigured category or a missing endpoint.
+async function loadCategoryConfig () {
+  const id = categoryId.value
+  if (!id) {
+    categoryConfig.value = null
+    configCategoryId.value = null
+    return
+  }
+  if (configCategoryId.value === id) return
+  configCategoryId.value = id
+  try {
+    categoryConfig.value = await catalogCmsApi.categoryConfig(id)
+  } catch (e) {
+    categoryConfig.value = null
   }
 }
 
@@ -400,6 +461,8 @@ watch(
     minPrice.value = null
     maxPrice.value = null
     searchFacets.value = []
+    categoryConfig.value = null
+    configCategoryId.value = null
     loadCategory()
   }
 )
@@ -427,6 +490,17 @@ onMounted(() => {
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+
+/* WO-101 configurable category banner */
+.sf-cat-banner__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 6px;
+}
+/* WO-101 promotional description sits above the grid */
+.sf-cat-promo { color: var(--sf-body, inherit); }
+
 @media (max-width: 599px) {
   .sf-list-row__media { width: 120px; flex-basis: 120px; }
 }

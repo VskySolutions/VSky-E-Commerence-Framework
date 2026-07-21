@@ -80,6 +80,26 @@ export default [
         component: () => import('modules/storefront/pages/checkout.vue')
       },
 
+      // ---- CMS content pages + blog (public) — WO-54 ----------------------
+      {
+        path: 'shop/page/:slug',
+        name: 'shop-cms-page',
+        meta: { title: 'Page' },
+        component: () => import('modules/storefront/pages/cms-page.vue')
+      },
+      {
+        path: 'shop/blog',
+        name: 'shop-blog',
+        meta: { title: 'Blog' },
+        component: () => import('modules/storefront/pages/blog-list.vue')
+      },
+      {
+        path: 'shop/blog/:slug',
+        name: 'shop-blog-post',
+        meta: { title: 'Article' },
+        component: () => import('modules/storefront/pages/blog-post.vue')
+      },
+
       // ---- Customer auth (public) — WO-21 / unified login WO-112 ----------
       {
         // The single login lives at /auth/login (WO-112); /shop/login redirects there,
@@ -143,6 +163,24 @@ export default [
             name: 'shop-account-tax-exemption',
             meta: { title: 'Tax exemption' },
             component: () => import('modules/storefront/pages/account/tax-exemption.vue')
+          },
+          {
+            path: 'subscriptions',
+            name: 'shop-account-subscriptions',
+            meta: { title: 'Subscriptions' },
+            component: () => import('modules/storefront/pages/account/subscriptions.vue')
+          },
+          {
+            path: 'rewards',
+            name: 'shop-account-rewards',
+            meta: { title: 'Rewards' },
+            component: () => import('modules/storefront/pages/account/rewards.vue')
+          },
+          {
+            path: 'privacy',
+            name: 'shop-account-privacy',
+            meta: { title: 'Data & Privacy' },
+            component: () => import('modules/storefront/pages/account/privacy.vue')
           }
         ]
       }

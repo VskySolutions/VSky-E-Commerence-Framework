@@ -29,6 +29,17 @@
         <div class="text-caption text-grey-6 q-mt-lg">
           A confirmation email with your order details is on its way.
         </div>
+
+        <!-- Backordered items ship separately (WO-86 confirmation notice) -->
+        <q-banner
+          v-if="orderHadBackorder"
+          dense
+          class="sf-backorder-banner rounded-borders q-mt-lg text-left"
+        >
+          <template #avatar><q-icon name="o_schedule" color="orange-9" /></template>
+          Some items in your order are backordered and will ship separately as soon as they're back in stock.
+        </q-banner>
+
         <div class="row justify-center q-gutter-sm q-mt-lg">
           <q-btn
             unelevated
@@ -640,8 +651,28 @@
               <div class="col">
                 <div class="text-body2">{{ item.productName }}</div>
                 <div class="text-caption text-grey-6">Qty {{ item.quantity }} · {{ format(item.unitPrice) }}</div>
+                <!-- Backordered line (AC-CHK-005.1) -->
+                <div v-if="isBackordered(item)" class="q-mt-xs row items-center q-gutter-x-xs">
+                  <span class="sf-badge sf-badge--backorder">Backordered</span>
+                  <span v-if="restockDate(item)" class="text-caption text-orange-9">Ships by {{ restockDate(item) }}</span>
+                </div>
               </div>
               <div class="text-body2 text-weight-medium">{{ format(item.lineTotal) }}</div>
+            </div>
+
+            <!-- Backorder notice + split-shipment option (AC-CHK-005.2 / AC-CHK-005.4) -->
+            <div v-if="hasBackorder" class="sf-backorder-note q-mt-sm q-mb-xs">
+              <div class="row items-start no-wrap">
+                <q-icon name="o_schedule" size="18px" class="q-mr-xs q-mt-xs" />
+                <div class="text-caption">Backordered items will ship separately as soon as they're back in stock.</div>
+              </div>
+              <q-toggle
+                v-if="hasMixedFulfilment"
+                v-model="splitShipment"
+                dense
+                class="q-mt-xs sf-split-toggle"
+                label="Ship my in-stock items now in a separate shipment"
+              />
             </div>
 
             <q-separator class="q-my-md" />
@@ -735,6 +766,55 @@
                 <span>{{ format(paymentFee) }}</span>
               </div>
 
+              <!-- Reward points (WO-27) — signed-in buyers with a positive balance redeem points for a discount -->
+              <template v-if="showLoyalty">
+                <q-separator class="q-my-sm" />
+                <div class="row items-center justify-between q-mb-xs">
+                  <span class="text-grey-8 row items-center no-wrap">
+                    <q-icon name="o_loyalty" size="16px" class="q-mr-xs text-primary" />
+                    Reward points
+                  </span>
+                  <span class="text-caption text-grey-6">{{ pointsBalance }} available</span>
+                </div>
+
+                <template v-if="pointsApplied > 0">
+                  <div class="row items-center justify-between q-mb-xs text-green-8">
+                    <span>{{ pointsApplied }} points applied</span>
+                    <span>-{{ format(pointsDiscount) }}</span>
+                  </div>
+                  <div class="q-mb-xs">
+                    <q-btn flat dense no-caps size="sm" color="primary" label="Remove" :loading="pointsBusy" @click="removePoints" />
+                  </div>
+                </template>
+
+                <div v-else class="q-mb-xs">
+                  <q-input
+                    v-model.number="pointsInput"
+                    dense
+                    outlined
+                    type="number"
+                    min="1"
+                    :max="pointsBalance"
+                    placeholder="Points to redeem"
+                    :disable="pointsBusy"
+                    @keyup.enter="applyPoints"
+                  >
+                    <template #append>
+                      <q-btn
+                        flat
+                        dense
+                        no-caps
+                        color="primary"
+                        label="Apply"
+                        :loading="pointsBusy"
+                        :disable="!canApplyPoints"
+                        @click="applyPoints"
+                      />
+                    </template>
+                  </q-input>
+                </div>
+              </template>
+
               <q-separator class="q-my-sm" />
 
               <div class="row items-center justify-between text-subtitle1 text-weight-bold">
@@ -812,6 +892,7 @@ import AppPhoneInput from 'components/common/AppPhoneInput.vue'
 import { isPossiblePhoneNumber } from 'libphonenumber-js'
 import { emptyAddress } from 'composables/useAddress'
 import { checkoutApi } from 'modules/storefront/api'
+import { pointsApi } from 'modules/storefront/checkout-extras-api'
 import { customerAuthApi, accountApi } from 'modules/storefront/account-api'
 import { useCustomerAuthStore } from 'stores/customerAuth'
 import { useCart } from 'modules/storefront/composables/useCart'
@@ -1020,6 +1101,11 @@ function restoreContact () {
 }
 function clearContact () {
   try { LocalStorage.remove(CHECKOUT_KEY) } catch (e) { /* ignore */ }
+  // Order completed — clear the persisted backorder flag and any redeemed reward points (callers that
+  // need the backorder flag for the confirmation notice read it before calling this).
+  try { LocalStorage.remove(BACKORDER_FLAG_KEY) } catch (e) { /* ignore */ }
+  pointsApplied.value = 0
+  pointsDiscountAmount.value = 0
 }
 watch([email, addr], persistContact, { deep: true })
 
@@ -1080,6 +1166,36 @@ const displaySubtotal = computed(() => {
   if (!quote.value) return subtotal.value
   return quote.value.groupDiscountTotal > 0 ? quote.value.baseSubtotal : quote.value.subtotal
 })
+
+// ---- Backorder (WO-86) ------------------------------------------------------
+// A line is backordered when orderable ONLY via backorder: still purchasable (available) but out of stock
+// with backorder allowed. In-stock and hard-unavailable lines are both excluded.
+function isBackordered (item) {
+  return (
+    !!item.allowBackorder &&
+    item.available !== false &&
+    item.stockQuantity != null &&
+    item.stockQuantity <= 0
+  )
+}
+// Estimated restock date isn't on the cart line DTO today — degrade to empty until the backend sends it.
+function restockDate (item) {
+  const raw = item.estimatedRestockDate
+  if (!raw) return ''
+  const d = new Date(raw)
+  if (Number.isNaN(d.getTime())) return ''
+  return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+}
+const hasBackorder = computed(() => items.value.some((i) => isBackordered(i)))
+const hasInStock = computed(() => items.value.some((i) => i.available !== false && !isBackordered(i)))
+// The split-shipment option is only meaningful when the cart mixes in-stock and backordered items.
+const hasMixedFulfilment = computed(() => hasBackorder.value && hasInStock.value)
+// UI-only preference passed along in the place payload (AC-CHK-005.2); the backend may ignore it for now.
+const splitShipment = ref(false)
+// Snapshot of "did this order contain backordered items", captured at placement so the confirmation notice
+// survives the cart being emptied afterwards (persisted for the redirect-gateway return, which reloads).
+const BACKORDER_FLAG_KEY = 'sf.checkout.backorder'
+const orderHadBackorder = ref(false)
 
 const shippingOptions = computed(() => quote.value?.shippingOptions || [])
 // An empty option list never means "nothing to ship": no product can be marked non-shippable, and pickup
@@ -1328,7 +1444,28 @@ const paymentFee = computed(() => {
   if (!quote.value) return 0
   return Math.round(quote.value.total * selectedPaymentFeePercent.value) / 100
 })
-const grandTotal = computed(() => (quote.value ? quote.value.total + paymentFee.value : 0))
+// ---- Reward points (WO-27) --------------------------------------------------
+// Signed-in buyers with a positive balance can redeem points for a discount. The balance comes from
+// GET /api/customer/points; apply/remove hit the checkout endpoints and return the resulting discount, which
+// is shown as its own summary row and folded into the grand total here (the backend re-applies it to the
+// order total authoritatively at placement, so the quote total stays pre-points).
+const pointsBalance = ref(0)
+const pointsApplied = ref(0)
+const pointsDiscountAmount = ref(0)
+const pointsInput = ref(null)
+const pointsBusy = ref(false)
+const showLoyalty = computed(() => isAuthed.value && (pointsBalance.value > 0 || pointsApplied.value > 0))
+const pointsDiscount = computed(() => (pointsApplied.value > 0 ? pointsDiscountAmount.value || 0 : 0))
+const canApplyPoints = computed(() => {
+  const n = Number(pointsInput.value)
+  return Number.isInteger(n) && n > 0 && n <= pointsBalance.value && !pointsBusy.value
+})
+
+const grandTotal = computed(() => {
+  if (!quote.value) return 0
+  const total = quote.value.total + paymentFee.value - pointsDiscount.value
+  return total > 0 ? total : 0
+})
 // Keep the selection valid as availability changes — default to the first offered method.
 watch(paymentMethods, (methods) => {
   if (!methods.length) paymentMethod.value = null
@@ -1393,6 +1530,55 @@ async function ensureAuthNetSdk () {
 }
 watch([paymentMethod, canCollectDetails], ensureAuthNetSdk)
 
+// Load the signed-in buyer's reward-points balance. A missing/disabled programme (404/501) simply leaves the
+// balance at 0 so the loyalty UI never shows — never a red error on the checkout.
+async function loadPoints () {
+  if (!isAuthed.value) return
+  try {
+    const res = await pointsApi.balance()
+    pointsBalance.value = Number(res?.balance ?? res?.pointsBalance ?? res?.points ?? 0) || 0
+  } catch (e) {
+    pointsBalance.value = 0
+  }
+}
+
+async function applyPoints () {
+  if (!canApplyPoints.value) return
+  pointsBusy.value = true
+  try {
+    const res = await pointsApi.apply({ points: Number(pointsInput.value), sessionId: sessionId.value })
+    pointsApplied.value = Number(res?.pointsApplied) || 0
+    pointsDiscountAmount.value = Number(res?.pointsDiscountAmount) || 0
+    if (res && typeof res.remainingBalance === 'number') pointsBalance.value = res.remainingBalance
+    pointsInput.value = null
+    notify.success(`${pointsApplied.value} reward points applied`)
+    // Refresh the summary so shipping/tax/total are server-fresh; the points row overlays on top.
+    if (quote.value) await runQuote()
+  } catch (err) {
+    // Insufficient points, exceeds subtotal, etc. — surface the server message.
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    pointsBusy.value = false
+  }
+}
+
+async function removePoints () {
+  if (pointsBusy.value) return
+  pointsBusy.value = true
+  try {
+    await pointsApi.remove({ sessionId: sessionId.value })
+    pointsApplied.value = 0
+    pointsDiscountAmount.value = 0
+    notify.info('Reward points removed')
+    await loadPoints() // authoritative balance after the points are released
+    if (quote.value) await runQuote()
+  } catch (err) {
+    notify.error(getApiErrorMessage(err))
+  } finally {
+    pointsBusy.value = false
+  }
+}
+
 // ---- Place ------------------------------------------------------------------
 const placing = ref(false)
 const placeError = ref('')
@@ -1420,6 +1606,13 @@ async function placeOrder () {
   const ok = await formRef.value.validate()
   if (!ok || !canPlace.value) return
   placing.value = true
+  // Snapshot backorder state now — the cart is emptied after a successful placement, so the confirmation
+  // notice reads this rather than the (then-empty) cart. Persisted too, so it survives a gateway redirect.
+  orderHadBackorder.value = hasBackorder.value
+  try {
+    if (hasBackorder.value) LocalStorage.set(BACKORDER_FLAG_KEY, true)
+    else LocalStorage.remove(BACKORDER_FLAG_KEY)
+  } catch (e) { /* storage disabled — non-fatal */ }
   try {
     // Signed-in buyer entering a new address who opted to save it → add it to their account (best-effort).
     if (!isPickup.value && isAuthed.value && selectedAddressId.value === 'new' && saveNewAddress.value) {
@@ -1467,7 +1660,9 @@ async function placeOrder () {
       couponCode: null,
       recaptchaToken,
       pickupInStore: isPickup.value,
-      pickupStoreId: isPickup.value ? pickupStoreId.value : null
+      pickupStoreId: isPickup.value ? pickupStoreId.value : null,
+      // UI-only preference for mixed carts (AC-CHK-005.2); harmless extra field the backend may ignore.
+      splitShipment: hasMixedFulfilment.value ? splitShipment.value : false
     })
     if (result && result.redirectUrl) {
       // Redirect gateway (Stripe Checkout): hand off to the hosted payment page. The buyer returns to
@@ -1621,6 +1816,8 @@ async function handlePaymentReturn () {
   try {
     const result = await checkoutApi.confirm(orderId)
     if (result && result.success) {
+      // Restore the backorder snapshot persisted before the redirect so the confirmation notice still shows.
+      try { if (LocalStorage.getItem(BACKORDER_FLAG_KEY)) orderHadBackorder.value = true } catch (e) { /* ignore */ }
       orderResult.value = result
       clearContact()
       await refresh().catch(() => {})
@@ -1680,6 +1877,8 @@ onMounted(() => {
   // Signed-in buyers get their profile + saved addresses (pick-or-add); guests restore any draft.
   if (isAuthed.value) loadAccountAddresses()
   else restoreContact()
+  // Reward-points balance for signed-in buyers (WO-27) — no-op/hidden for guests or a disabled programme.
+  loadPoints()
 })
 </script>
 
@@ -1762,5 +1961,29 @@ body.body--dark .sf-partner-chip {
 .summary-card {
   position: sticky;
   top: 88px;
+}
+
+// ---- Backorder (WO-86) ----
+.sf-badge--backorder {
+  background: var(--sf-badge-hot);
+}
+.sf-backorder-note {
+  background: rgba(249, 115, 22, 0.08);
+  border: 1px solid rgba(249, 115, 22, 0.28);
+  border-radius: var(--sf-radius, 4px);
+  padding: 8px 10px;
+  color: #b45309;
+
+  .q-icon {
+    color: var(--sf-badge-hot);
+  }
+}
+.sf-backorder-banner {
+  background: rgba(249, 115, 22, 0.1);
+  color: #b45309;
+}
+body.body--dark .sf-backorder-note,
+body.body--dark .sf-backorder-banner {
+  color: #fdba74;
 }
 </style>

@@ -27,6 +27,8 @@
               :images="galleryImages"
               :variant-id="variantId"
               :product-name="product.name"
+              zoom
+              lightbox
             />
           </div>
 
@@ -144,61 +146,14 @@
               <div v-else class="text-grey-6">No description available.</div>
             </q-tab-panel>
 
-            <!-- Reviews (no backend yet — graceful) -->
+            <!-- Reviews (WO-14) -->
             <q-tab-panel name="reviews" class="q-px-none">
-              <div class="row items-center q-mb-md">
-                <div class="col">
-                  <div class="text-h6">Customer Reviews</div>
-                  <div class="text-grey-6 text-body2">Be the first to share your thoughts.</div>
-                </div>
-                <q-btn color="primary" no-caps unelevated label="Write a Review" @click="reviewForm = !reviewForm" />
-              </div>
-              <q-slide-transition>
-                <q-card v-if="reviewForm" flat bordered class="q-mb-md">
-                  <q-card-section class="q-gutter-sm">
-                    <div class="row items-center q-gutter-sm">
-                      <span class="text-body2">Your rating:</span>
-                      <q-rating v-model="newReview.rating" size="24px" color="amber" />
-                    </div>
-                    <q-input v-model="newReview.title" dense outlined label="Title" />
-                    <q-input v-model="newReview.body" dense outlined type="textarea" label="Your review" />
-                  </q-card-section>
-                  <q-card-actions align="right">
-                    <q-btn flat no-caps label="Cancel" @click="reviewForm = false" />
-                    <q-btn color="primary" unelevated no-caps label="Submit review" @click="submitReview" />
-                  </q-card-actions>
-                </q-card>
-              </q-slide-transition>
-              <div class="text-grey-6 q-py-lg text-center bg-grey-1 rounded-borders">
-                <q-icon name="o_rate_review" size="36px" class="q-mb-sm" />
-                <div>No reviews yet.</div>
-              </div>
+              <ReviewsSection :product-id="product.id" @summary="onReviewSummary" />
             </q-tab-panel>
 
-            <!-- Q&A (no backend yet — graceful) -->
+            <!-- Q&A (WO-58) -->
             <q-tab-panel name="qa" class="q-px-none">
-              <div class="row items-center q-mb-md">
-                <div class="col">
-                  <div class="text-h6">Questions & Answers</div>
-                  <div class="text-grey-6 text-body2">Ask about this product.</div>
-                </div>
-                <q-btn color="primary" no-caps unelevated label="Ask a Question" @click="qaForm = !qaForm" />
-              </div>
-              <q-slide-transition>
-                <q-card v-if="qaForm" flat bordered class="q-mb-md">
-                  <q-card-section>
-                    <q-input v-model="newQuestion" dense outlined type="textarea" label="Your question" />
-                  </q-card-section>
-                  <q-card-actions align="right">
-                    <q-btn flat no-caps label="Cancel" @click="qaForm = false" />
-                    <q-btn color="primary" unelevated no-caps label="Submit question" @click="submitQuestion" />
-                  </q-card-actions>
-                </q-card>
-              </q-slide-transition>
-              <div class="text-grey-6 q-py-lg text-center bg-grey-1 rounded-borders">
-                <q-icon name="o_forum" size="36px" class="q-mb-sm" />
-                <div>No questions yet.</div>
-              </div>
+              <QASection :product-id="product.id" />
             </q-tab-panel>
           </q-tab-panels>
         </div>
@@ -220,15 +175,17 @@
 <script setup>
 /*
  * Porto storefront product detail (WO-111, builds on WO-19). Gallery (reused
- * ProductGalleryView) + info column (title, price block with savings, variant
- * selectors, quantity, add-to-cart / wishlist / compare, meta, share), a
- * Description / Reviews / Q&A tab set, and Related / Cross-sell / Up-sell rails.
+ * ProductGalleryView, with WO-74 hover-zoom + fullscreen lightbox enabled here)
+ * + info column (title, price block with savings, variant selectors, quantity,
+ * add-to-cart / wishlist / compare, meta, share), a Description / Reviews / Q&A
+ * tab set, and Related / Cross-sell / Up-sell rails.
  *
- * Deferred (no backend yet, flagged on WO-111): Reviews (REQ-CAT-010) and Q&A
- * (REQ-CNT-007) render graceful empty states + forms that acknowledge "coming
- * soon"; star rating shows only when a rating field is present. The DTO carries
- * no category (so no category breadcrumb) and only a manufacturerId (no name),
- * and variant option labels are ids only (VariantSelector labels by SKU + price).
+ * Reviews (WO-14) and Q&A (WO-58) are self-contained sections (ReviewsSection /
+ * QASection) that load their own data from the storefront engagement API; the
+ * header rating bar reflects the review summary once that section has loaded.
+ * The DTO carries no category (so no category breadcrumb) and only a
+ * manufacturerId (no name), and variant option labels are ids only
+ * (VariantSelector labels by SKU + price).
  */
 import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -244,6 +201,8 @@ import VariantSelector from 'modules/storefront/components/VariantSelector.vue'
 import ProductCarousel from 'modules/storefront/components/ProductCarousel.vue'
 import RecentlyViewed from 'modules/storefront/components/RecentlyViewed.vue'
 import StarRating from 'modules/storefront/components/StarRating.vue'
+import ReviewsSection from 'modules/storefront/components/ReviewsSection.vue'
+import QASection from 'modules/storefront/components/QASection.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -262,11 +221,12 @@ const buyingNow = ref(false)
 const addingToWishlist = ref(false)
 const tab = ref('description')
 
-// Review / Q&A local form state (no backend yet).
-const reviewForm = ref(false)
-const qaForm = ref(false)
-const newReview = ref({ rating: 5, title: '', body: '' })
-const newQuestion = ref('')
+// Rating summary reported up by ReviewsSection (WO-14) — reflected in the header
+// rating bar + the Reviews tab count once the section has loaded.
+const reviewSummary = ref(null)
+function onReviewSummary (s) {
+  reviewSummary.value = s || null
+}
 
 const galleryImages = computed(() =>
   (product.value?.images || []).map((img, i) => ({ ...img, id: 'img-' + i }))
@@ -285,10 +245,17 @@ const displayPrice = computed(() => {
 const oldPrice = computed(() => product.value?.oldPrice || product.value?.originalPrice || null)
 const savings = computed(() => (oldPrice.value && displayPrice.value ? oldPrice.value - displayPrice.value : null))
 const rating = computed(() => {
+  // Prefer the live summary from ReviewsSection (once the Reviews tab has loaded).
+  const s = reviewSummary.value
+  if (s && s.enabled !== false && s.totalCount > 0 && typeof s.averageRating === 'number') return s.averageRating
   const r = product.value?.averageRating ?? product.value?.rating
   return typeof r === 'number' ? r : null
 })
-const reviewCount = computed(() => product.value?.reviewCount ?? null)
+const reviewCount = computed(() => {
+  const s = reviewSummary.value
+  if (s && s.enabled !== false && typeof s.totalCount === 'number') return s.totalCount
+  return product.value?.reviewCount ?? null
+})
 
 const hasVariants = computed(() => (product.value?.variants || []).length > 0)
 
@@ -353,6 +320,7 @@ async function load () {
   variantId.value = null
   quantity.value = 1
   tab.value = 'description'
+  reviewSummary.value = null
   try {
     product.value = await storefrontApi.productDetail(route.params.idOrSlug)
     if (product.value?.id) record(product.value.id)
@@ -411,18 +379,6 @@ function onToggleCompare () {
   if (result.full) notify.warning('You can compare up to ' + max + ' products.')
   else if (result.removed) notify.info('Removed from compare')
   else notify.success('Added to compare')
-}
-
-// Reviews / Q&A have no backend yet — acknowledge and reset the form.
-function submitReview () {
-  reviewForm.value = false
-  newReview.value = { rating: 5, title: '', body: '' }
-  notify.info('Thanks! Product reviews are coming soon.')
-}
-function submitQuestion () {
-  qaForm.value = false
-  newQuestion.value = ''
-  notify.info('Thanks! Product Q&A is coming soon.')
 }
 
 watch(() => route.params.idOrSlug, load)
