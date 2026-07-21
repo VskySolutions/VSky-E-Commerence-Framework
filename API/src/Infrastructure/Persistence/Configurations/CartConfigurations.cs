@@ -13,6 +13,7 @@ public class CartConfiguration : IEntityTypeConfiguration<Cart>
         b.Property(x => x.SessionId).HasMaxLength(128);
         b.Property(x => x.AppliedCouponCode).HasMaxLength(64);
         b.Property(x => x.CurrencyCode).HasMaxLength(3);
+        b.Property(x => x.PointsDiscountAmount).HasPrecision(18, 2);
 
         b.HasOne(x => x.Customer)
             .WithMany()

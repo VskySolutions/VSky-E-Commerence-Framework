@@ -10,6 +10,7 @@ using VSky.Infrastructure.Credentials;
 using VSky.Infrastructure.Currencies;
 using VSky.Infrastructure.Inventory;
 using VSky.Infrastructure.Persistence;
+using VSky.Infrastructure.Persistence.Interceptors;
 using VSky.Infrastructure.Routing;
 using VSky.Infrastructure.Pricing;
 using VSky.Infrastructure.Shipping;
@@ -39,7 +40,11 @@ public static class DependencyInjection
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection");
 
-        services.AddDbContext<AppDbContext>(options =>
+        // Audit-trail write integration (WO-61): scoped so it can consume ICurrentUserService /
+        // IHttpContextAccessor per request; resolved from the scoped provider in the DbContext options below.
+        services.AddScoped<AuditTrailInterceptor>();
+
+        services.AddDbContext<AppDbContext>((sp, options) =>
         {
             options.UseSqlServer(connectionString, sql =>
                 sql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
@@ -47,6 +52,8 @@ public static class DependencyInjection
             // yields a null navigation, which the refresh handler treats as an invalid token.
             options.ConfigureWarnings(w =>
                 w.Ignore(CoreEventId.PossibleIncorrectRequiredNavigationWithQueryFilterInteractionWarning));
+            // Writes an AuditTrail row per admin state change, inside the same save transaction (WO-61).
+            options.AddInterceptors(sp.GetRequiredService<AuditTrailInterceptor>());
         });
 
         services.AddScoped<IApplicationDbContext>(sp => sp.GetRequiredService<AppDbContext>());
@@ -103,6 +110,8 @@ public static class DependencyInjection
         // Email enqueuer (WO-20): queues verification / password-reset emails for the dispatch worker.
         services.AddScoped<IEmailEnqueuer, EmailEnqueuer>();
         services.AddScoped<IEmailTemplateSender, EmailTemplateSender>();
+        // Marketing unsubscribe tokens (WO-87): DataProtection-backed, time-safe, no new secret needed.
+        services.AddSingleton<IUnsubscribeTokenService, UnsubscribeTokenService>();
 
         // Settings (WO-3): cached, audited platform settings.
         services.AddMemoryCache();
@@ -125,6 +134,10 @@ public static class DependencyInjection
         // Pricing: discount evaluation + coupon validation/redemption (WO-24/25).
         services.AddScoped<IDiscountService, DiscountService>();
         services.AddScoped<ICouponService, CouponService>();
+        // Loyalty reward points ledger: earn on order, redeem at checkout, claw back on refund (WO-27).
+        services.AddScoped<IRewardPointsService, RewardPointsService>();
+        // Recurring orders / subscriptions (WO-49).
+        services.AddScoped<ISubscriptionService, VSky.Infrastructure.Subscriptions.SubscriptionService>();
         // Multi-currency conversion (WO-26).
         services.AddScoped<ICurrencyService, CurrencyService>();
         // Localization: translated-content resolution with default-language fallback (WO-18).
@@ -132,6 +145,8 @@ public static class DependencyInjection
         // Customer roles: group pricing + catalog-access resolution (WO-22).
         services.AddScoped<ICustomerGroupService, VSky.Infrastructure.Customers.CustomerGroupService>();
         services.AddScoped<IStoreCreditService, VSky.Infrastructure.Customers.StoreCreditService>();
+        // GDPR (WO-23): personal-data export + account anonymization.
+        services.AddScoped<IGdprService, VSky.Infrastructure.Customers.GdprService>();
         // Shipping: custom-method + carrier rate aggregation (WO-40/43).
         services.AddScoped<ICarrierClient, DhlExpressCarrierClient>();
         services.AddScoped<ICarrierClient, UpsCarrierClient>();
@@ -181,6 +196,7 @@ public static class DependencyInjection
         services.AddSingleton<IScheduledTask, AbandonedOrderCleanupWorker>();
         services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.WebhookDispatchWorker>();
         services.AddSingleton<IScheduledTask, VSky.Infrastructure.BackgroundTasks.Workers.EmailDispatchWorker>();
+        services.AddSingleton<IScheduledTask, SubscriptionOrderWorker>();
         // Webhooks: domain event bus that enqueues signed deliveries (WO-5).
         services.AddScoped<IDomainEventBus, VSky.Infrastructure.Webhooks.DomainEventBus>();
         services.AddHostedService<TaskSchedulerService>();

@@ -57,6 +57,11 @@ public class Product : AuditableEntity, ISoftDeletable
     /// <summary>Ordering among featured products (AC-CNT-011.2); only meaningful when <see cref="IsFeatured"/>.</summary>
     public int FeaturedDisplayOrder { get; set; }
 
+    /// <summary>Whether this product can be subscribed to for recurring delivery (WO-49), and the CSV of
+    /// allowed recurrence intervals (<see cref="SubscriptionInterval"/> member names, e.g. "Weekly,Monthly").</summary>
+    public bool IsSubscribable { get; set; }
+    public string? SubscriptionIntervals { get; set; }
+
     // Downloadable-product config (AC-CAT-001.4).
     public int? DownloadExpiryDays { get; set; }
     public int? DownloadLimit { get; set; }

@@ -27,13 +27,15 @@ public class RefundOrderCommandHandler : IRequestHandler<RefundOrderCommand, Pay
     private readonly ISender _mediator;
     private readonly IEmailTemplateSender _templates;
     private readonly IInventoryService _inventory;
+    private readonly IRewardPointsService _points;
 
-    public RefundOrderCommandHandler(IApplicationDbContext db, ISender mediator, IEmailTemplateSender templates, IInventoryService inventory)
+    public RefundOrderCommandHandler(IApplicationDbContext db, ISender mediator, IEmailTemplateSender templates, IInventoryService inventory, IRewardPointsService points)
     {
         _db = db;
         _mediator = mediator;
         _templates = templates;
         _inventory = inventory;
+        _points = points;
     }
 
     public async Task<PaymentDto> Handle(RefundOrderCommand request, CancellationToken cancellationToken)
@@ -62,6 +64,11 @@ public class RefundOrderCommandHandler : IRequestHandler<RefundOrderCommand, Pay
         // RefundPaymentCommand validates the amount against the remaining refundable balance, calls the
         // originating gateway, and records the cumulative refund + payment status.
         var result = await _mediator.Send(new RefundPaymentCommand(payment.Id, amount, request.Reason), cancellationToken);
+
+        // Claw back the loyalty points this order earned (WO-27, AC-PRP-004.4). No-op when loyalty is off or
+        // the order has no customer; the service clamps so it never drives the balance negative.
+        if (order.CustomerId is Guid pointsCustomerId)
+            await _points.DeductForRefundAsync(pointsCustomerId, order.Id, cancellationToken);
 
         // Return the refunded units to stock (AC-CAT-011.5), the single restock path shared with cancellation.
         // A line-item refund restocks exactly those lines; a full refund (no amount and no line filter)

@@ -144,6 +144,13 @@ public interface IApplicationDbContext
     DbSet<CMSSearchPageContent> CMSSearchPageContents { get; }
     DbSet<CMSNewsletterSubscription> CMSNewsletterSubscriptions { get; }
 
+    // Phase 5 — loyalty points (WO-27)
+    DbSet<CustomerPointsBalance> CustomerPointsBalances { get; }
+    DbSet<PointsTransaction> PointsTransactions { get; }
+
+    // Phase 5 — subscriptions (WO-49)
+    DbSet<Subscription> Subscriptions { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 
     /// <summary>

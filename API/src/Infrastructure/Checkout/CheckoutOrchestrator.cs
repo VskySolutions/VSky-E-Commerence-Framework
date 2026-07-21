@@ -36,6 +36,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly IPublisher _publisher;
     private readonly ICustomerGroupService _customerGroups;
     private readonly IInventoryService _inventory;
+    private readonly IRewardPointsService _points;
 
     public CheckoutOrchestrator(
         IApplicationDbContext db,
@@ -51,7 +52,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         IEmailTemplateSender templates,
         IPublisher publisher,
         ICustomerGroupService customerGroups,
-        IInventoryService inventory)
+        IInventoryService inventory,
+        IRewardPointsService points)
     {
         _db = db;
         _routing = routing;
@@ -67,6 +69,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _publisher = publisher;
         _customerGroups = customerGroups;
         _inventory = inventory;
+        _points = points;
     }
 
     public async Task<CheckoutQuote> QuoteAsync(CheckoutQuoteRequest req, CancellationToken ct)
@@ -136,6 +139,12 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         var now = _clock.UtcNow;
         var storeId = priced.Routing.AssignedStoreId!.Value; // non-null: placement short-circuits when unrouted.
 
+        // Loyalty points staged on the cart reduce the payable total (WO-27). Clamp the discount so it can
+        // never exceed the priced total; the balance itself is debited once, in FinalizePlacedOrderAsync.
+        var pointsRedeemed = priced.Cart.PointsApplied > 0 ? priced.Cart.PointsApplied : 0;
+        var pointsDiscount = pointsRedeemed > 0 ? Math.Min(priced.Cart.PointsDiscountAmount, priced.Total) : 0m;
+        var netTotal = priced.Total - pointsDiscount;
+
         // Enforce the store's payment-method availability (e.g. COD switched off, or a deactivated gateway)
         // server-side — the storefront only ever offers these, but never trust the client.
         var availableMethods = priced.Store is null
@@ -148,8 +157,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         // additional charge the buyer pays (WO-fee). Resolved authoritatively here from the active credential —
         // never from the client — and 0 when the method has no fee. Applied to the pre-fee grand total.
         var feePercent = availableMethods.FirstOrDefault(m => m.Method == req.PaymentMethod)?.FeePercent ?? 0m;
-        var paymentFee = decimal.Round(priced.Total * feePercent / 100m, 2, MidpointRounding.AwayFromZero);
-        var grandTotal = priced.Total + paymentFee;
+        var paymentFee = decimal.Round(netTotal * feePercent / 100m, 2, MidpointRounding.AwayFromZero);
+        var grandTotal = netTotal + paymentFee;
 
         // Resolve the customer only when the caller is an authenticated customer; guests place a null-customer order.
         Guid? customerId = null;
@@ -190,12 +199,14 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             RoutedOnUtc = now,
             CurrencyCode = priced.Cart.CurrencyCode,
             Subtotal = priced.Subtotal,
-            DiscountTotal = priced.DiscountTotal,
+            DiscountTotal = priced.DiscountTotal + pointsDiscount,
             ShippingTotal = priced.ShippingTotal,
             TaxTotal = priced.TaxTotal,
             PaymentFeePercent = feePercent,
             PaymentFeeTotal = paymentFee,
             TotalAmount = grandTotal,
+            PointsRedeemed = pointsRedeemed,
+            PointsDiscountAmount = pointsDiscount,
             // Immutable jurisdiction-level tax breakdown, stored verbatim and never recalculated.
             TaxBreakdownJson = JsonSerializer.Serialize(priced.Tax),
             TaxFlaggedForReview = priced.Tax.FallbackApplied,
@@ -548,6 +559,14 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
         if (!string.IsNullOrWhiteSpace(order.AppliedCouponCode))
             await _coupons.RedeemAsync(order.AppliedCouponCode!, ct);
+
+        // Debit the loyalty points redeemed on this order — once, now it is placed + paid (WO-27). Best-effort:
+        // a balance change since the buyer staged them must never fail an already-paid order.
+        if (order.PointsRedeemed > 0 && order.CustomerId is Guid pointsCustomer)
+        {
+            try { await _points.RedeemAsync(pointsCustomer, order.PointsRedeemed, order.Id, ct); }
+            catch (ConflictException) { /* insufficient balance now; leave the paid order untouched */ }
+        }
 
         await _publisher.Publish(
             new OrderPlaced(order.Id, order.OrderNumber, order.TotalAmount, order.CustomerId, order.ContactEmail),

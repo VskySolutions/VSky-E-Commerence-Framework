@@ -77,6 +77,7 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         b.Property(x => x.Slug).HasMaxLength(400);
         b.Property(x => x.ShortDescription).HasMaxLength(1000);
         b.Property(x => x.Sku).HasMaxLength(100);
+        b.Property(x => x.SubscriptionIntervals).HasMaxLength(200);
         b.Property(x => x.MetaTitle).HasMaxLength(300);
         b.Property(x => x.MetaDescription).HasMaxLength(500);
         b.Property(x => x.MetaKeywords).HasMaxLength(500);

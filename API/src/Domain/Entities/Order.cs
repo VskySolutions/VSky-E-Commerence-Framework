@@ -80,6 +80,11 @@ public class Order : AuditableEntity, ISoftDeletable
 
     public string? AppliedCouponCode { get; set; }
 
+    /// <summary>Loyalty points redeemed against this order at placement, and the discount value they bought
+    /// (folded into <see cref="DiscountTotal"/>) (WO-27). The balance is debited once the order is placed + paid.</summary>
+    public int PointsRedeemed { get; set; }
+    public decimal PointsDiscountAmount { get; set; }
+
     // Shipping selection + fulfilment tracking (WO-45).
     /// <summary>
     /// The offered option's MethodId that priced this order — a ShippingMethod id for a custom

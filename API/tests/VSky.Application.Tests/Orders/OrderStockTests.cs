@@ -235,7 +235,7 @@ public class OrderStockTests : CatalogTestBase
 
         using var db = NewContext();
         var handler = new RefundOrderCommandHandler(
-            db, new FakeRefundSender(), new FakeEmailTemplateSender(), NewInventory(db));
+            db, new FakeRefundSender(), new FakeEmailTemplateSender(), NewInventory(db), new FakeRewardPointsService());
 
         await handler.Handle(new RefundOrderCommand(orderId), default);
 
@@ -254,7 +254,7 @@ public class OrderStockTests : CatalogTestBase
 
         using var db = NewContext();
         var handler = new RefundOrderCommandHandler(
-            db, new FakeRefundSender(), new FakeEmailTemplateSender(), NewInventory(db));
+            db, new FakeRefundSender(), new FakeEmailTemplateSender(), NewInventory(db), new FakeRewardPointsService());
 
         await handler.Handle(new RefundOrderCommand(orderId, RestockItems: false), default);
 

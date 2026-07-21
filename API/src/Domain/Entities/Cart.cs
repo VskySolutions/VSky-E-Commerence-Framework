@@ -15,6 +15,12 @@ public class Cart : AuditableEntity, ISoftDeletable
     public string? SessionId { get; set; }
 
     public string? AppliedCouponCode { get; set; }
+
+    /// <summary>Loyalty points staged for redemption at checkout, and the discount they buy (WO-27). Spent
+    /// only at order placement — like a coupon, applying does not deduct the balance.</summary>
+    public int PointsApplied { get; set; }
+    public decimal PointsDiscountAmount { get; set; }
+
     public string CurrencyCode { get; set; } = "USD";
     public bool IsCheckedOut { get; set; }
 

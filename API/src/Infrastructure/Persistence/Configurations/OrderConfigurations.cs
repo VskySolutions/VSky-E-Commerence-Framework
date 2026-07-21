@@ -19,6 +19,7 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.Property(x => x.TaxTotal).HasPrecision(18, 2);
         b.Property(x => x.PaymentFeePercent).HasPrecision(5, 2);
         b.Property(x => x.PaymentFeeTotal).HasPrecision(18, 2);
+        b.Property(x => x.PointsDiscountAmount).HasPrecision(18, 2);
         b.Property(x => x.CurrencyCode).HasMaxLength(3);
         b.Property(x => x.AppliedCouponCode).HasMaxLength(64);
         b.Property(x => x.ShippingMethodId).HasMaxLength(200);

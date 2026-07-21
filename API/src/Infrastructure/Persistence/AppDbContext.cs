@@ -165,6 +165,13 @@ public class AppDbContext : DbContext, IApplicationDbContext
     public DbSet<CMSSearchPageContent> CMSSearchPageContents => Set<CMSSearchPageContent>();
     public DbSet<CMSNewsletterSubscription> CMSNewsletterSubscriptions => Set<CMSNewsletterSubscription>();
 
+    // Phase 5 — loyalty points (WO-27)
+    public DbSet<CustomerPointsBalance> CustomerPointsBalances => Set<CustomerPointsBalance>();
+    public DbSet<PointsTransaction> PointsTransactions => Set<PointsTransaction>();
+
+    // Phase 5 — subscriptions (WO-49)
+    public DbSet<Subscription> Subscriptions => Set<Subscription>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());

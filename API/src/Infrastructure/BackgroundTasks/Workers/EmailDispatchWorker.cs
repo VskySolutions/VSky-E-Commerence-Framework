@@ -1,12 +1,14 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using MimeKit;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Entities;
 using VSky.Domain.Enums;
+using VSky.Infrastructure.Email;
 using VSky.Infrastructure.Persistence;
 
 namespace VSky.Infrastructure.BackgroundTasks.Workers;
@@ -35,6 +37,8 @@ public class EmailDispatchWorker : IScheduledTask
         var db = services.GetRequiredService<AppDbContext>();
         var vault = services.GetRequiredService<ICredentialVault>();
         var settings = services.GetRequiredService<ISettingsService>();
+        var unsubscribeTokens = services.GetRequiredService<IUnsubscribeTokenService>();
+        var publicBaseUrl = services.GetRequiredService<IConfiguration>()["Storefront:PublicBaseUrl"];
         var logger = services.GetRequiredService<ILoggerFactory>().CreateLogger(Name);
 
         var maxAttempts = await settings.GetAsync<int>("email.max-attempts", cancellationToken);
@@ -55,6 +59,21 @@ public class EmailDispatchWorker : IScheduledTask
             return;
         }
 
+        // WO-87 (AC-ENT-006.4): batch-load the marketing-suppressed recipients in this batch (mirrors
+        // AbandonedCartWorker). SQL Server's IN uses the case-insensitive collation, matching the set below.
+        var marketingRecipients = due
+            .Where(e => e.Category == NotificationCategory.Marketing)
+            .Select(e => e.RecipientEmail)
+            .Distinct()
+            .ToList();
+        var suppressed = marketingRecipients.Count == 0
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : (await db.MarketingSuppressions
+                    .Where(s => marketingRecipients.Contains(s.RecipientEmail))
+                    .Select(s => s.RecipientEmail)
+                    .ToListAsync(cancellationToken))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var accounts = await db.SmtpAccounts
             .AsNoTracking()
             .Where(a => a.Enabled)
@@ -69,6 +88,16 @@ public class EmailDispatchWorker : IScheduledTask
 
         foreach (var email in due)
         {
+            // WO-87 (AC-ENT-006.4): never dispatch Marketing mail to a suppressed recipient. Mark and skip
+            // before burning an attempt — the row is terminal (never sent).
+            if (email.Category == NotificationCategory.Marketing && suppressed.Contains(email.RecipientEmail))
+            {
+                email.Status = EmailStatus.Suppressed;
+                email.NextAttemptOnUtc = null;
+                email.ErrorMessage = null;
+                continue;
+            }
+
             var account = SelectAccount(accounts, email.Category);
             email.AttemptCount++;
             email.LastAttemptOnUtc = now;
@@ -82,7 +111,11 @@ public class EmailDispatchWorker : IScheduledTask
 
             try
             {
-                await SendAsync(email, account, vault, cancellationToken);
+                // WO-87 (AC-ENT-006.1): a fresh per-recipient unsubscribe link for the Marketing text/plain part.
+                var unsubscribeUrl = email.Category == NotificationCategory.Marketing
+                    ? MarketingEmailContent.BuildUnsubscribeUrl(publicBaseUrl, unsubscribeTokens.Generate(email.RecipientEmail))
+                    : null;
+                await SendAsync(email, account, vault, unsubscribeUrl, cancellationToken);
                 email.Status = EmailStatus.Sent;
                 email.NextAttemptOnUtc = null;
                 email.ErrorMessage = null;
@@ -105,7 +138,7 @@ public class EmailDispatchWorker : IScheduledTask
            ?? accounts.FirstOrDefault(a => a.Category == null)
            ?? accounts.FirstOrDefault();
 
-    private static async Task SendAsync(EmailQueue email, SmtpAccount account, ICredentialVault vault, CancellationToken cancellationToken)
+    private static async Task SendAsync(EmailQueue email, SmtpAccount account, ICredentialVault vault, string? unsubscribeUrl, CancellationToken cancellationToken)
     {
         var message = new MimeMessage();
         message.From.Add(new MailboxAddress(account.FromName, account.FromEmail));
@@ -116,7 +149,12 @@ public class EmailDispatchWorker : IScheduledTask
         // HTML templates go out as an HTML body (with a plain-text alternative); legacy plain emails stay text.
         if (email.IsHtml)
         {
-            message.Body = new BodyBuilder { HtmlBody = email.RenderedBody }.ToMessageBody();
+            var builder = new BodyBuilder { HtmlBody = email.RenderedBody };
+            // WO-87 (AC-ENT-006.1): Marketing HTML mail also carries a text/plain alternative that contains
+            // the unsubscribe link (the href in the stripped HTML anchor would otherwise be lost).
+            if (unsubscribeUrl is not null)
+                builder.TextBody = MarketingEmailContent.BuildTextAlternative(email.RenderedBody, unsubscribeUrl);
+            message.Body = builder.ToMessageBody();
         }
         else
         {

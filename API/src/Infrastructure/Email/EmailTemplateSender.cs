@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using VSky.Application.Common.Interfaces;
 using VSky.Application.Features.EmailTemplates;
+using VSky.Domain.Enums;
 
 namespace VSky.Infrastructure.Email;
 
@@ -13,11 +15,19 @@ public class EmailTemplateSender : IEmailTemplateSender
 {
     private readonly IApplicationDbContext _db;
     private readonly IEmailEnqueuer _emails;
+    private readonly IUnsubscribeTokenService _unsubscribeTokens;
+    private readonly string? _publicBaseUrl;
 
-    public EmailTemplateSender(IApplicationDbContext db, IEmailEnqueuer emails)
+    public EmailTemplateSender(
+        IApplicationDbContext db,
+        IEmailEnqueuer emails,
+        IUnsubscribeTokenService unsubscribeTokens,
+        IConfiguration configuration)
     {
         _db = db;
         _emails = emails;
+        _unsubscribeTokens = unsubscribeTokens;
+        _publicBaseUrl = configuration["Storefront:PublicBaseUrl"];
     }
 
     public async Task<bool> SendAsync(
@@ -48,6 +58,16 @@ public class EmailTemplateSender : IEmailTemplateSender
         };
         foreach (var kv in variables)
             values[kv.Key] = kv.Value ?? string.Empty;
+
+        // WO-87 (AC-ENT-006.1/006.2): inject a per-recipient unsubscribe link into Marketing emails. The
+        // seeded HTML shell renders {{unsubscribeBlock}} in the footer; the dispatch worker adds the matching
+        // link to the plain-text alternative. Set after the caller-variable merge so it can't be overwritten.
+        if (template.Category == NotificationCategory.Marketing)
+        {
+            var unsubscribeUrl = MarketingEmailContent.BuildUnsubscribeUrl(
+                _publicBaseUrl, _unsubscribeTokens.Generate(recipientEmail));
+            values["unsubscribeBlock"] = MarketingEmailContent.BuildUnsubscribeHtmlBlock(unsubscribeUrl);
+        }
 
         var subject = PreviewEmailTemplateQueryHandler.Render(template.SubjectLine, values);
         var body = PreviewEmailTemplateQueryHandler.Render(template.HtmlBody, values);

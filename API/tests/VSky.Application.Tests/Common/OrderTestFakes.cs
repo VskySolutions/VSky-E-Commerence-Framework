@@ -84,3 +84,15 @@ internal sealed class FakeRefundSender : ISender
     public IAsyncEnumerable<object?> CreateStream(object request, CancellationToken cancellationToken = default)
         => throw new NotSupportedException();
 }
+
+/// <summary>No-op loyalty ledger (WO-27) for handler tests that do not exercise reward points.</summary>
+internal sealed class FakeRewardPointsService : IRewardPointsService
+{
+    public Task<bool> IsEnabledAsync(CancellationToken cancellationToken = default) => Task.FromResult(false);
+    public Task<LoyaltyConfig> GetConfigAsync(CancellationToken cancellationToken = default) => Task.FromResult(new LoyaltyConfig(false, 1m, 100m));
+    public Task<int> GetBalanceAsync(Guid customerId, CancellationToken cancellationToken = default) => Task.FromResult(0);
+    public Task CreditForOrderAsync(Guid customerId, decimal orderTotal, Guid orderId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public decimal ToDiscountValue(int points, decimal redeemRate) => 0m;
+    public Task RedeemAsync(Guid customerId, int points, Guid orderId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    public Task DeductForRefundAsync(Guid customerId, Guid orderId, CancellationToken cancellationToken = default) => Task.CompletedTask;
+}
