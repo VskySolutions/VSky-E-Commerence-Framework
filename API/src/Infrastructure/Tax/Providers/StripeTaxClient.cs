@@ -118,7 +118,10 @@ public class StripeTaxClient : ITaxProviderClient
         for (var i = 0; i < req.Lines.Count; i++)
         {
             var line = req.Lines[i];
-            form.Add(new($"line_items[{i}][amount]", ToMinorUnits(line.Amount * line.Quantity)));
+            // Stripe line amount is the total for the line, net of the discount allocated to it (never below 0),
+            // so tax is charged on the discounted value.
+            var lineAmount = Math.Max(0m, line.Amount * line.Quantity - line.DiscountAmount);
+            form.Add(new($"line_items[{i}][amount]", ToMinorUnits(lineAmount)));
             form.Add(new($"line_items[{i}][reference]", line.ProductId.ToString()));
 
             // Stripe requires a registry tax code (txcd_*); the catalog stores a human-readable Tax

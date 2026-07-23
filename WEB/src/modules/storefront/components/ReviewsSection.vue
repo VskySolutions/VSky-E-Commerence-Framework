@@ -29,16 +29,20 @@
         </div>
       </div>
 
-      <div class="col-12 col-sm-auto">
+      <div v-if="isAuthenticated && enabled" class="col-12 col-sm-auto column items-start">
         <q-btn
-          v-if="canReview"
           color="primary"
           no-caps
           unelevated
           icon="o_rate_review"
           label="Write a Review"
+          :disable="!canReview"
+          :loading="eligibilityLoading"
           @click="showForm = !showForm"
         />
+        <div v-if="showEligibilityNote" class="text-caption text-grey-6 q-mt-xs sf-reviews__note">
+          <q-icon name="o_info" size="14px" class="q-mr-xs" />{{ eligibilityMessage }}
+        </div>
       </div>
     </div>
 
@@ -155,6 +159,8 @@ const submitting = ref(false)
 const showForm = ref(false)
 const summary = ref(null)
 const reviews = ref([])
+const eligibility = ref(null)
+const eligibilityLoading = ref(false)
 const form = reactive({ rating: 5, title: '', body: '' })
 
 const isAuthenticated = computed(() => auth.isAuthenticated)
@@ -162,7 +168,23 @@ const isAuthenticated = computed(() => auth.isAuthenticated)
 // endpoint) degrades to an enabled, empty section.
 const enabled = computed(() => !(summary.value && summary.value.enabled === false))
 const hidden = computed(() => !!(summary.value && summary.value.enabled === false))
-const canReview = computed(() => isAuthenticated.value && enabled.value)
+// The customer may write a review only when signed in, reviews are enabled, and the server eligibility
+// check (purchased + not already reviewed) passed. While the check is in flight the button stays disabled;
+// if the check couldn't run (request failed) we don't block — the submit endpoint still enforces the rule.
+const canReview = computed(() => {
+  if (!isAuthenticated.value || !enabled.value) return false
+  if (eligibilityLoading.value) return false
+  if (!eligibility.value) return true
+  return !!eligibility.value.canReview
+})
+const eligibilityMessage = computed(() =>
+  (eligibility.value && eligibility.value.message) || 'You can only review products you have purchased.'
+)
+// Surface the "why you can't review" note only once ineligibility has actually been confirmed.
+const showEligibilityNote = computed(() =>
+  isAuthenticated.value && enabled.value && !eligibilityLoading.value &&
+  !!eligibility.value && !eligibility.value.canReview
+)
 const loginTo = computed(() => ({ name: 'shop-login', query: { redirect: route.fullPath } }))
 
 const averageRating = computed(() => {
@@ -203,9 +225,25 @@ const distribution = computed(() => {
   }))
 })
 
+async function loadEligibility () {
+  eligibility.value = null
+  if (!isAuthenticated.value || !props.productId) return
+  eligibilityLoading.value = true
+  try {
+    eligibility.value = await reviewsApi.eligibility(props.productId)
+  } catch (e) {
+    // Couldn't determine eligibility — leave it unknown so we don't wrongly block an eligible shopper;
+    // the submit endpoint still enforces the purchase rule.
+    eligibility.value = null
+  } finally {
+    eligibilityLoading.value = false
+  }
+}
+
 async function load () {
   if (!props.productId) return
   loading.value = true
+  loadEligibility() // kicked off in parallel so the button reflects eligibility from the first render
   try {
     const res = await reviewsApi.list(props.productId)
     summary.value = res && res.summary ? res.summary : {}
@@ -251,6 +289,8 @@ async function submit () {
 }
 
 watch(() => props.productId, load)
+// Re-check eligibility when the shopper signs in or out without leaving the page.
+watch(isAuthenticated, loadEligibility)
 onMounted(load)
 </script>
 
@@ -280,5 +320,9 @@ onMounted(load)
   border: 1px solid var(--sf-border);
   border-radius: var(--sf-radius);
   padding: 14px 16px;
+}
+.sf-reviews__note {
+  max-width: 240px;
+  line-height: 1.4;
 }
 </style>

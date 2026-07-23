@@ -24,6 +24,11 @@ public class AdminProductQuestionsController : ApiControllerBase
         [FromQuery] bool sortDescending = false)
         => Ok(await Mediator.Send(new ListProductQuestionsQuery(page, pageSize, status, productId, search, sortBy, sortDescending)));
 
+    /// <summary>Author a pre-answered FAQ for a product; published immediately (Approved + answered).</summary>
+    [HttpPost]
+    public async Task<ActionResult<ProductQuestionDto>> Create([FromBody] CreateProductFaqCommand command)
+        => Ok(await Mediator.Send(command));
+
     /// <summary>Answer a question. Does not change its moderation status (approve separately).</summary>
     [HttpPost("{id:guid}/answer")]
     public async Task<ActionResult<ProductQuestionDto>> Answer(Guid id, [FromBody] AnswerProductQuestionCommand command)

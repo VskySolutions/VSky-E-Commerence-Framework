@@ -13,6 +13,10 @@ export const questionApi = {
       .get('/api/admin/product-questions', { params, paramsSerializer: qsSerializer })
       .then(unwrap)
   },
+  // POST /api/admin/product-questions — author a pre-answered FAQ (published immediately as Approved).
+  createFaq (payload) {
+    return api.post('/api/admin/product-questions', payload).then(unwrap)
+  },
   // POST /api/admin/product-questions/{id}/answer — publish an answer to the question.
   answer (id, answerText) {
     return api.post(`/api/admin/product-questions/${id}/answer`, { answerText }).then(unwrap)

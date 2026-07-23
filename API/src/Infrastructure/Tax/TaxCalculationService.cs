@@ -132,8 +132,10 @@ public class TaxCalculationService : ITaxCalculationService
         return new TaxBreakdown(tax, jurisdictions, fallbackApplied);
     }
 
+    // Tax is charged on the discounted merchandise value (gross line less its allocated discount, never
+    // below zero) plus shipping — so an order/product/coupon discount reduces the taxable base.
     private static decimal TaxableBase(TaxCalculationRequest request)
-        => request.Lines.Sum(l => l.Amount * l.Quantity) + request.ShippingAmount;
+        => request.Lines.Sum(l => Math.Max(0m, l.Amount * l.Quantity - l.DiscountAmount)) + request.ShippingAmount;
 
     /// <summary>
     /// Deterministic cache key over the active provider plus the origin, destination, taxable lines and
@@ -153,7 +155,8 @@ public class TaxCalculationService : ITaxCalculationService
             sb.Append(line.ProductId).Append(':')
               .Append(line.TaxCategoryCode).Append(':')
               .Append(line.Amount.ToString(CultureInfo.InvariantCulture)).Append(':')
-              .Append(line.Quantity).Append(';');
+              .Append(line.Quantity).Append(':')
+              .Append(line.DiscountAmount.ToString(CultureInfo.InvariantCulture)).Append(';');
         }
 
         sb.Append('|').Append(request.ShippingAmount.ToString(CultureInfo.InvariantCulture));

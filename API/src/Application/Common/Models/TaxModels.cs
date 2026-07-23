@@ -12,14 +12,17 @@ public record TaxAddress(
 
 /// <summary>
 /// A single taxable line in a <see cref="TaxCalculationRequest"/>. <see cref="Amount"/> is the
-/// per-unit price; the extended taxable amount is <see cref="Amount"/> × <see cref="Quantity"/>.
+/// per-unit price; the gross line value is <see cref="Amount"/> × <see cref="Quantity"/>, and the
+/// <b>taxable</b> value is that less <see cref="DiscountAmount"/> (the order/product/coupon discount
+/// allocated to this line) — so tax is charged on the discounted price (REQ-PRP/REQ-TAX).
 /// <see cref="TaxCategoryCode"/> is the provider tax code the product's Tax Category maps to.
 /// </summary>
 public record TaxLineInput(
     Guid ProductId,
     string? TaxCategoryCode,
     decimal Amount,
-    int Quantity);
+    int Quantity,
+    decimal DiscountAmount = 0m);
 
 /// <summary>
 /// Input to a tax calculation: the ship-from <see cref="Origin"/>, ship-to <see cref="Destination"/>,

@@ -1,51 +1,38 @@
 <template>
-  <q-page class="app-page">
-    <AppListHeader
-      :breadcrumbs="[
-        { label: 'Home', icon: 'o_home', to: '/dashboard' },
-        { label: 'CMS' },
-        { label: 'Product Q&A' }
-      ]"
-      show-add
-      add-label="Add FAQ"
-      @add="faqFormOpen = true"
-    >
-      <template #actions>
-        <q-input
-          v-model="search"
-          dense
-          outlined
-          debounce="400"
-          placeholder="Search"
-          style="min-width: 220px"
-          @update:model-value="reload"
-        >
-          <template #prepend><q-icon name="o_search" /></template>
-          <template v-if="search" #append>
-            <q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" />
-          </template>
-        </q-input>
-        <q-btn outline color="primary" no-caps icon="o_tune" label="Advanced" class="q-ml-sm" @click="filtersOpen = true">
-          <q-badge v-if="activeFilterCount" color="red" floating>{{ activeFilterCount }}</q-badge>
-        </q-btn>
-      </template>
-    </AppListHeader>
-
-    <AppFilterDrawer v-model="filtersOpen" title="Filter questions" @clear="clearFilters">
-      <AppSelect v-model="statusFilter" label="Status" :options="statusOptions" @update:model-value="reload" />
-      <AppTextField
-        v-model="productIdFilter"
-        label="Product ID"
-        placeholder="Filter by product id"
-        clearable
-        @update:model-value="reloadDebounced"
+  <div>
+    <!-- Controls: status filter + search -->
+    <div class="row items-center q-mb-md q-gutter-sm">
+      <div class="text-caption text-grey-7" style="max-width: 360px">
+        Customer questions for this product. Publish an answer, then approve it to show it on the storefront.
+      </div>
+      <q-space />
+      <q-select
+        v-model="statusFilter"
+        :options="statusOptions"
+        dense outlined emit-value map-options
+        label="Status"
+        style="min-width: 150px"
+        @update:model-value="reload"
       />
-    </AppFilterDrawer>
+      <q-input
+        v-model="search"
+        dense outlined debounce="400"
+        placeholder="Search questions"
+        style="min-width: 200px"
+        @update:model-value="reload"
+      >
+        <template #prepend><q-icon name="o_search" /></template>
+        <template v-if="search" #append>
+          <q-icon name="o_close" class="cursor-pointer" @click="search = ''; reload()" />
+        </template>
+      </q-input>
+      <q-btn v-if="canWrite" unelevated color="primary" no-caps icon="o_add" label="Add FAQ" @click="faqFormOpen = true" />
+    </div>
 
     <AppDataTable
-      page-key="product-questions"
+      page-key="product-questions-panel"
       row-key="id"
-      title="All questions"
+      title="Questions"
       :rows="rows"
       :columns="columns"
       :loading="loading"
@@ -54,12 +41,6 @@
       @request="onRequest"
       @refresh="reload"
     >
-      <template #body-cell-productName="cell">
-        <q-td :props="cell">
-          <div class="text-weight-medium">{{ cell.row.productName || '—' }}</div>
-        </q-td>
-      </template>
-
       <template #body-cell-askerName="cell">
         <q-td :props="cell">
           <div>{{ cell.row.askerName || '—' }}</div>
@@ -70,6 +51,9 @@
       <template #body-cell-questionText="cell">
         <q-td :props="cell">
           <div class="text-grey-8">{{ excerpt(cell.row.questionText) }}</div>
+          <div v-if="isAnswered(cell.row)" class="text-caption text-positive ellipsis">
+            <q-icon name="o_reply" size="14px" /> {{ excerpt(cell.row.answerText, 80) }}
+          </div>
         </q-td>
       </template>
 
@@ -91,10 +75,11 @@
       </template>
 
       <template #actions="{ row }">
-        <q-btn flat round dense icon="o_reply" color="primary" @click="onAnswer(row)">
+        <q-btn v-if="canWrite" flat round dense icon="o_reply" color="primary" @click="onAnswer(row)">
           <q-tooltip>{{ isAnswered(row) ? 'Edit answer' : 'Answer' }}</q-tooltip>
         </q-btn>
         <q-btn
+          v-if="canWrite"
           flat round dense icon="o_check" color="positive"
           :disable="row.status === 'Approved' || moderatingId === row.id"
           :loading="moderatingId === row.id"
@@ -103,6 +88,7 @@
           <q-tooltip>Approve</q-tooltip>
         </q-btn>
         <q-btn
+          v-if="canWrite"
           flat round dense icon="o_block" color="negative"
           :disable="row.status === 'Rejected' || moderatingId === row.id"
           @click="onModerate(row, 'Rejected')"
@@ -121,10 +107,6 @@
       @submit="onSubmitAnswer"
     >
       <div v-if="answerRow" class="column q-gutter-md">
-        <div>
-          <div class="text-caption text-grey-7">Product</div>
-          <div class="text-weight-medium">{{ answerRow.productName || '—' }}</div>
-        </div>
         <div>
           <div class="text-caption text-grey-7">Asked by</div>
           <div>{{ answerRow.askerName || '—' }}<span v-if="answerRow.askerEmail" class="text-grey-7"> · {{ answerRow.askerEmail }}</span></div>
@@ -147,27 +129,40 @@
       </div>
     </AppFormDrawer>
 
-    <!-- Author a pre-answered FAQ for any product -->
-    <ProductFaqFormDrawer v-model="faqFormOpen" @created="onFaqCreated" />
-  </q-page>
+    <!-- Add a pre-answered FAQ for this product -->
+    <ProductFaqFormDrawer
+      v-model="faqFormOpen"
+      :product-id="productId"
+      :product-name="productName"
+      @created="onFaqCreated"
+    />
+  </div>
 </template>
 
 <script setup>
 /*
- * Product Q&A moderation queue (WO-58): server-paginated AppDataTable with
- * status/product filters, an answered-yet indicator, per-row Approve / Reject,
- * and an Answer drawer (AppFormDrawer) that publishes an answer to the question.
+ * ProductQuestionsPanel: the "FAQ" tab on the product detail page. A product-scoped
+ * slice of the WO-58 Q&A moderation queue — questions filtered to this product, with
+ * status/search filters, an answered indicator, per-row Approve / Reject, and an
+ * Answer drawer. Mirrors modules/product-qa/pages/index.vue but embedded and without
+ * the redundant Product column.
  */
-import { ref, computed, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { questionApi } from 'modules/product-qa/api'
 import { getApiErrorMessage } from 'services/api'
 import { useNotify } from 'composables/useNotify'
 import ProductFaqFormDrawer from 'modules/product-qa/components/ProductFaqFormDrawer.vue'
 
+const props = defineProps({
+  productId: { type: String, required: true },
+  productName: { type: String, default: '' },
+  canWrite: { type: Boolean, default: false }
+})
+const emit = defineEmits(['count'])
+
 const notify = useNotify()
 
 const columns = [
-  { name: 'productName', label: 'Product', field: 'productName', align: 'left', sortable: true },
   { name: 'askerName', label: 'Asker', field: 'askerName', align: 'left', sortable: true },
   { name: 'questionText', label: 'Question', field: 'questionText', align: 'left' },
   { name: 'status', label: 'Status', field: 'status', align: 'center', sortable: true },
@@ -176,7 +171,7 @@ const columns = [
 ]
 
 const statusOptions = [
-  { label: 'All', value: null },
+  { label: 'All statuses', value: null },
   { label: 'Pending', value: 'Pending' },
   { label: 'Approved', value: 'Approved' },
   { label: 'Rejected', value: 'Rejected' }
@@ -184,13 +179,10 @@ const statusOptions = [
 
 const rows = ref([])
 const loading = ref(false)
-const moderatingId = ref(null)
-
 const search = ref('')
 const statusFilter = ref(null)
-const productIdFilter = ref('')
-const filtersOpen = ref(false)
 const pagination = ref({ page: 1, rowsPerPage: 10, rowsNumber: 0, sortBy: 'createdOnUtc', descending: true })
+const moderatingId = ref(null)
 
 const answerOpen = ref(false)
 const answerRow = ref(null)
@@ -198,10 +190,6 @@ const answerText = ref('')
 const answering = ref(false)
 
 const faqFormOpen = ref(false)
-
-const activeFilterCount = computed(() =>
-  (statusFilter.value !== null ? 1 : 0) + (productIdFilter.value ? 1 : 0)
-)
 
 function statusColor (status) {
   if (status === 'Approved') return 'positive'
@@ -219,31 +207,25 @@ function excerpt (text, len = 110) {
   return clean.length > len ? `${clean.slice(0, len)}…` : clean
 }
 
-function clearFilters () {
-  statusFilter.value = null
-  productIdFilter.value = ''
-  reload()
-}
-
-async function fetch (props) {
-  const p = props?.pagination || pagination.value
+async function fetch (reqProps) {
+  const p = reqProps?.pagination || pagination.value
   loading.value = true
   try {
     const result = await questionApi.list({
       page: p.page,
       pageSize: p.rowsPerPage,
+      productId: props.productId,
       search: search.value || undefined,
       status: statusFilter.value || undefined,
-      productId: productIdFilter.value || undefined,
       sortBy: p.sortBy || undefined,
       sortDescending: !!p.descending
     })
     const items = Array.isArray(result) ? result : result?.items || result?.data || []
-    const total = Array.isArray(result)
-      ? result.length
-      : result?.totalCount ?? result?.total ?? items.length
+    const total = Array.isArray(result) ? result.length : result?.totalCount ?? result?.total ?? items.length
     rows.value = items
     pagination.value = { ...p, rowsNumber: total }
+    // Feed the tab badge with the product's total (only when unfiltered so it stays a true count).
+    if (!search.value && statusFilter.value === null) emit('count', total)
   } catch (err) {
     rows.value = []
     pagination.value = { ...p, rowsNumber: 0 }
@@ -253,19 +235,8 @@ async function fetch (props) {
   }
 }
 
-function onRequest (props) {
-  fetch(props)
-}
-
-function reload () {
-  return fetch({ pagination: { ...pagination.value, page: 1 } })
-}
-
-let reloadTimer = null
-function reloadDebounced () {
-  clearTimeout(reloadTimer)
-  reloadTimer = setTimeout(reload, 400)
-}
+function onRequest (reqProps) { fetch(reqProps) }
+function reload () { return fetch({ pagination: { ...pagination.value, page: 1 } }) }
 
 function onAnswer (row) {
   answerRow.value = row
@@ -304,12 +275,15 @@ async function onModerate (row, status) {
 }
 
 function onFaqCreated () {
-  // The new FAQ may be published (Approved) or a draft (Pending) — clear the status filter/search so
+  // The new FAQ may be published (Approved) or a draft (Pending) — clear any status/search filter so
   // it's visible either way, then refresh.
   statusFilter.value = null
   search.value = ''
   reload()
 }
+
+// Reload when the panel is pointed at a different product (e.g. route change on the same instance).
+watch(() => props.productId, () => { statusFilter.value = null; search.value = ''; reload() })
 
 onMounted(() => fetch())
 </script>

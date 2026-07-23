@@ -27,8 +27,8 @@ public class SubmitProductQuestionCommandValidator : AbstractValidator<SubmitPro
     {
         RuleFor(x => x.QuestionText).NotEmpty().MaximumLength(2000);
         RuleFor(x => x.AskerName).NotEmpty().MaximumLength(200);
-        RuleFor(x => x.AskerEmail).MaximumLength(256).EmailAddress()
-            .When(x => !string.IsNullOrWhiteSpace(x.AskerEmail));
+        // Email is mandatory for storefront submissions (used to notify the asker when it's answered).
+        RuleFor(x => x.AskerEmail).NotEmpty().MaximumLength(256).EmailAddress();
     }
 }
 

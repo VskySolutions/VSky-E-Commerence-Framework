@@ -35,6 +35,23 @@ public class DiscountServiceTests : CatalogTestBase
     private static IReadOnlyList<DiscountCartLine> Lines(decimal total) =>
         new List<DiscountCartLine> { new(Guid.NewGuid(), new List<Guid>(), total, 1) };
 
+    private Guid SeedProductDiscount(Guid productId, decimal value, string name = "Product off")
+    {
+        using var db = NewContext();
+        var d = new Discount
+        {
+            Name = name,
+            Scope = DiscountScope.Product,
+            ProductId = productId,
+            Type = DiscountType.FixedAmount,
+            Value = value,
+            IsActive = true,
+        };
+        db.Discounts.Add(d);
+        db.SaveChanges();
+        return d.Id;
+    }
+
     [Fact]
     public async Task CouponGatedDiscount_IsSkipped_WhenNoCouponUnlocksIt()
     {
@@ -83,5 +100,46 @@ public class DiscountServiceTests : CatalogTestBase
 
         var applied = Assert.Single(result.Applied);
         Assert.Equal(unlocked, applied.DiscountId);
+    }
+
+    // ---- Per-line allocation (drives discount-before-tax; Scenarios 2 & 3) ----------------------
+
+    [Fact]
+    public async Task CartDiscount_IsAllocatedAcrossLines_ProportionalToLineValue()
+    {
+        SeedDiscount(requiresCoupon: false, value: 20m); // 20% of the $150 subtotal = $30
+        var svc = new DiscountService(NewContext());
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        var lines = new List<DiscountCartLine>
+        {
+            new(a, new List<Guid>(), 100m, 1),
+            new(b, new List<Guid>(), 50m, 1),
+        };
+
+        var result = await svc.EvaluateAsync(lines, 150m);
+
+        Assert.Equal(30m, result.TotalDiscount);
+        Assert.Equal(new[] { 20m, 10m }, result.LineDiscounts); // 100/150 and 50/150 of $30
+        Assert.Equal(result.TotalDiscount, result.LineDiscounts.Sum());
+    }
+
+    [Fact]
+    public async Task ProductDiscount_IsAllocatedOnlyToThatProductsLine()
+    {
+        var a = Guid.NewGuid();
+        var b = Guid.NewGuid();
+        SeedProductDiscount(a, value: 20m); // $20 off product A only
+        var svc = new DiscountService(NewContext());
+        var lines = new List<DiscountCartLine>
+        {
+            new(a, new List<Guid>(), 100m, 1),
+            new(b, new List<Guid>(), 50m, 1),
+        };
+
+        var result = await svc.EvaluateAsync(lines, 150m);
+
+        Assert.Equal(20m, result.TotalDiscount);
+        Assert.Equal(new[] { 20m, 0m }, result.LineDiscounts); // all on A, none on B
     }
 }

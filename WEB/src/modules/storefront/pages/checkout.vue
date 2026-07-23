@@ -689,7 +689,10 @@
 
             <!-- Totals -->
             <div class="row items-center justify-between q-mb-xs">
-              <span class="text-grey-8">Subtotal</span>
+              <span class="text-grey-8">
+                Subtotal
+                <SummaryHint text="Total price of all items — unit price × quantity — before discounts, shipping and tax." />
+              </span>
               <span>{{ format(displaySubtotal) }}</span>
             </div>
 
@@ -700,7 +703,10 @@
                 v-if="quote.groupDiscountTotal > 0"
                 class="row items-center justify-between q-mb-xs text-green-8"
               >
-                <span>{{ quote.groupDiscountName || 'Customer group discount' }}</span>
+                <span>
+                  {{ quote.groupDiscountName || 'Customer group discount' }}
+                  <SummaryHint text="A member discount for your customer group, applied by lowering item unit prices. It's already reflected in the totals below." />
+                </span>
                 <span>-{{ format(quote.groupDiscountTotal) }}</span>
               </div>
               <div
@@ -708,31 +714,30 @@
                 :key="d.discountId"
                 class="row items-center justify-between q-mb-xs text-green-8"
               >
-                <span>{{ d.name || 'Discount' }}</span>
+                <span>
+                  {{ d.name || 'Discount' }}
+                  <SummaryHint text="A promotion or coupon applied to your order. Discounts reduce the item total that sales tax is calculated on." />
+                </span>
                 <span>-{{ format(d.amount) }}</span>
               </div>
               <div
                 v-if="quote.discountTotal > 0 && !quote.discounts.length"
                 class="row items-center justify-between q-mb-xs text-green-8"
               >
-                <span>Discount</span>
+                <span>
+                  Discount
+                  <SummaryHint text="A promotion or coupon applied to your order. Discounts reduce the item total that sales tax is calculated on." />
+                </span>
                 <span>-{{ format(quote.discountTotal) }}</span>
               </div>
 
               <div class="row items-center justify-between q-mb-xs">
                 <span class="text-grey-8">
                   Shipping<span v-if="selectedShipping"> ({{ selectedShipping.name }})</span>
-                  <q-icon
-                    v-if="shippingIntegrationName"
-                    name="o_info"
-                    size="15px"
-                    class="q-ml-xs text-grey-6 cursor-pointer"
-                    style="vertical-align: middle"
-                  >
-                    <q-tooltip anchor="top middle" self="bottom middle" class="text-body2">
-                      Shipping calculation is processed by {{ shippingIntegrationName }}
-                    </q-tooltip>
-                  </q-icon>
+                  <SummaryHint>
+                    The delivery charge for your selected method. Depending on your destination, shipping may itself be taxable.
+                    <template v-if="shippingIntegrationName"><br>Rates are calculated by {{ shippingIntegrationName }}.</template>
+                  </SummaryHint>
                 </span>
                 <span>{{ format(quote.shippingTotal) }}</span>
               </div>
@@ -740,17 +745,10 @@
               <div class="row items-center justify-between q-mb-xs">
                 <span class="text-grey-8">
                   Tax
-                  <q-icon
-                    v-if="taxProviderInfo"
-                    name="o_info"
-                    size="15px"
-                    class="q-ml-xs text-grey-6 cursor-pointer"
-                    style="vertical-align: middle"
-                  >
-                    <q-tooltip anchor="top middle" self="bottom middle" class="text-body2">
-                      Tax calculation is processed by {{ taxProviderInfo.label }}
-                    </q-tooltip>
-                  </q-icon>
+                  <SummaryHint>
+                    Sales tax for your delivery address, calculated on your item subtotal after discounts, plus any taxable shipping.
+                    <template v-if="taxProviderInfo"><br>Calculated by {{ taxProviderInfo.label }}.</template>
+                  </SummaryHint>
                 </span>
                 <span>{{ format(quote.taxTotal) }}</span>
               </div>
@@ -762,6 +760,7 @@
               <div v-if="paymentFee > 0" class="row items-center justify-between q-mb-xs">
                 <span class="text-grey-8">
                   Payment fee<span v-if="selectedPaymentFeePercent"> ({{ selectedPaymentFeePercent }}%)</span>
+                  <SummaryHint text="A processing fee charged by your selected payment method, calculated as a percentage of the order total." />
                 </span>
                 <span>{{ format(paymentFee) }}</span>
               </div>
@@ -773,6 +772,7 @@
                   <span class="text-grey-8 row items-center no-wrap">
                     <q-icon name="o_loyalty" size="16px" class="q-mr-xs text-primary" />
                     Reward points
+                    <SummaryHint text="Redeem your loyalty points for money off. Points are applied to the total after tax, like a payment." />
                   </span>
                   <span class="text-caption text-grey-6">{{ pointsBalance }} available</span>
                 </div>
@@ -818,7 +818,10 @@
               <q-separator class="q-my-sm" />
 
               <div class="row items-center justify-between text-subtitle1 text-weight-bold">
-                <span>Total</span>
+                <span>
+                  Total
+                  <SummaryHint text="The final amount you pay: item subtotal, minus discounts, plus shipping, tax and any payment fee, minus reward points." />
+                </span>
                 <span>{{ format(grandTotal) }}</span>
               </div>
             </template>
@@ -889,6 +892,7 @@ import { useRouter, useRoute } from 'vue-router'
 import AppAddressForm from 'components/common/AppAddressForm.vue'
 import AppTextField from 'components/common/AppTextField.vue'
 import AppPhoneInput from 'components/common/AppPhoneInput.vue'
+import SummaryHint from 'modules/storefront/components/SummaryHint.vue'
 import { isPossiblePhoneNumber } from 'libphonenumber-js'
 import { emptyAddress } from 'composables/useAddress'
 import { checkoutApi } from 'modules/storefront/api'

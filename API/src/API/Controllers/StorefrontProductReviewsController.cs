@@ -17,6 +17,12 @@ public class StorefrontProductReviewsController : ApiControllerBase
     public async Task<ActionResult<ProductReviewListResultDto>> Get(Guid productId)
         => Ok(await Mediator.Send(new GetProductReviewsQuery(productId)));
 
+    /// <summary>Whether the signed-in customer may review this product (purchase + one-review rules) — lets the UI disable the action with a reason.</summary>
+    [HttpGet("eligibility")]
+    [Authorize]
+    public async Task<ActionResult<ProductReviewEligibilityDto>> Eligibility(Guid productId)
+        => Ok(await Mediator.Send(new GetProductReviewEligibilityQuery(productId)));
+
     /// <summary>Submit a review for the product as the signed-in customer (route product id wins over the body).</summary>
     [HttpPost]
     [Authorize]

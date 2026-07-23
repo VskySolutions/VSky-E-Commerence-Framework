@@ -828,11 +828,13 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         }
 
         // 6. Tax (AC-CHK-003.5): origin = store address, destination = ship-to, plus the taxable shipping cost.
+        // Each line is taxed on its discounted value: the discount engine's per-line allocation (order/product/
+        // coupon reductions spread across the lines) is netted off before tax, so tax follows the price paid.
         var tax = await _tax.CalculateAsync(
             new TaxCalculationRequest(
                 new TaxAddress(store.CountryCode ?? string.Empty, store.StateProvince, store.PostalCode, store.City),
                 new TaxAddress(shipTo.CountryCode, shipTo.Region, shipTo.PostalCode, shipTo.City),
-                lines.Select(l => new TaxLineInput(l.ProductId, l.TaxCategoryCode, l.UnitPrice, l.Quantity)).ToList(),
+                BuildTaxLines(lines, discountResult.LineDiscounts),
                 shippingTotal,
                 taxExemption),
             ct);
@@ -918,7 +920,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         var tax = await _tax.CalculateAsync(
             new TaxCalculationRequest(
                 storeAddress, storeAddress,
-                lines.Select(l => new TaxLineInput(l.ProductId, l.TaxCategoryCode, l.UnitPrice, l.Quantity)).ToList(),
+                BuildTaxLines(lines, discountResult.LineDiscounts),
                 0m,
                 taxExemption),
             ct);
@@ -1092,6 +1094,16 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private static RoutingRequest BuildRoutingRequest(CheckoutAddress shipTo, IReadOnlyList<LineWork> lines) =>
         new(shipTo.Latitude, shipTo.Longitude, shipTo.CountryCode, shipTo.Region, shipTo.PostalCode,
             lines.Select(l => new RoutingLineItem(l.ProductId, l.ProductVariantId, l.Quantity)).ToList());
+
+    /// <summary>
+    /// Projects the priced lines into tax inputs, attaching each line's share of the discount total (the
+    /// discount engine's per-line allocation, index-aligned to <paramref name="lines"/>) so the provider
+    /// taxes the discounted line value. A line with no allocated discount carries zero.
+    /// </summary>
+    private static List<TaxLineInput> BuildTaxLines(IReadOnlyList<LineWork> lines, IReadOnlyList<decimal> lineDiscounts) =>
+        lines.Select((l, i) => new TaxLineInput(
+            l.ProductId, l.TaxCategoryCode, l.UnitPrice, l.Quantity,
+            i < lineDiscounts.Count ? lineDiscounts[i] : 0m)).ToList();
 
     private static string? FirstNonEmpty(params string?[] values)
     {

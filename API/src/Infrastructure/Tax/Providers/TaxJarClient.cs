@@ -58,7 +58,8 @@ public class TaxJarClient : ITaxProviderClient
             to_zip = req.Destination.PostalCode,
             to_state = RegionCodeNormalizer.ToStateCode(req.Destination.CountryCode, req.Destination.Region),
             to_city = req.Destination.City,
-            amount = req.Lines.Sum(l => l.Amount * l.Quantity),
+            // Order subtotal (less shipping and tax), net of any allocated discounts.
+            amount = req.Lines.Sum(l => Math.Max(0m, l.Amount * l.Quantity - l.DiscountAmount)),
             shipping = req.ShippingAmount,
             line_items = req.Lines.Select((l, i) => new
             {
@@ -69,6 +70,9 @@ public class TaxJarClient : ITaxProviderClient
                 // and otherwise omit it (null is dropped by WhenWritingNull) so the line is fully taxable.
                 product_tax_code = TaxJarProductCode(l.TaxCategoryCode),
                 unit_price = l.Amount,
+                // The order/product/coupon discount allocated to this line; TaxJar taxes (unit_price × qty − discount).
+                // Omitted (null → dropped) when there's nothing to discount.
+                discount = l.DiscountAmount > 0m ? l.DiscountAmount : (decimal?)null,
             }).ToArray(),
         };
 

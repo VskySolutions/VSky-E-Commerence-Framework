@@ -102,3 +102,22 @@ public class ProductReviewStatsDto
     public int RejectedCount { get; set; }
     public int TotalCount { get; set; }
 }
+
+/// <summary>Whether the current signed-in customer may write a review for a product, and if not, why — so
+/// the storefront can disable the "Write a Review" action with a clear reason instead of only failing on
+/// submit. The rules mirror those enforced by <c>SubmitProductReviewCommand</c>.</summary>
+public class ProductReviewEligibilityDto
+{
+    public bool CanReview { get; set; }
+
+    /// <summary>Machine-readable code: Ok | NotSignedIn | NoProfile | ReviewsDisabled | NotPurchased | AlreadyReviewed.</summary>
+    public string Reason { get; set; } = "Ok";
+
+    /// <summary>Human-readable explanation shown when <see cref="CanReview"/> is false; null when eligible.</summary>
+    public string? Message { get; set; }
+
+    public static ProductReviewEligibilityDto Ok() => new() { CanReview = true, Reason = "Ok" };
+
+    public static ProductReviewEligibilityDto Denied(string reason, string message) =>
+        new() { CanReview = false, Reason = reason, Message = message };
+}

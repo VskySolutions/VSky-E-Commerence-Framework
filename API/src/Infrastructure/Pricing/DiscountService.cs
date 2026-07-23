@@ -56,15 +56,91 @@ public class DiscountService : IDiscountService
             var best = exclusive
                 .OrderByDescending(c => c.Applied.Amount)
                 .ThenBy(c => c.Applied.DiscountId)
-                .First()
-                .Applied;
-            return new DiscountEvaluationResult(new List<AppliedDiscount> { best }, best.Amount);
+                .First();
+            var (bestLineDiscounts, bestTotal) = AllocateToLines(new[] { best }, lines);
+            return new DiscountEvaluationResult(new List<AppliedDiscount> { best.Applied }, bestTotal, bestLineDiscounts);
         }
 
         // Otherwise every non-exclusive discount stacks.
         var applied = candidates.Select(c => c.Applied).ToList();
-        var total = applied.Sum(a => a.Amount);
-        return new DiscountEvaluationResult(applied, total);
+        var (lineDiscounts, total) = AllocateToLines(candidates, lines);
+        return new DiscountEvaluationResult(applied, total, lineDiscounts);
+    }
+
+    /// <summary>
+    /// Distributes each applied discount across the lines its scope targets (whole cart → every line;
+    /// product/category → only matching lines), proportional to each line's value, and sums the shares per
+    /// line. A line's cumulative discount is capped at the line's own value so a stacked set of rules can
+    /// never drive its taxable base below zero. Returns the per-line amounts (index-aligned to
+    /// <paramref name="lines"/>) and their total.
+    /// </summary>
+    private static (IReadOnlyList<decimal> LineDiscounts, decimal Total) AllocateToLines(
+        IReadOnlyList<(Discount Discount, AppliedDiscount Applied)> finalDiscounts,
+        IReadOnlyList<DiscountCartLine> lines)
+    {
+        var lineDiscounts = new decimal[lines.Count];
+
+        foreach (var (discount, applied) in finalDiscounts)
+            AllocateAcross(applied.Amount, TargetLineIndices(discount, lines), lines, lineDiscounts);
+
+        decimal total = 0m;
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (lineDiscounts[i] > lines[i].LineTotal) lineDiscounts[i] = lines[i].LineTotal;
+            if (lineDiscounts[i] < 0m) lineDiscounts[i] = 0m;
+            total += lineDiscounts[i];
+        }
+
+        return (lineDiscounts, total);
+    }
+
+    /// <summary>The indices of the lines a discount's scope targets (only lines with a positive value).</summary>
+    private static List<int> TargetLineIndices(Discount d, IReadOnlyList<DiscountCartLine> lines)
+    {
+        var indices = new List<int>();
+        for (var i = 0; i < lines.Count; i++)
+        {
+            if (lines[i].LineTotal <= 0m)
+                continue;
+
+            var matches = d.Scope switch
+            {
+                DiscountScope.CartTotal or DiscountScope.OrderSubtotal => true,
+                DiscountScope.Product => d.ProductId.HasValue && lines[i].ProductId == d.ProductId.Value,
+                DiscountScope.Category => d.CategoryId.HasValue && lines[i].CategoryIds.Contains(d.CategoryId.Value),
+                _ => false,
+            };
+            if (matches)
+                indices.Add(i);
+        }
+        return indices;
+    }
+
+    /// <summary>
+    /// Spreads <paramref name="amount"/> across <paramref name="targetIndices"/> proportional to each line's
+    /// value, rounding each share to cents and giving the last target the remainder so the parts sum exactly
+    /// to <paramref name="amount"/>. Accumulates into <paramref name="lineDiscounts"/>.
+    /// </summary>
+    private static void AllocateAcross(
+        decimal amount, IReadOnlyList<int> targetIndices, IReadOnlyList<DiscountCartLine> lines, decimal[] lineDiscounts)
+    {
+        if (amount <= 0m || targetIndices.Count == 0)
+            return;
+
+        var baseSum = targetIndices.Sum(i => lines[i].LineTotal);
+        if (baseSum <= 0m)
+            return;
+
+        decimal allocated = 0m;
+        for (var k = 0; k < targetIndices.Count; k++)
+        {
+            var i = targetIndices[k];
+            var share = k == targetIndices.Count - 1
+                ? amount - allocated // last line takes the remainder → no rounding drift
+                : decimal.Round(amount * (lines[i].LineTotal / baseSum), 2, MidpointRounding.AwayFromZero);
+            allocated += share;
+            lineDiscounts[i] += share;
+        }
     }
 
     /// <summary>

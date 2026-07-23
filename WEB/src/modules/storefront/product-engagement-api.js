@@ -21,6 +21,10 @@ export const reviewsApi = {
   list (productId) {
     return anonApi.get(`${PRODUCTS}/${encodeURIComponent(productId)}/reviews`).then(unwrap)
   },
+  // Whether the signed-in customer may review this product { canReview, reason, message } (authenticated).
+  eligibility (productId) {
+    return customerApi.get(`${PRODUCTS}/${encodeURIComponent(productId)}/reviews/eligibility`).then(unwrap)
+  },
   // Submit a review (authenticated customer). A 403 carries the "must have purchased" message.
   submit (productId, { rating, title, body }) {
     return customerApi

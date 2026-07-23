@@ -68,6 +68,12 @@
         >
           <q-tab name="general" icon="o_info" label="General" />
           <q-tab name="pricing" icon="o_sell" label="Pricing &amp; inventory" :disable="isCreate" />
+          <q-tab v-if="isVariantType" name="variants" :disable="isCreate">
+            <div class="row items-center no-wrap">
+              <q-icon name="o_style" class="q-mr-xs" />Variants
+              <q-badge v-if="!isCreate && variants.length" color="grey-5" class="q-ml-xs">{{ variants.length }}</q-badge>
+            </div>
+          </q-tab>
           <q-tab name="organization" :disable="isCreate">
             <div class="row items-center no-wrap">
               <q-icon name="o_account_tree" class="q-mr-xs" />Organization
@@ -81,10 +87,16 @@
             </div>
           </q-tab>
           <q-tab name="seo" icon="o_search" label="SEO" :disable="isCreate" />
-          <q-tab v-if="isVariantType" name="variants" :disable="isCreate">
+          <q-tab name="reviews" :disable="isCreate">
             <div class="row items-center no-wrap">
-              <q-icon name="o_style" class="q-mr-xs" />Variants
-              <q-badge v-if="!isCreate && variants.length" color="grey-5" class="q-ml-xs">{{ variants.length }}</q-badge>
+              <q-icon name="o_star_border" class="q-mr-xs" />Reviews
+              <q-badge v-if="!isCreate && reviewCount" color="grey-5" class="q-ml-xs">{{ reviewCount }}</q-badge>
+            </div>
+          </q-tab>
+          <q-tab name="faq" :disable="isCreate">
+            <div class="row items-center no-wrap">
+              <q-icon name="o_help_outline" class="q-mr-xs" />FAQ
+              <q-badge v-if="!isCreate && questionCount" color="grey-5" class="q-ml-xs">{{ questionCount }}</q-badge>
             </div>
           </q-tab>
         </q-tabs>
@@ -259,117 +271,6 @@
             </div>
           </q-tab-panel>
 
-          <!-- ============ ORGANIZATION ============ -->
-          <q-tab-panel name="organization" class="q-gutter-y-sm">
-            <AppFieldLabel label="Categories">
-              <template #hint>Where this product appears in the storefront category tree</template>
-            </AppFieldLabel>
-            <q-select
-              v-model="categoryIds"
-              dense outlined multiple use-chips emit-value map-options
-              :options="categoryOptions"
-              :disable="!canWrite"
-              placeholder="Assign one or more categories"
-              @update:model-value="queueCategories"
-            />
-
-            <q-separator class="q-my-md" />
-            <AppFieldLabel label="Tags">
-              <template #hint>Free-form keywords for search and merchandising — type and press Enter</template>
-            </AppFieldLabel>
-            <q-select
-              v-model="tagNames"
-              dense outlined multiple use-input use-chips hide-dropdown-icon
-              new-value-mode="add-unique"
-              :disable="!canWrite"
-              placeholder="Add tags"
-              @update:model-value="queueTags"
-            />
-          </q-tab-panel>
-
-          <!-- ============ MEDIA ============ -->
-          <q-tab-panel name="media" class="q-gutter-y-sm">
-            <!-- Images: centralized media library (two-step upload → ProductPicture) -->
-            <AppFieldLabel label="Images">
-              <template #hint>Uploaded to the media library; display order follows the upload sequence</template>
-            </AppFieldLabel>
-            <div v-if="imagePictures.length" class="row q-col-gutter-sm q-mb-sm">
-              <div v-for="pic in imagePictures" :key="pic.id" class="col-auto">
-                <div class="product-pic">
-                  <img :src="$media(pic.url)" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openPicture(pic)">
-                  <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="product-pic__remove" @click="removePicture(pic)" />
-                </div>
-              </div>
-            </div>
-            <div v-else class="text-grey-6 text-caption q-mb-sm">No images yet.</div>
-
-            <q-file
-              v-if="canWrite"
-              v-model="imageFiles"
-              multiple dense outlined
-              accept="image/*"
-              label="Upload images"
-              hint="PNG, JPG, GIF, WEBP — added to the media library"
-              :loading="uploadingImages"
-              @update:model-value="onImageFiles"
-            >
-              <template #prepend><q-icon name="o_add_photo_alternate" /></template>
-            </q-file>
-
-            <!-- Videos: embed URLs (legacy gallery — embeds aren't file uploads) -->
-            <q-separator class="q-my-md" />
-            <AppFieldLabel label="Videos">
-              <template #hint>Paste an embed URL (YouTube, Vimeo…) and press Enter</template>
-            </AppFieldLabel>
-            <q-list v-if="videoImages.length" bordered separator class="q-mb-sm rounded-borders">
-              <q-item v-for="img in videoImages" :key="img.id">
-                <q-item-section avatar><q-icon name="o_movie" color="grey-7" /></q-item-section>
-                <q-item-section class="ellipsis">{{ img.url }}</q-item-section>
-                <q-item-section side>
-                  <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="removeImage(img)" />
-                </q-item-section>
-              </q-item>
-            </q-list>
-            <q-input
-              v-if="canWrite"
-              v-model="newVideoUrl"
-              dense outlined
-              placeholder="e.g. https://www.youtube.com/embed/…"
-              :loading="addingVideo"
-              @keyup.enter="addVideo"
-            >
-              <template #prepend><q-icon name="o_movie" /></template>
-              <template #append>
-                <q-btn flat dense round icon="o_add" :disable="!newVideoUrl" @click="addVideo"><q-tooltip>Add video</q-tooltip></q-btn>
-              </template>
-            </q-input>
-
-            <MediaSeoDialog v-model="lightboxOpen" :media-id="selectedMediaId" :fallback-url="lightboxUrl" @saved="onPictureSaved" />
-          </q-tab-panel>
-
-          <!-- ============ SEO ============ -->
-          <q-tab-panel name="seo" class="q-gutter-y-sm">
-            <!-- Search-result preview -->
-            <div class="text-caption text-grey-7 q-mb-xs">Search engine preview</div>
-            <q-card flat bordered class="q-pa-md q-mb-md seo-preview">
-              <div class="seo-preview__title ellipsis">{{ seoPreview.title }}</div>
-              <div class="seo-preview__url ellipsis">{{ seoPreview.url }}</div>
-              <div class="seo-preview__desc">{{ seoPreview.description }}</div>
-            </q-card>
-
-            <AppTextField v-model="form.metaTitle" label="Meta title" placeholder="Defaults to the product name" :disable="!canWrite" maxlength="300">
-              <template #hint>{{ metaTitleHint }}</template>
-            </AppTextField>
-
-            <AppTextField v-model="form.metaDescription" label="Meta description" type="textarea" autogrow placeholder="Defaults to the short description" :disable="!canWrite" maxlength="500">
-              <template #hint>{{ metaDescriptionHint }}</template>
-            </AppTextField>
-
-            <AppTextField v-model="form.metaKeywords" label="Meta keywords" placeholder="e.g. polo shirt, cotton, menswear" :disable="!canWrite" maxlength="500">
-              <template #hint>Comma-separated keywords (minor SEO impact on modern search engines)</template>
-            </AppTextField>
-          </q-tab-panel>
-
           <!-- ============ VARIANTS ============ -->
           <q-tab-panel v-if="isVariantType" name="variants" class="q-gutter-y-sm">
             <AppFieldLabel label="Attributes used for generation">
@@ -492,6 +393,140 @@
             </q-table>
             <div v-else class="text-grey-6 q-mt-sm">No variants yet. Assign attributes (with values) then Generate.</div>
           </q-tab-panel>
+
+          <!-- ============ ORGANIZATION ============ -->
+          <q-tab-panel name="organization" class="q-gutter-y-sm">
+            <AppFieldLabel label="Categories">
+              <template #hint>Where this product appears in the storefront category tree</template>
+            </AppFieldLabel>
+            <q-select
+              v-model="categoryIds"
+              dense outlined multiple use-chips emit-value map-options
+              :options="categoryOptions"
+              :disable="!canWrite"
+              placeholder="Assign one or more categories"
+              @update:model-value="queueCategories"
+            />
+
+            <q-separator class="q-my-md" />
+            <AppFieldLabel label="Tags">
+              <template #hint>Free-form keywords for search and merchandising — type and press Enter</template>
+            </AppFieldLabel>
+            <q-select
+              v-model="tagNames"
+              dense outlined multiple use-input use-chips hide-dropdown-icon
+              new-value-mode="add-unique"
+              :disable="!canWrite"
+              placeholder="Add tags"
+              @update:model-value="queueTags"
+            />
+          </q-tab-panel>
+
+          <!-- ============ MEDIA ============ -->
+          <q-tab-panel name="media" class="q-gutter-y-sm">
+            <!-- Images: centralized media library (two-step upload → ProductPicture) -->
+            <AppFieldLabel label="Images">
+              <template #hint>Uploaded to the media library; display order follows the upload sequence</template>
+            </AppFieldLabel>
+            <div v-if="imagePictures.length" class="row q-col-gutter-sm q-mb-sm">
+              <div v-for="pic in imagePictures" :key="pic.id" class="col-auto">
+                <div class="product-pic">
+                  <img :src="$media(pic.url)" :alt="pic.altText || (product && product.name)" class="product-pic__img" @click="openPicture(pic)">
+                  <q-btn v-if="canWrite" round dense size="xs" color="negative" icon="o_close" class="product-pic__remove" @click="removePicture(pic)" />
+                </div>
+              </div>
+            </div>
+            <div v-else class="text-grey-6 text-caption q-mb-sm">No images yet.</div>
+
+            <q-file
+              v-if="canWrite"
+              v-model="imageFiles"
+              multiple dense outlined
+              accept="image/*"
+              label="Upload images"
+              hint="PNG, JPG, GIF, WEBP — added to the media library"
+              :loading="uploadingImages"
+              @update:model-value="onImageFiles"
+            >
+              <template #prepend><q-icon name="o_add_photo_alternate" /></template>
+            </q-file>
+
+            <!-- Videos: embed URLs (legacy gallery — embeds aren't file uploads) -->
+            <q-separator class="q-my-md" />
+            <AppFieldLabel label="Videos">
+              <template #hint>Paste an embed URL (YouTube, Vimeo…) and press Enter</template>
+            </AppFieldLabel>
+            <q-list v-if="videoImages.length" bordered separator class="q-mb-sm rounded-borders">
+              <q-item v-for="img in videoImages" :key="img.id">
+                <q-item-section avatar><q-icon name="o_movie" color="grey-7" /></q-item-section>
+                <q-item-section class="ellipsis">{{ img.url }}</q-item-section>
+                <q-item-section side>
+                  <q-btn v-if="canWrite" flat round dense icon="o_delete" color="negative" @click="removeImage(img)" />
+                </q-item-section>
+              </q-item>
+            </q-list>
+            <q-input
+              v-if="canWrite"
+              v-model="newVideoUrl"
+              dense outlined
+              placeholder="e.g. https://www.youtube.com/embed/…"
+              :loading="addingVideo"
+              @keyup.enter="addVideo"
+            >
+              <template #prepend><q-icon name="o_movie" /></template>
+              <template #append>
+                <q-btn flat dense round icon="o_add" :disable="!newVideoUrl" @click="addVideo"><q-tooltip>Add video</q-tooltip></q-btn>
+              </template>
+            </q-input>
+
+            <MediaSeoDialog v-model="lightboxOpen" :media-id="selectedMediaId" :fallback-url="lightboxUrl" @saved="onPictureSaved" />
+          </q-tab-panel>
+
+          <!-- ============ SEO ============ -->
+          <q-tab-panel name="seo" class="q-gutter-y-sm">
+            <!-- Search-result preview -->
+            <div class="text-caption text-grey-7 q-mb-xs">Search engine preview</div>
+            <q-card flat bordered class="q-pa-md q-mb-md seo-preview">
+              <div class="seo-preview__title ellipsis">{{ seoPreview.title }}</div>
+              <div class="seo-preview__url ellipsis">{{ seoPreview.url }}</div>
+              <div class="seo-preview__desc">{{ seoPreview.description }}</div>
+            </q-card>
+
+            <AppTextField v-model="form.metaTitle" label="Meta title" placeholder="Defaults to the product name" :disable="!canWrite" maxlength="300">
+              <template #hint>{{ metaTitleHint }}</template>
+            </AppTextField>
+
+            <AppTextField v-model="form.metaDescription" label="Meta description" type="textarea" autogrow placeholder="Defaults to the short description" :disable="!canWrite" maxlength="500">
+              <template #hint>{{ metaDescriptionHint }}</template>
+            </AppTextField>
+
+            <AppTextField v-model="form.metaKeywords" label="Meta keywords" placeholder="e.g. polo shirt, cotton, menswear" :disable="!canWrite" maxlength="500">
+              <template #hint>Comma-separated keywords (minor SEO impact on modern search engines)</template>
+            </AppTextField>
+          </q-tab-panel>
+
+          <!-- ============ REVIEWS ============ -->
+          <q-tab-panel name="reviews">
+            <ProductReviewsPanel
+              v-if="!isCreate && product"
+              :product-id="pid"
+              :reviews-enabled="reviewsEnabled"
+              :can-write="canWrite"
+              @count="reviewCount = $event"
+              @update:reviews-enabled="onReviewsEnabledToggled"
+            />
+          </q-tab-panel>
+
+          <!-- ============ FAQ (PRODUCT Q&A) ============ -->
+          <q-tab-panel name="faq">
+            <ProductQuestionsPanel
+              v-if="!isCreate && product"
+              :product-id="pid"
+              :product-name="product?.name"
+              :can-write="canWrite"
+              @count="questionCount = $event"
+            />
+          </q-tab-panel>
         </q-tab-panels>
 
         <!-- Create action: the only save button — you can't auto-save a product that doesn't exist yet -->
@@ -541,6 +576,8 @@ import AppTextField from 'components/common/AppTextField.vue'
 import AppSelect from 'components/common/AppSelect.vue'
 import AppRichText from 'components/common/AppRichText.vue'
 import AppFieldLabel from 'components/common/AppFieldLabel.vue'
+import ProductReviewsPanel from 'modules/catalog/components/ProductReviewsPanel.vue'
+import ProductQuestionsPanel from 'modules/catalog/components/ProductQuestionsPanel.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -554,6 +591,15 @@ const pid = computed(() => route.params.id)
 const product = ref(null)
 const loading = ref(false)
 const tab = ref('general')
+
+// Reviews / FAQ (product-scoped moderation) tab state. The counts feed the tab badges (emitted by each
+// panel once it loads); reviewsEnabled is read off the product DTO and flipped via the panel's own endpoint.
+const reviewCount = ref(0)
+const questionCount = ref(0)
+const reviewsEnabled = computed(() => !!product.value?.reviewsEnabled)
+function onReviewsEnabledToggled (val) {
+  if (product.value) product.value.reviewsEnabled = val
+}
 
 // ---- Core scalar form ---------------------------------------------------------
 const EMPTY = {
@@ -1190,6 +1236,8 @@ async function init () {
   saveError.value = false
   savedOnce.value = false
   coreBlocked.value = false
+  reviewCount.value = 0
+  questionCount.value = 0
   tab.value = 'general'
   if (isCreate.value) {
     hydrating = true
