@@ -2209,6 +2209,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("AssignedStoreId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("CompanyName")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<Guid?>("CreatedById")
                         .HasColumnType("uniqueidentifier");
 
@@ -2222,6 +2226,10 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid?>("CustomerId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("CustomerNote")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
 
                     b.Property<bool>("Deleted")
                         .HasColumnType("bit");
@@ -2238,6 +2246,16 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("ExcludedStoreIdsJson")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("InquiryStatus")
+                        .HasColumnType("int");
+
+                    b.Property<string>("InternalNotes")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<bool>("IsInquiry")
+                        .HasColumnType("bit");
 
                     b.Property<bool>("IsPickup")
                         .HasColumnType("bit");
@@ -2267,6 +2285,15 @@ namespace VSky.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("PointsRedeemed")
                         .HasColumnType("int");
+
+                    b.Property<int?>("PreferredContact")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("QuotedOnUtc")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("RequiredByUtc")
+                        .HasColumnType("datetime2");
 
                     b.Property<DateTime?>("RoutedOnUtc")
                         .HasColumnType("datetime2");
@@ -2336,6 +2363,8 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("CustomerId");
+
+                    b.HasIndex("IsInquiry");
 
                     b.HasIndex("OrderNumber")
                         .IsUnique();
@@ -2702,7 +2731,14 @@ namespace VSky.Infrastructure.Persistence.Migrations
                     b.Property<int?>("GiftCardType")
                         .HasColumnType("int");
 
+                    b.Property<string>("InquiryButtonLabel")
+                        .HasMaxLength(80)
+                        .HasColumnType("nvarchar(80)");
+
                     b.Property<bool>("IsFeatured")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("IsInquiryOnly")
                         .HasColumnType("bit");
 
                     b.Property<bool>("IsPublished")
@@ -3381,6 +3417,9 @@ namespace VSky.Infrastructure.Persistence.Migrations
                         .HasColumnType("bit");
 
                     b.Property<bool>("ProtectGuestCheckout")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("ProtectInquiry")
                         .HasColumnType("bit");
 
                     b.Property<bool>("ProtectLogin")

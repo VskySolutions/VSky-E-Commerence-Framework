@@ -118,6 +118,7 @@ public class ListCustomersQueryHandler : IRequestHandler<ListCustomersQuery, Pag
         var aggregates = await _db.Orders.AsNoTracking()
             .Where(o => o.CustomerId != null && ids.Contains(o.CustomerId.Value))
             .ExcludeUnpaidRedirect()
+            .ExcludeInquiries()
             .GroupBy(o => o.CustomerId!.Value)
             .Select(g => new
             {

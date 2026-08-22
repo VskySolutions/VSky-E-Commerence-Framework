@@ -13,3 +13,16 @@ public record OrderPlaced(
     decimal Total,
     Guid? CustomerId,
     string? Email) : INotification;
+
+/// <summary>
+/// Raised when a storefront inquiry (quote request) is submitted (REQ-INQ-001). Deliberately separate from
+/// <see cref="OrderPlaced"/>: an inquiry earns no loyalty points, moves no stock and is not revenue, so
+/// handlers that act on a sale must not see it. Admin alerts, webhooks and lead routing subscribe here.
+/// </summary>
+public record InquirySubmitted(
+    Guid InquiryId,
+    string ReferenceNumber,
+    decimal EstimatedTotal,
+    Guid? CustomerId,
+    string? Email,
+    Guid? AssignedStoreId) : INotification;

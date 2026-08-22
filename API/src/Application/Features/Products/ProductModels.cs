@@ -24,6 +24,12 @@ public class ProductDto
     public Guid? ManufacturerId { get; set; }
     public bool IsPublished { get; set; }
     public bool ReviewsEnabled { get; set; }
+
+    /// <summary>Quote-only product (REQ-INQ-001): the storefront requests a quote instead of selling it.</summary>
+    public bool IsInquiryOnly { get; set; }
+
+    /// <summary>Per-product override for the inquiry call-to-action; null uses the tenant default.</summary>
+    public string? InquiryButtonLabel { get; set; }
     public int DisplayOrder { get; set; }
     public bool IsFeatured { get; set; }
     public int FeaturedDisplayOrder { get; set; }
@@ -64,6 +70,8 @@ public class ProductDto
         ManufacturerId = p.ManufacturerId,
         IsPublished = p.IsPublished,
         ReviewsEnabled = p.ReviewsEnabled,
+        IsInquiryOnly = p.IsInquiryOnly,
+        InquiryButtonLabel = p.InquiryButtonLabel,
         DisplayOrder = p.DisplayOrder,
         IsFeatured = p.IsFeatured,
         FeaturedDisplayOrder = p.FeaturedDisplayOrder,

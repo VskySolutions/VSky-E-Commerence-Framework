@@ -34,6 +34,9 @@ public class RecaptchaConfig : AuditableEntity
     public bool ProtectReviewSubmit { get; set; }
     public bool ProtectQaSubmit { get; set; }
 
+    /// <summary>Protect the storefront inquiry (quote-request) form.</summary>
+    public bool ProtectInquiry { get; set; }
+
     /// <summary>True once a Site Key and Secret Key are present; forms skip verification otherwise (AC-TEN-007.6).</summary>
     public bool IsConfigured => !string.IsNullOrWhiteSpace(SiteKey) && !string.IsNullOrWhiteSpace(SecretKeyEncrypted);
 
@@ -48,6 +51,7 @@ public class RecaptchaConfig : AuditableEntity
         RecaptchaFormType.Newsletter => ProtectNewsletter,
         RecaptchaFormType.ReviewSubmit => ProtectReviewSubmit,
         RecaptchaFormType.QaSubmit => ProtectQaSubmit,
+        RecaptchaFormType.Inquiry => ProtectInquiry,
         _ => false
     };
 }

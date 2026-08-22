@@ -37,6 +37,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
     private readonly ICustomerGroupService _customerGroups;
     private readonly IInventoryService _inventory;
     private readonly IRewardPointsService _points;
+    private readonly ICommerceModeService _commerce;
 
     public CheckoutOrchestrator(
         IApplicationDbContext db,
@@ -53,7 +54,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         IPublisher publisher,
         ICustomerGroupService customerGroups,
         IInventoryService inventory,
-        IRewardPointsService points)
+        IRewardPointsService points,
+        ICommerceModeService commerce)
     {
         _db = db;
         _routing = routing;
@@ -70,6 +72,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         _customerGroups = customerGroups;
         _inventory = inventory;
         _points = points;
+        _commerce = commerce;
     }
 
     public async Task<CheckoutQuote> QuoteAsync(CheckoutQuoteRequest req, CancellationToken ct)
@@ -94,10 +97,13 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             AssignedStoreId = priced.Routing.AssignedStoreId,
             IsRoutable = priced.Routing.IsRouted,
             GuestOrderingAllowed = priced.GuestOrderingAllowed,
+            IsInquiry = priced.IsInquiry,
         };
 
+        // An inquiry takes no payment, so no method is offered and none may be selected — the storefront
+        // renders the request form instead of the payment step.
         // Only a routed order has a fulfilling store, and so a concrete set of payment methods to offer.
-        if (priced.Store is not null)
+        if (priced.Store is not null && !priced.IsInquiry)
             quote.AvailablePaymentMethods = (await AvailablePaymentMethodsAsync(priced.Store, ct))
                 .Select(m => new PaymentMethodOption { Method = m.Method.ToString(), IsProduction = m.IsProduction, FeePercent = m.FeePercent })
                 .ToList();
@@ -135,6 +141,13 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         var priced = await BuildAsync(
             req.CartId, req.SessionId, req.ShipTo, req.SelectedShippingMethodId,
             requestCouponCode: req.CouponCode, forPlacement: true, req.PickupInStore, req.PickupStoreId, ct);
+
+        // Inquiry carts never reach a gateway (REQ-INQ-001). The storefront already renders the request
+        // form instead of the payment step, but the switch is enforced here so a crafted request cannot
+        // pay for a quote-only cart — or pay at all in an inquiry-only tenant.
+        if (priced.IsInquiry)
+            throw new ConflictException(
+                "This store does not accept online payment for these items. Please submit an inquiry instead.");
 
         var now = _clock.UtcNow;
         var storeId = priced.Routing.AssignedStoreId!.Value; // non-null: placement short-circuits when unrouted.
@@ -338,6 +351,129 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         return OrderResult(order, success: true, error: null, redirectUrl: null, transactionId: payment.TransactionId);
     }
 
+    public async Task<InquiryResult> SubmitInquiryAsync(SubmitInquiryRequest req, CancellationToken ct)
+    {
+        var commerce = await _commerce.GetAsync(ct);
+
+        // Price it through the shared build path so a submitted inquiry and the quote the buyer saw agree.
+        // forPlacement stays false: routing failure is not fatal for a lead, and there is no shipping method
+        // to insist on. BuildAsync itself decides inquiry-ness (tenant mode or a quote-only line).
+        var priced = await BuildAsync(
+            req.CartId, req.SessionId, req.Contact, shippingMethodId: null,
+            requestCouponCode: req.CouponCode, forPlacement: false, pickupInStore: false, pickupStoreId: null, ct);
+
+        if (!priced.IsInquiry)
+            throw new ConflictException(
+                "This cart is a normal order. Please complete checkout and payment instead of submitting an inquiry.");
+
+        var now = _clock.UtcNow;
+
+        // Authenticated buyers get their inquiry linked to their account (so it shows under My Inquiries);
+        // guests submit anonymously — a lead form that demanded an account would collect nothing.
+        Guid? customerId = null;
+        if (_current.UserId is Guid userId)
+        {
+            customerId = await _db.Customers
+                .AsNoTracking()
+                .Where(c => c.UserId == userId)
+                .Select(c => (Guid?)c.Id)
+                .FirstOrDefaultAsync(ct);
+        }
+
+        ContactPreference? preferredContact =
+            Enum.TryParse<ContactPreference>(req.PreferredContact, ignoreCase: true, out var pref) ? pref : null;
+
+        // The address row is created even when only contact details were collected: Order.ContactName/
+        // ContactEmail/ContactPhone are [NotMapped] read-throughs over it, and the notification templates
+        // and the admin list all read them from there. Without it the lead would arrive anonymous.
+        var order = new Order
+        {
+            OrderNumber = $"INQ-{now:yyyyMMddHHmmssfff}",
+            Status = OrderStatus.Inquiry,
+            IsInquiry = true,
+            InquiryStatus = Domain.Enums.InquiryStatus.New,
+            PaymentStatus = PaymentStatus.NotRequired,
+            CustomerId = customerId,
+            ShippingAddress = new Address
+            {
+                FirstName = req.Contact.FirstName,
+                LastName = req.Contact.LastName,
+                Email = req.Contact.Email,
+                PhoneNumber = req.Contact.PhoneNumber,
+                Latitude = req.Contact.Latitude,
+                Longitude = req.Contact.Longitude,
+                CountryCode = req.Contact.CountryCode ?? string.Empty,
+                StateProvince = req.Contact.Region,
+                PostalCode = req.Contact.PostalCode ?? string.Empty,
+                AddressLine1 = req.Contact.Line1 ?? string.Empty,
+                AddressLine2 = req.Contact.Line2,
+                Landmark = req.Contact.Landmark,
+                City = req.Contact.City ?? string.Empty,
+            },
+            AssignedStoreId = priced.Store?.Id,
+            PlacedOnUtc = now,
+            RoutedOnUtc = priced.Store is null ? null : now,
+            CurrencyCode = priced.Cart.CurrencyCode,
+            Subtotal = priced.Subtotal,
+            DiscountTotal = priced.DiscountTotal,
+            // Deliberately zero: neither is owed until the quote is agreed, and neither provider was called.
+            ShippingTotal = 0m,
+            TaxTotal = 0m,
+            TotalAmount = priced.Total,
+            // Recorded for the sales team, but never redeemed — RedeemAsync is only called on a paid order.
+            AppliedCouponCode = priced.CouponValid ? priced.CouponCode : null,
+            CustomerNote = Trim(req.Message, 4000),
+            CompanyName = Trim(req.CompanyName, 200),
+            PreferredContact = preferredContact,
+            RequiredByUtc = req.RequiredByUtc,
+        };
+
+        foreach (var line in priced.Lines)
+        {
+            order.Lines.Add(new OrderLineItem
+            {
+                ProductId = line.ProductId,
+                ProductVariantId = line.ProductVariantId,
+                ProductName = line.ProductName,
+                Sku = line.Sku,
+                Quantity = line.Quantity,
+                UnitPrice = line.UnitPrice,
+                OriginalUnitPrice = line.OriginalUnitPrice,
+                DiscountAmount = line.DiscountAmount,
+                LineTotal = line.LineTotal,
+            });
+        }
+
+        order.StatusHistory.Add(new OrderStatusHistory
+        {
+            FromStatus = OrderStatus.Inquiry,
+            ToStatus = OrderStatus.Inquiry,
+            ChangedById = _current.UserId,
+            ChangedOnUtc = now,
+            Note = "Inquiry submitted via the storefront.",
+        });
+
+        _db.Orders.Add(order);
+
+        // The cart is consumed: the inquiry is now the record of what was asked for. Nothing else about the
+        // cart's contents is committed — no stock decrement, no coupon redemption, no points debit.
+        priced.Cart.IsCheckedOut = true;
+        await _db.SaveChangesAsync(ct);
+
+        await FinalizeInquiryAsync(order, commerce, ct);
+
+        return new InquiryResult
+        {
+            InquiryId = order.Id,
+            ReferenceNumber = order.OrderNumber,
+            Status = order.InquiryStatus?.ToString() ?? Domain.Enums.InquiryStatus.New.ToString(),
+            EstimatedTotal = order.TotalAmount,
+            CurrencyCode = order.CurrencyCode,
+            AssignedStoreId = order.AssignedStoreId,
+            Success = true,
+        };
+    }
+
     public async Task<CheckoutResult> ConfirmAsync(Guid orderId, CancellationToken ct)
     {
         var order = await _db.Orders
@@ -345,6 +481,11 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             .Include(o => o.ShippingAddress)
             .FirstOrDefaultAsync(o => o.Id == orderId, ct)
             ?? throw new NotFoundException(nameof(Order), orderId);
+
+        // An inquiry has no payment to confirm, verify or retry — refuse rather than let a gateway call
+        // be aimed at a record that was never a sale.
+        if (order.IsInquiry)
+            throw new ConflictException("This record is an inquiry, not a paid order.");
 
         // Idempotent: already confirmed (e.g. the buyer refreshed the return page or double-confirmed).
         if (order.PaymentStatus == PaymentStatus.Captured)
@@ -379,6 +520,11 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             .Include(o => o.ShippingAddress)
             .FirstOrDefaultAsync(o => o.Id == orderId, ct)
             ?? throw new NotFoundException(nameof(Order), orderId);
+
+        // An inquiry has no payment to confirm, verify or retry — refuse rather than let a gateway call
+        // be aimed at a record that was never a sale.
+        if (order.IsInquiry)
+            throw new ConflictException("This record is an inquiry, not a paid order.");
 
         // Idempotent: already captured (e.g. the buyer's widget result was submitted twice).
         if (order.PaymentStatus == PaymentStatus.Captured)
@@ -474,6 +620,11 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             .Include(o => o.ShippingAddress)
             .FirstOrDefaultAsync(o => o.Id == orderId, ct)
             ?? throw new NotFoundException(nameof(Order), orderId);
+
+        // An inquiry has no payment to confirm, verify or retry — refuse rather than let a gateway call
+        // be aimed at a record that was never a sale.
+        if (order.IsInquiry)
+            throw new ConflictException("This record is an inquiry, not a paid order.");
 
         // Already paid — nothing to retry.
         if (order.PaymentStatus == PaymentStatus.Captured)
@@ -626,6 +777,85 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         }
     }
 
+    /// <summary>
+    /// Side effects of a submitted inquiry (REQ-INQ-001): acknowledge to the buyer, alert the sales team,
+    /// raise <see cref="InquirySubmitted"/>. Everything <see cref="FinalizePlacedOrderAsync"/> does for a
+    /// sale is deliberately absent — no stock decrement, no coupon redemption, no points debit, and no
+    /// <see cref="OrderPlaced"/> (which drives loyalty accrual, marketing and revenue reporting).
+    /// </summary>
+    private async Task FinalizeInquiryAsync(Order order, CommerceModeSettings commerce, CancellationToken ct)
+    {
+        await _publisher.Publish(
+            new InquirySubmitted(
+                order.Id, order.OrderNumber, order.TotalAmount, order.CustomerId,
+                order.ContactEmail, order.AssignedStoreId),
+            ct);
+
+        var contactName = $"{order.ShippingAddress?.FirstName} {order.ShippingAddress?.LastName}".Trim();
+        var displayName = string.IsNullOrWhiteSpace(contactName) ? "there" : contactName;
+        var valueText = $"{order.CurrencyCode} {order.TotalAmount:0.00}";
+        var dateText = order.PlacedOnUtc.ToString("MMM d, yyyy");
+        var itemsSummary = string.Join(", ", order.Lines.Select(l => $"{l.Quantity} × {l.ProductName}"));
+        var toEmail = order.ContactEmail;
+
+        if (!string.IsNullOrWhiteSpace(toEmail))
+        {
+            await _templates.SendAsync(
+                "inquiry.acknowledgement",
+                toEmail,
+                string.IsNullOrWhiteSpace(contactName) ? null : contactName,
+                new Dictionary<string, string>
+                {
+                    ["customerName"] = displayName,
+                    ["inquiryNumber"] = order.OrderNumber,
+                    ["inquiryDate"] = dateText,
+                    ["itemsSummary"] = itemsSummary,
+                },
+                ct);
+        }
+
+        // Recipients: the assigned store's notification addresses plus any tenant-level ones. An inquiry that
+        // could not be routed still reaches the tenant list — a lead nobody is told about is a lost lead.
+        Domain.Entities.Store? store = null;
+        if (order.AssignedStoreId is Guid storeId)
+            store = await _db.Stores.AsNoTracking().FirstOrDefaultAsync(s => s.Id == storeId, ct);
+
+        var recipients = new List<string>();
+        if (store is not null)
+            recipients.AddRange(ResolveStoreRecipients(store));
+        if (!string.IsNullOrWhiteSpace(commerce.NotifyEmails))
+        {
+            recipients.AddRange(commerce.NotifyEmails
+                .Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        }
+
+        var storeVars = new Dictionary<string, string>
+        {
+            ["inquiryNumber"] = order.OrderNumber,
+            ["storeName"] = store?.Name ?? string.Empty,
+            ["customerName"] = displayName,
+            ["customerEmail"] = toEmail ?? string.Empty,
+            ["customerPhone"] = order.ContactPhone ?? string.Empty,
+            ["companyName"] = order.CompanyName ?? string.Empty,
+            ["message"] = order.CustomerNote ?? string.Empty,
+            ["itemsSummary"] = itemsSummary,
+            ["estimatedValue"] = valueText,
+            ["inquiryDate"] = dateText,
+        };
+
+        foreach (var to in recipients.Distinct(StringComparer.OrdinalIgnoreCase))
+            await _templates.SendAsync("inquiry.store-notification", to, store?.Name, storeVars, ct);
+    }
+
+    /// <summary>Trims a buyer-supplied string to the column length, collapsing blanks to null.</summary>
+    private static string? Trim(string? value, int maxLength)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+        var trimmed = value.Trim();
+        return trimmed.Length <= maxLength ? trimmed : trimmed[..maxLength];
+    }
+
     /// <summary>Projects an order into the checkout result shape (shared by place/confirm/retry).</summary>
     private static CheckoutResult OrderResult(
         Order order, bool success, string? error, string? redirectUrl, string? transactionId = null)
@@ -698,6 +928,20 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         if (groupDiscountTotal > 0m && groupId is Guid gid)
             groupName = await _db.CustomerGroups.AsNoTracking()
                 .Where(g => g.Id == gid).Select(g => g.Name).FirstOrDefaultAsync(ct);
+
+        // Inquiry checkout (REQ-INQ-001): either the whole tenant sells by inquiry, or the cart holds a
+        // quote-only product. Decided here — after the lines are read — so a quote and its submission
+        // always agree, and so no caller can opt out of it from the client.
+        var commerce = await _commerce.GetAsync(ct);
+        var inquiryLines = lines.Count(l => l.IsInquiryOnly);
+        if (!commerce.IsInquiryOnly && inquiryLines > 0 && inquiryLines < lines.Count)
+            throw new ConflictException(
+                "Quote-only items must be requested on their own. Please remove them from the cart, or check out " +
+                "the buyable items separately.");
+
+        if (commerce.IsInquiryOnly || inquiryLines > 0)
+            return await BuildInquiryAsync(cart, lines, subtotal, baseSubtotal, groupDiscountTotal, groupName,
+                shipTo, commerce, requestCouponCode, ct);
 
         // Pickup-in-store: skip routing + carrier rates entirely; fulfil at the chosen store (REQ-SHP-004).
         if (pickupInStore)
@@ -848,6 +1092,90 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             discountResult.Applied, discountResult.TotalDiscount,
             tax, tax.TotalTax, total, guestOrderingAllowed, couponCode, couponValid,
             BaseSubtotal: baseSubtotal, GroupDiscountTotal: groupDiscountTotal, GroupDiscountName: groupName);
+    }
+
+    /// <summary>
+    /// Prices an inquiry checkout (REQ-INQ-001): the buyer is requesting a quote, not paying. Lines and
+    /// discounts are evaluated exactly as for a sale — so the request carries a realistic value — but no
+    /// carrier is rated and no tax provider is called, because neither is owed until the quote is agreed.
+    /// A coupon is validated for display only; it is never redeemed here.
+    ///
+    /// Routing is best-effort: an inquiry with a delivery address is routed like an order so the right
+    /// store's team is notified, and one submitted without an address (contact-only mode) falls back to the
+    /// configured default store. Unlike a placement, failing to route is not fatal — an unassigned inquiry
+    /// still reaches the tenant-level notification recipients rather than being refused at the door.
+    /// </summary>
+    private async Task<PricedCheckout> BuildInquiryAsync(
+        Cart cart, List<LineWork> lines, decimal subtotal,
+        decimal baseSubtotal, decimal groupDiscountTotal, string? groupName,
+        CheckoutAddress shipTo, CommerceModeSettings commerce, string? requestCouponCode, CancellationToken ct)
+    {
+        // Route only when there is enough of an address to route on; contact-only inquiries skip straight
+        // to the fallback store.
+        RoutingResult routing = new(false, null, null, Array.Empty<StoreEvaluation>());
+        if (!string.IsNullOrWhiteSpace(shipTo.CountryCode))
+            routing = await _routing.RouteAsync(BuildRoutingRequest(shipTo, lines), ct);
+
+        Store? store = null;
+        if (routing.AssignedStoreId is Guid routedStoreId)
+        {
+            store = await _db.Stores.AsNoTracking().Include(s => s.Address)
+                .FirstOrDefaultAsync(s => s.Id == routedStoreId, ct);
+        }
+
+        // Fallback: the configured default inquiry store, else the only enabled store when there is exactly
+        // one (the common single-store tenant). Anything else leaves the inquiry unassigned.
+        if (store is null)
+        {
+            store = commerce.DefaultStoreId is Guid defaultStoreId
+                ? await _db.Stores.AsNoTracking().Include(s => s.Address)
+                    .FirstOrDefaultAsync(s => s.Id == defaultStoreId && s.IsEnabled, ct)
+                : null;
+
+            store ??= await _db.Stores.AsNoTracking().Include(s => s.Address)
+                .Where(s => s.IsEnabled)
+                .Take(2)
+                .ToListAsync(ct) is { Count: 1 } only ? only[0] : null;
+
+            if (store is not null)
+            {
+                var fallbackAddress = string.Join(", ",
+                    new[] { store.AddressLine1, store.City, store.PostalCode }.Where(s => !string.IsNullOrWhiteSpace(s)));
+                routing = new RoutingResult(true, store.Id, fallbackAddress, Array.Empty<StoreEvaluation>());
+            }
+        }
+
+        // Coupon + discounts, same engine as a sale — shown on the request so the buyer and the sales team
+        // see the same numbers. Redemption is deliberately absent: nothing is consumed by an inquiry.
+        var couponCode = FirstNonEmpty(requestCouponCode, cart.AppliedCouponCode);
+        var couponValid = false;
+        var unlockedDiscountIds = new List<Guid>();
+        if (couponCode is not null)
+        {
+            var validation = await _coupons.ValidateAsync(couponCode, ct);
+            couponValid = validation.IsValid;
+            if (validation.IsValid && validation.DiscountId is Guid unlockedId)
+                unlockedDiscountIds.Add(unlockedId);
+        }
+
+        var discountLines = lines
+            .Select(l => new DiscountCartLine(l.ProductId, l.CategoryIds, l.LineTotal, l.Quantity))
+            .ToList();
+        var discountResult = await _discounts.EvaluateAsync(discountLines, subtotal, unlockedDiscountIds, ct);
+
+        var total = subtotal - discountResult.TotalDiscount;
+
+        return new PricedCheckout(
+            cart, lines, subtotal, routing, store,
+            ShippingOptions: Array.Empty<ShippingRateOption>(), SelectedShipping: null, ShippingTotal: 0m,
+            discountResult.Applied, discountResult.TotalDiscount,
+            Tax: new TaxBreakdown(0m, new(), false), TaxTotal: 0m,
+            Total: total,
+            // Guests may always submit an inquiry: a lead form that demands an account collects nothing.
+            GuestOrderingAllowed: true,
+            CouponCode: couponCode, CouponValid: couponValid,
+            BaseSubtotal: baseSubtotal, GroupDiscountTotal: groupDiscountTotal, GroupDiscountName: groupName,
+            IsInquiry: true);
     }
 
     /// <summary>
@@ -1055,7 +1383,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
 
             lines.Add(new LineWork(
                 item.ProductId, item.ProductVariantId, item.Quantity, item.UnitPrice,
-                name, sku, taxCode, categoryIds, OriginalUnitPrice: item.UnitPrice));
+                name, sku, taxCode, categoryIds, product?.IsInquiryOnly ?? false,
+                OriginalUnitPrice: item.UnitPrice));
         }
 
         return lines;
@@ -1123,6 +1452,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         string? Sku,
         string? TaxCategoryCode,
         IReadOnlyList<Guid> CategoryIds,
+        bool IsInquiryOnly,
         decimal OriginalUnitPrice)
     {
         public decimal LineTotal => UnitPrice * Quantity;
@@ -1152,5 +1482,6 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         decimal BaseSubtotal = 0m,
         decimal GroupDiscountTotal = 0m,
         string? GroupDiscountName = null,
+        bool IsInquiry = false,
         bool IsPickup = false);
 }

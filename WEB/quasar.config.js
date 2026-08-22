@@ -115,12 +115,12 @@ export default function (/* ctx */) {
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#devserver
     devServer: {
-      open: false,
+      // Launch the default browser at http://localhost:9000 once the dev server is ready.
+      open: true,
       port: 9000,
-      // HTTPS is required for the Authorize.Net Accept.js card-tokenization flow — the SDK refuses to run on an
-      // http:// page. Quasar auto-generates a self-signed cert for localhost:9000 (accept it once in the
-      // browser). The API is called over https (see config/env.dev.cjs) so there is no mixed-content block.
-      https: true
+      // Plain HTTP in dev. NOTE: the Authorize.Net Accept.js and Square Web Payments SDKs refuse to run on an
+      // http:// page, so card tokenization for those two gateways cannot be exercised locally while this is false.
+      https: false
     },
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#framework

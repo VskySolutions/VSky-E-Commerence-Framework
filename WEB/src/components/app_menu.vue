@@ -106,6 +106,7 @@ const sections = [
       { label: 'Tax', icon: 'o_receipt', to: '/tax', permissions: [Permissions.SettingsRead] },
       { label: 'Orders', icon: 'o_receipt_long', to: '/orders', permissions: [Permissions.OrdersRead] },
       { label: 'Returns', icon: 'o_assignment_return', to: '/returns', permissions: [Permissions.OrdersRead] },
+      { label: 'Inquiries', icon: 'o_contact_support', to: '/inquiries', permissions: [Permissions.InquiriesRead] },
       { label: 'Subscriptions', icon: 'o_autorenew', to: '/subscriptions', permissions: [Permissions.OrdersRead] },
     ]
   },
@@ -177,6 +178,7 @@ const sections = [
       { label: 'Branding', icon: 'o_palette', to: '/branding', permissions: [Permissions.BrandingRead] },
       { label: 'Integrations', icon: 'o_extension', to: '/integrations', permissions: [Permissions.CredentialsRead] },
       { label: 'Currencies', icon: 'o_payments', to: '/currencies', permissions: [Permissions.CurrenciesRead] },
+      { label: 'Commerce Mode', icon: 'o_storefront', to: '/settings/commerce', permissions: [Permissions.SettingsRead] },
       { label: 'Admin Alerts', icon: 'o_notification_important', to: '/alerts', permissions: [Permissions.AlertsRead] }
     ]
   },

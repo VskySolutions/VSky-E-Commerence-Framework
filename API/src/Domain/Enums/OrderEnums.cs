@@ -29,5 +29,36 @@ public enum OrderStatus
     ReadyForPickup = 11,
 
     /// <summary>Being prepared for fulfilment (WO-45 lifecycle; synonym of Preparing).</summary>
-    Processing = 10
+    Processing = 10,
+
+    /// <summary>
+    /// A submitted inquiry (quote request), not yet a real order — no payment was taken and nothing is
+    /// reserved. Kept as a dedicated status so every existing query that filters on a fulfilment status
+    /// naturally excludes inquiries; the sales pipeline itself lives in <see cref="InquiryStatus"/>.
+    /// </summary>
+    Inquiry = 12
+}
+
+/// <summary>
+/// The sales pipeline of an inquiry (an order with <c>IsInquiry</c> set), independent of the fulfilment
+/// <see cref="OrderStatus"/>. Only a Standard-mode inquiry reaches <see cref="Converted"/> — an
+/// inquiry-only tenant closes the request instead, since there is no online order to convert into.
+/// </summary>
+public enum InquiryStatus
+{
+    New = 0,
+    InReview = 1,
+    Quoted = 2,
+    Accepted = 3,
+    Declined = 4,
+    Converted = 5,
+    Closed = 6
+}
+
+/// <summary>How the buyer would prefer to be contacted about their inquiry.</summary>
+public enum ContactPreference
+{
+    Email = 0,
+    Phone = 1,
+    WhatsApp = 2
 }

@@ -87,6 +87,13 @@ public class CheckoutQuote
     /// storefront can badge it. The storefront renders exactly these (each mapped to its own label + icon).
     /// </summary>
     public List<PaymentMethodOption> AvailablePaymentMethods { get; set; } = new();
+
+    /// <summary>
+    /// True when this cart checks out as an inquiry (REQ-INQ-001) — the tenant sells by inquiry, or the
+    /// cart holds a quote-only product. Shipping options, tax and payment methods are all empty in that
+    /// case, and the storefront must submit to /api/checkout/inquiry rather than /place.
+    /// </summary>
+    public bool IsInquiry { get; set; }
 }
 
 /// <summary>
@@ -192,4 +199,42 @@ public class ClientPaymentAction
     public string? CustomerName { get; set; }
     public string? CustomerEmail { get; set; }
     public string? CustomerPhone { get; set; }
+}
+
+/// <summary>
+/// Request to submit an inquiry (quote request) instead of placing a paid order (REQ-INQ-001). Reuses
+/// <see cref="CheckoutAddress"/> for the contact block: in contact-only mode the postal fields arrive
+/// blank, but the name/email/phone still land on the order's address row — which is where
+/// <c>Order.ContactEmail</c> and the notification templates read them from.
+/// </summary>
+public record SubmitInquiryRequest(
+    Guid? CartId,
+    string? SessionId,
+    CheckoutAddress Contact,
+    string? Message,
+    string? CompanyName,
+    string? PreferredContact,
+    DateTime? RequiredByUtc,
+    string? CouponCode = null,
+    string? RecaptchaToken = null);
+
+/// <summary>
+/// The outcome of submitting an inquiry: the created record's id/reference and its indicative value. There
+/// is no payment status — nothing was charged, and nothing is pending.
+/// </summary>
+public class InquiryResult
+{
+    public Guid InquiryId { get; set; }
+    public string ReferenceNumber { get; set; } = string.Empty;
+    public string Status { get; set; } = string.Empty;
+
+    /// <summary>The priced value of the request (subtotal less discounts); shipping and tax are not included.</summary>
+    public decimal EstimatedTotal { get; set; }
+
+    public string CurrencyCode { get; set; } = string.Empty;
+
+    /// <summary>The store the inquiry was assigned to, when routing or the configured fallback found one.</summary>
+    public Guid? AssignedStoreId { get; set; }
+
+    public bool Success { get; set; }
 }

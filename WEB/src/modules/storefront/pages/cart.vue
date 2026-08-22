@@ -174,7 +174,10 @@
                 <span class="text-weight-medium">{{ format(subtotal) }}</span>
               </div>
               <div class="text-caption text-grey-6 q-mb-md">
-                Shipping &amp; taxes are calculated at checkout.
+                <template v-if="isInquiryCart">
+                  Indicative total — no payment is taken when you submit your request.
+                </template>
+                <template v-else>Shipping &amp; taxes are calculated at checkout.</template>
               </div>
 
               <q-btn
@@ -182,8 +185,8 @@
                 color="primary"
                 class="full-width"
                 no-caps
-                label="Proceed to checkout"
-                icon-right="o_arrow_forward"
+                :label="isInquiryCart ? 'Request a quote' : 'Proceed to checkout'"
+                :icon-right="isInquiryCart ? 'o_send' : 'o_arrow_forward'"
                 :disable="!items.length"
                 :to="{ name: 'shop-checkout' }"
               />
@@ -204,8 +207,9 @@
  * apply/remove control and the subtotal live in the summary, which leads to the
  * one-page checkout. Resilient to empty carts and slow/failed calls.
  */
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useCart } from 'modules/storefront/composables/useCart'
+import { useCommerceMode } from 'modules/storefront/composables/useCommerceMode'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
 import { useNotify } from 'composables/useNotify'
 import { getApiErrorMessage } from 'services/api'
@@ -224,6 +228,11 @@ const {
   removeCoupon
 } = useCart()
 const { format, load: loadCurrencies } = useCurrency()
+// Quote-only cart (REQ-INQ-001): the CTA leads to the inquiry form rather than payment.
+const { isInquiryOnly } = useCommerceMode()
+const isInquiryCart = computed(() =>
+  isInquiryOnly.value || items.value.some((i) => i.isInquiryOnly === true)
+)
 const notify = useNotify()
 
 const rowBusy = reactive({})
@@ -234,13 +243,20 @@ function productLink (item) {
   return { name: 'shop-product', params: { idOrSlug: item.productId } }
 }
 
-// Respect available stock (unless the line allows backorder or stock is unknown).
+// A quote line is not sold from stock (REQ-INQ-001): no cap, no max-stock hint, no backorder state.
+function isQuoteLine (item) {
+  return isInquiryOnly.value || item.isInquiryOnly === true
+}
+
+// Respect available stock (unless the line is a quote, allows backorder, or stock is unknown).
 function canIncrease (item) {
+  if (isQuoteLine(item)) return true
   if (item.allowBackorder) return true
   if (item.stockQuantity == null) return true
   return item.quantity < item.stockQuantity
 }
 function atMaxStock (item) {
+  if (isQuoteLine(item)) return false
   return !item.allowBackorder && item.stockQuantity != null && item.quantity >= item.stockQuantity
 }
 
@@ -248,6 +264,7 @@ function atMaxStock (item) {
 // stock with backorder allowed. In-stock lines and hard-unavailable lines are both excluded (AC-CHK-001.7).
 function isBackordered (item) {
   return (
+    !isQuoteLine(item) &&
     !!item.allowBackorder &&
     item.available !== false &&
     item.stockQuantity != null &&
@@ -267,7 +284,7 @@ function restockDate (item) {
 
 async function changeQty (item, quantity) {
   if (quantity < 1 || rowBusy[item.id]) return
-  if (!item.allowBackorder && item.stockQuantity != null && quantity > item.stockQuantity) return
+  if (!isQuoteLine(item) && !item.allowBackorder && item.stockQuantity != null && quantity > item.stockQuantity) return
   rowBusy[item.id] = true
   try {
     await updateItem(item.id, quantity)

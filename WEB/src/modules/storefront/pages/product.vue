@@ -48,7 +48,9 @@
               <span v-if="oldPrice" class="text-h6 sf-card__price-old">{{ formatPrice(oldPrice) }}</span>
               <q-badge v-if="savings" color="red" :label="`Save ${formatPrice(savings)}`" class="q-py-xs q-px-sm" />
             </div>
-            <div class="text-caption text-grey-6 q-mb-md">Price includes applicable taxes at checkout.</div>
+            <div class="text-caption text-grey-6 q-mb-md">
+              {{ isInquiryProduct ? 'Indicative price — the final figure is confirmed in your quote.' : 'Price includes applicable taxes at checkout.' }}
+            </div>
 
             <div class="row items-center q-gutter-sm q-mb-md">
               <q-badge :color="availability.color" :label="availability.label" class="q-py-xs q-px-sm" />
@@ -82,14 +84,16 @@
                 :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
                 @click="onAddToCart"
               >
-                <q-icon v-if="!addingToCart" name="o_shopping_cart" size="18px" />
+                <q-icon v-if="!addingToCart" :name="isInquiryProduct ? 'o_request_quote' : 'o_shopping_cart'" size="18px" />
                 <q-spinner v-else size="16px" />
-                {{ needsSelection ? 'Select options' : 'Add to Cart' }}
+                {{ needsSelection ? 'Select options' : addToCartLabel }}
               </button>
             </div>
 
-            <!-- Buy Now: add the current selection and jump straight to checkout -->
+            <!-- Buy Now: add the current selection and jump straight to checkout. Hidden for a quote-only
+                 product — there is nothing to buy now; the request goes through the inquiry flow. -->
             <button
+              v-if="!isInquiryProduct"
               class="sf-btn sf-btn--dark sf-btn--block q-mb-md"
               :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
               @click="onBuyNow"
@@ -191,6 +195,7 @@ import { ref, computed, watch, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { storefrontApi, wishlistApi, formatPrice } from 'modules/storefront/api'
+import { useCommerceMode } from 'modules/storefront/composables/useCommerceMode'
 import { useRecentlyViewed, useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useNotify } from 'composables/useNotify'
@@ -243,6 +248,14 @@ const displayPrice = computed(() => {
 
 // Defensive (no sale/rating fields in the DTO yet).
 const oldPrice = computed(() => product.value?.oldPrice || product.value?.originalPrice || null)
+
+// Quote-only product (REQ-INQ-001): the CTA requests a quote instead of buying. True either because
+// the product carries the flag, or because the whole tenant sells by inquiry.
+const commerce = useCommerceMode()
+const isInquiryProduct = computed(() => commerce.isInquiryProduct(product.value))
+const addToCartLabel = computed(() =>
+  isInquiryProduct.value ? commerce.buttonLabelFor(product.value) : 'Add to Cart'
+)
 const savings = computed(() => (oldPrice.value && displayPrice.value ? oldPrice.value - displayPrice.value : null))
 const rating = computed(() => {
   // Prefer the live summary from ReviewsSection (once the Reviews tab has loaded).
@@ -266,8 +279,11 @@ const stock = computed(() =>
 // For variant products, availability/stock only make sense once a variant is chosen.
 const needsSelection = computed(() => hasVariants.value && !selectedVariant.value)
 
+// A quote-only product is never sold from stock (REQ-INQ-001), so no availability state is shown or
+// enforced for it — only the variant selection still has to be made.
 const availability = computed(() => {
   if (needsSelection.value) return { label: 'Select options', color: 'grey-6' }
+  if (isInquiryProduct.value) return { label: 'Available to order', color: 'primary' }
   if (stock.value > 0) return { label: 'In stock', color: 'positive' }
   if (product.value?.allowBackorder) return { label: 'Available on backorder', color: 'warning' }
   return { label: 'Out of stock', color: 'grey' }
@@ -275,12 +291,13 @@ const availability = computed(() => {
 
 // The available-quantity hint shown next to the badge (once a variant is picked, or for simple products).
 const stockNote = computed(() => {
-  if (needsSelection.value || stock.value <= 0) return null
+  if (isInquiryProduct.value || needsSelection.value || stock.value <= 0) return null
   return stock.value <= 5
     ? { text: `Only ${stock.value} left`, cls: 'text-orange-9' }
     : { text: `${stock.value} in stock`, cls: 'text-grey-7' }
 })
 const restockNote = computed(() => {
+  if (isInquiryProduct.value) return null
   if (stock.value > 0 || !product.value?.allowBackorder || !product.value?.estimatedRestockDate) return null
   return `Estimated restock: ${formatDate(product.value.estimatedRestockDate)}`
 })

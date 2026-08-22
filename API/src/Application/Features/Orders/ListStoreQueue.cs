@@ -46,7 +46,8 @@ public class ListStoreQueueQueryHandler : IRequestHandler<ListStoreQueueQuery, P
             .Include(o => o.Lines)
             .Where(o => o.AssignedStoreId == storeId)
             // A store shouldn't see orders whose off-site payment was never completed.
-            .ExcludeUnpaidRedirect();
+            .ExcludeUnpaidRedirect()
+            .ExcludeInquiries();
 
         if (!string.IsNullOrWhiteSpace(request.Status)
             && Enum.TryParse<OrderStatus>(request.Status, ignoreCase: true, out var status))

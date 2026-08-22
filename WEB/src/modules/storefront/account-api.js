@@ -15,6 +15,7 @@ const AUTH = '/api/customer/auth'
 const PROFILE = '/api/customer/profile'
 const ADDRESSES = '/api/customer/addresses'
 const ORDERS = '/api/customer/orders'
+const INQUIRIES = '/api/customer/inquiries'
 const TAX_EXEMPTION = '/api/customer/tax-exemption'
 const GDPR = '/api/customer/gdpr'
 const SUBSCRIPTIONS = '/api/customer/subscriptions'
@@ -85,6 +86,11 @@ export const accountApi = {
   },
   removeAddress (id) {
     return customerApi.delete(ADDRESSES + '/' + encodeURIComponent(id)).then(unwrap)
+  },
+
+  // ---- Inquiries (quote requests, REQ-INQ-001) ----
+  inquiries (params = {}) {
+    return customerApi.get(INQUIRIES, { params, paramsSerializer: qsSerializer }).then(unwrap)
   },
 
   // ---- Order history ----

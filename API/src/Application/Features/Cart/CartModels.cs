@@ -60,6 +60,12 @@ public class CartItemDto
     /// <summary>False when the line's product/variant is missing, unpublished or out of stock (AC-CHK-001.5).</summary>
     public bool Available { get; set; }
 
+    /// <summary>
+    /// True when the line's product is quote-only (REQ-INQ-001): the cart shows an inquiry badge and
+    /// checks out as a request rather than a payment. A cart may not mix these with buyable items.
+    /// </summary>
+    public bool IsInquiryOnly { get; set; }
+
     /// <param name="unitPrice">
     /// The effective unit price. Defaults to the cart's base snapshot; the caller passes the Customer Group
     /// price when the buyer belongs to a group (AC-CUS-003.5).
@@ -67,7 +73,7 @@ public class CartItemDto
     public static CartItemDto From(
         CartItemEntity item, string productName, string? sku, bool available,
         string? imageUrl = null, int stockQuantity = 0, bool allowBackorder = false,
-        decimal? unitPrice = null) => new()
+        decimal? unitPrice = null, bool isInquiryOnly = false) => new()
     {
         Id = item.Id,
         ProductId = item.ProductId,
@@ -81,5 +87,6 @@ public class CartItemDto
         StockQuantity = stockQuantity,
         AllowBackorder = allowBackorder,
         Available = available,
+        IsInquiryOnly = isInquiryOnly,
     };
 }

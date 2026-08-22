@@ -32,12 +32,16 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
     private readonly ICustomerGroupService _groups;
+    private readonly ICommerceModeService _commerce;
 
-    public AddItemCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
+    public AddItemCommandHandler(
+        IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups,
+        ICommerceModeService commerce)
     {
         _db = db;
         _current = current;
         _groups = groups;
+        _commerce = commerce;
     }
 
     public async Task<CartDto> Handle(AddItemCommand request, CancellationToken cancellationToken)
@@ -74,6 +78,26 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
 
         var cart = await CartResolver.ResolveOrCreateAsync(_db, _current, request.SessionId, cancellationToken);
 
+        // A cart is either all-buyable or all quote-only (REQ-INQ-001): the two check out through
+        // different flows, so mixing them would mean one click producing both an order and an inquiry.
+        // Skipped entirely when the whole tenant sells by inquiry — everything is quote-only there.
+        if (!await _commerce.IsInquiryOnlyAsync(cancellationToken) && cart.Items.Count > 0)
+        {
+            var existingProductIds = cart.Items.Select(i => i.ProductId).Distinct().ToList();
+            var cartHasInquiryItem = await _db.Products
+                .AsNoTracking()
+                .AnyAsync(p => existingProductIds.Contains(p.Id) && p.IsInquiryOnly, cancellationToken);
+
+            if (cartHasInquiryItem != product.IsInquiryOnly)
+            {
+                throw new ConflictException(product.IsInquiryOnly
+                    ? "Quote-only items must be requested on their own. Please empty your cart first, or " +
+                      "check out the items already in it."
+                    : "Your cart holds a quote-only item. Submit that request first, or empty your cart " +
+                      "before adding items you can buy online.");
+            }
+        }
+
         var existing = cart.Items.FirstOrDefault(
             i => i.ProductId == request.ProductId && i.ProductVariantId == request.ProductVariantId);
 
@@ -93,6 +117,6 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return await CartResolver.BuildDtoAsync(_db, _groups, cart, cancellationToken);
+        return await CartResolver.BuildDtoAsync(_db, _groups, _commerce, cart, cancellationToken);
     }
 }

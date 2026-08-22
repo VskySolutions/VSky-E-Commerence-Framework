@@ -159,6 +159,12 @@ export default [
             component: () => import('modules/storefront/pages/account/orders.vue')
           },
           {
+            path: 'inquiries',
+            name: 'shop-account-inquiries',
+            meta: { title: 'My requests' },
+            component: () => import('modules/storefront/pages/account/inquiries.vue')
+          },
+          {
             path: 'tax-exemption',
             name: 'shop-account-tax-exemption',
             meta: { title: 'Tax exemption' },

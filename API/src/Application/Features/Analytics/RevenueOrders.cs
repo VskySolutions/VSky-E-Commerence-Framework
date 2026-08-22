@@ -19,6 +19,7 @@ public static class RevenueOrders
     public static IQueryable<Order> WithRecognisedRevenue(this IQueryable<Order> query) =>
         query
             .ExcludeUnpaidRedirect()
+            .ExcludeInquiries()
             .Where(o => o.Status != OrderStatus.Cancelled
                         && (o.PaymentStatus == PaymentStatus.Captured
                             || o.PaymentStatus == PaymentStatus.PartiallyRefunded));

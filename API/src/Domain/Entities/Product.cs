@@ -50,6 +50,17 @@ public class Product : AuditableEntity, ISoftDeletable
 
     public bool IsPublished { get; set; }
     public bool ReviewsEnabled { get; set; } = true;
+
+    /// <summary>
+    /// Quote-only product (REQ-INQ-001): it can be added to the cart and priced, but the cart checks out
+    /// as an inquiry rather than a payment. Ignored when the tenant is already in
+    /// <see cref="Enums.CommerceMode.InquiryOnly"/> — there, every product behaves this way.
+    /// </summary>
+    public bool IsInquiryOnly { get; set; }
+
+    /// <summary>Storefront call-to-action for an inquiry-only product; falls back to the tenant default.</summary>
+    public string? InquiryButtonLabel { get; set; }
+
     public int DisplayOrder { get; set; }
 
     /// <summary>Featured designation for the storefront (REQ-CNT-011). Default not featured.</summary>

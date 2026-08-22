@@ -28,6 +28,12 @@ public class CheckoutController : ApiControllerBase
         [FromBody] PlaceCheckoutRequest request, CancellationToken cancellationToken)
         => Ok(await Mediator.Send(new PlaceCheckoutCommand(request), cancellationToken));
 
+    /// <summary>Submit an inquiry (quote request) — no payment is taken (REQ-INQ-001).</summary>
+    [HttpPost("inquiry")]
+    public async Task<ActionResult<InquiryResult>> Inquiry(
+        [FromBody] SubmitInquiryRequest request, CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new SubmitInquiryCommand(request), cancellationToken));
+
     /// <summary>Confirm a redirect payment on return (Stripe Checkout): verify the session and finalize on success.</summary>
     [HttpPost("confirm")]
     public async Task<ActionResult<CheckoutResult>> Confirm(

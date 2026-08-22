@@ -37,7 +37,8 @@ public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, Paginated
             .AsNoTracking()
             .Include(o => o.Lines)
             // Hide orders still awaiting an off-site redirect payment (cancelled/abandoned Stripe attempts).
-            .ExcludeUnpaidRedirect();
+            .ExcludeUnpaidRedirect()
+            .ExcludeInquiries();
 
         if (!string.IsNullOrWhiteSpace(request.Status)
             && Enum.TryParse<OrderStatus>(request.Status, ignoreCase: true, out var status))
@@ -48,9 +49,13 @@ public class ListOrdersQueryHandler : IRequestHandler<ListOrdersQuery, Paginated
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var term = request.Search.Trim();
+            // Search the linked Address directly: Order.ContactName and ContactEmail are [NotMapped]
+            // read-throughs over it, so EF cannot translate them and the query throws at runtime.
             query = query.Where(o => o.OrderNumber.Contains(term)
-                || (o.ContactName != null && o.ContactName.Contains(term))
-                || (o.ContactEmail != null && o.ContactEmail.Contains(term)));
+                || (o.ShippingAddress != null &&
+                    ((o.ShippingAddress.FirstName != null && o.ShippingAddress.FirstName.Contains(term))
+                     || (o.ShippingAddress.LastName != null && o.ShippingAddress.LastName.Contains(term))
+                     || (o.ShippingAddress.Email != null && o.ShippingAddress.Email.Contains(term)))));
         }
 
         var ordered = query.ApplySort(request.SortBy, request.SortDescending, SortMap,

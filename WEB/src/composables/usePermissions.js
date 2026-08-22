@@ -44,7 +44,9 @@ export const Permissions = Object.freeze({
   CmsWrite: 'Cms.Write',
   DashboardRead: 'Dashboard.Read',
   LogsRead: 'Logs.Read',
-  AuditTrailRead: 'AuditTrail.Read'
+  AuditTrailRead: 'AuditTrail.Read',
+  InquiriesRead: 'Inquiries.Read',
+  InquiriesWrite: 'Inquiries.Write'
 })
 
 export function usePermissions () {

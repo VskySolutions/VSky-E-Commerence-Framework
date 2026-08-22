@@ -14,12 +14,14 @@ public class ClearCartCommandHandler : IRequestHandler<ClearCartCommand, CartDto
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _current;
     private readonly ICustomerGroupService _groups;
+    private readonly ICommerceModeService _commerce;
 
-    public ClearCartCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups)
+    public ClearCartCommandHandler(IApplicationDbContext db, ICurrentUserService current, ICustomerGroupService groups, ICommerceModeService commerce)
     {
         _db = db;
         _current = current;
         _groups = groups;
+        _commerce = commerce;
     }
 
     public async Task<CartDto> Handle(ClearCartCommand request, CancellationToken cancellationToken)
@@ -34,6 +36,6 @@ public class ClearCartCommandHandler : IRequestHandler<ClearCartCommand, CartDto
         }
 
         await _db.SaveChangesAsync(cancellationToken);
-        return await CartResolver.BuildDtoAsync(_db, _groups, cart, cancellationToken);
+        return await CartResolver.BuildDtoAsync(_db, _groups, _commerce, cart, cancellationToken);
     }
 }

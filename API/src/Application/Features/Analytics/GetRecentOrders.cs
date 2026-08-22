@@ -40,6 +40,7 @@ public class GetRecentOrdersQueryHandler : IRequestHandler<GetRecentOrdersQuery,
         // projected in SQL) then combined in memory.
         var rows = await _db.Orders.AsNoTracking()
             .ExcludeUnpaidRedirect()
+            .ExcludeInquiries()
             .OrderByDescending(o => o.PlacedOnUtc)
             .Take(take)
             .Select(o => new

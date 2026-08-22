@@ -95,8 +95,12 @@ internal static class CartResolver
     /// </para>
     /// </summary>
     public static async Task<CartDto> BuildDtoAsync(
-        IApplicationDbContext db, ICustomerGroupService groups, CartEntity cart, CancellationToken ct)
+        IApplicationDbContext db, ICustomerGroupService groups, ICommerceModeService commerce,
+        CartEntity cart, CancellationToken ct)
     {
+        // Inquiry lines are quoted, not sold, so stock never gates them (REQ-INQ-001).
+        var tenantInquiryOnly = await commerce.IsInquiryOnlyAsync(ct);
+
         var items = cart.Items.OrderBy(i => i.CreatedOnUtc).ToList();
 
         var productIds = items.Select(i => i.ProductId).Distinct().ToList();
@@ -137,13 +141,16 @@ internal static class CartResolver
             if (item.ProductVariantId is Guid variantId)
                 variants.TryGetValue(variantId, out variant);
 
-            var (available, name, sku, stock, allowBackorder) = Evaluate(item, product, variant, warnings);
+            var isInquiryLine = tenantInquiryOnly || (product?.IsInquiryOnly ?? false);
+            var (available, name, sku, stock, allowBackorder) =
+                Evaluate(item, product, variant, warnings, isInquiryLine);
             var unitPrice = memberPrices.TryGetValue(new GroupPriceKey(item.ProductId, item.ProductVariantId), out var mp)
                 ? mp
                 : item.UnitPrice;
 
             itemDtos.Add(CartItemDto.From(
-                item, name, sku, available, PrimaryImage(product, item.ProductVariantId), stock, allowBackorder, unitPrice));
+                item, name, sku, available, PrimaryImage(product, item.ProductVariantId), stock, allowBackorder,
+                unitPrice, isInquiryLine));
         }
 
         return CartDto.From(cart, itemDtos, warnings);
@@ -179,8 +186,14 @@ internal static class CartResolver
             .FirstOrDefault();
     }
 
+    /// <param name="isInquiryLine">
+    /// True when the tenant sells by inquiry or the product itself is quote-only. Such a line is a
+    /// quote request, not a sale, so stock is neither checked nor warned about (REQ-INQ-001) — only
+    /// catalog availability (deleted / unpublished / disabled variant) still applies.
+    /// </param>
     private static (bool available, string name, string? sku, int stock, bool allowBackorder) Evaluate(
-        CartItemEntity item, Product? product, ProductVariant? variant, List<string> warnings)
+        CartItemEntity item, Product? product, ProductVariant? variant, List<string> warnings,
+        bool isInquiryLine)
     {
         // Soft-deleted products/variants are excluded by the global query filter, so a null lookup means
         // the catalog entry is gone entirely.
@@ -206,6 +219,10 @@ internal static class CartResolver
             warnings.Add($"A selected option for '{name}' is no longer available.");
             return (false, name, sku, stock, allowBackorder);
         }
+
+        // A quote request is not a sale: skip every stock rule below it.
+        if (isInquiryLine)
+            return (true, name, sku, stock, allowBackorder);
 
         if (stock <= 0 && !allowBackorder)
         {

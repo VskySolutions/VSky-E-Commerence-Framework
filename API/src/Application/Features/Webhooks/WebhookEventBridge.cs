@@ -13,7 +13,10 @@ public static class WebhookEventTypes
     public const string OrderRouted = "order.routed";
     public const string OrderUnroutable = "order.unroutable";
 
-    public static readonly IReadOnlyList<string> All = new[] { OrderPlaced, OrderRouted, OrderUnroutable };
+    /// <summary>A storefront inquiry (quote request) was submitted — a lead, not a sale (REQ-INQ-001).</summary>
+    public const string InquirySubmitted = "inquiry.submitted";
+
+    public static readonly IReadOnlyList<string> All = new[] { OrderPlaced, OrderRouted, OrderUnroutable, InquirySubmitted };
 }
 
 /// <summary>
@@ -24,7 +27,8 @@ public static class WebhookEventTypes
 public class WebhookEventBridge :
     INotificationHandler<OrderPlaced>,
     INotificationHandler<OrderRouted>,
-    INotificationHandler<OrderUnroutable>
+    INotificationHandler<OrderUnroutable>,
+    INotificationHandler<InquirySubmitted>
 {
     private readonly IDomainEventBus _bus;
     private readonly ILogger<WebhookEventBridge> _logger;
@@ -43,6 +47,9 @@ public class WebhookEventBridge :
 
     public Task Handle(OrderUnroutable notification, CancellationToken cancellationToken)
         => PublishAsync(WebhookEventTypes.OrderUnroutable, notification, cancellationToken);
+
+    public Task Handle(InquirySubmitted notification, CancellationToken cancellationToken)
+        => PublishAsync(WebhookEventTypes.InquirySubmitted, notification, cancellationToken);
 
     private async Task PublishAsync(string eventType, object data, CancellationToken cancellationToken)
     {

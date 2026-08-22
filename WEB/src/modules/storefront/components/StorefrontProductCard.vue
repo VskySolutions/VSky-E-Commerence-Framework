@@ -56,9 +56,9 @@
 
       <div class="sf-card__cart">
         <button v-if="!isVariation" class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding || buying" @click.prevent="addToCart">
-          <q-icon v-if="!adding" name="o_add_shopping_cart" size="16px" />
+          <q-icon v-if="!adding" :name="isInquiryProduct ? 'o_request_quote' : 'o_add_shopping_cart'" size="16px" />
           <q-spinner v-else size="14px" />
-          Add to Cart
+          {{ addToCartLabel }}
         </button>
         <button
           v-if="isVariation"
@@ -68,7 +68,13 @@
           <q-icon name="o_tune" size="16px" />
           Choose Options
         </button>
-        <button v-else class="sf-btn sf-btn--dark sf-btn--block" :disabled="adding || buying" @click.prevent="buyNow">
+        <!-- Buy Now is meaningless for a quote-only product: nothing can be bought outright. -->
+        <button
+          v-else-if="!isInquiryProduct"
+          class="sf-btn sf-btn--dark sf-btn--block"
+          :disabled="adding || buying"
+          @click.prevent="buyNow"
+        >
           <q-icon v-if="!buying" name="o_bolt" size="16px" />
           <q-spinner v-else size="14px" />
           Buy Now
@@ -92,6 +98,7 @@ import { useQuasar } from 'quasar'
 import { formatPrice, productImage, productRouteParam } from 'modules/storefront/api'
 import { wishlistApi } from 'modules/storefront/api'
 import { useCart } from 'modules/storefront/composables/useCart'
+import { useCommerceMode } from 'modules/storefront/composables/useCommerceMode'
 import { formatDate } from 'src/utils/datetime'
 import { useCompare } from 'modules/storefront/composables/useStorefrontStorage'
 import { useCustomerAuthStore } from 'stores/customerAuth'
@@ -151,7 +158,16 @@ const badges = computed(() => {
   return out
 })
 
+// Quote-only product (REQ-INQ-001): the card requests a quote instead of selling.
+const commerce = useCommerceMode()
+const isInquiryProduct = computed(() => commerce.isInquiryProduct(props.product))
+const addToCartLabel = computed(() =>
+  isInquiryProduct.value ? commerce.buttonLabelFor(props.product) : 'Add to Cart'
+)
+
 const restockNote = computed(() => {
+  // A quote-only product isn't sold from stock (REQ-INQ-001) — never show an availability note for it.
+  if (isInquiryProduct.value) return null
   if (props.product.stockQuantity > 0) return null
   if (props.product.allowBackorder && props.product.estimatedRestockDate) {
     return `Backordered — restock ${formatDate(props.product.estimatedRestockDate)}`

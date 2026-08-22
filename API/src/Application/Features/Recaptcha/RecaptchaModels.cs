@@ -3,7 +3,7 @@ using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.Recaptcha;
 
-/// <summary>Per-form reCAPTCHA enable flags for the eight protected form types (AC-TEN-007.4).</summary>
+/// <summary>Per-form reCAPTCHA enable flags for the nine protected form types (AC-TEN-007.4).</summary>
 public class RecaptchaFormSettings
 {
     public bool Register { get; set; }
@@ -14,6 +14,7 @@ public class RecaptchaFormSettings
     public bool Newsletter { get; set; }
     public bool ReviewSubmit { get; set; }
     public bool QaSubmit { get; set; }
+    public bool Inquiry { get; set; }
 
     public static RecaptchaFormSettings From(RecaptchaConfig c) => new()
     {
@@ -25,6 +26,7 @@ public class RecaptchaFormSettings
         Newsletter = c.ProtectNewsletter,
         ReviewSubmit = c.ProtectReviewSubmit,
         QaSubmit = c.ProtectQaSubmit,
+        Inquiry = c.ProtectInquiry,
     };
 }
 

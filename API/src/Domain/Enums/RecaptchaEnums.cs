@@ -25,5 +25,8 @@ public enum RecaptchaFormType
     Contact = 4,
     Newsletter = 5,
     ReviewSubmit = 6,
-    QaSubmit = 7
+    QaSubmit = 7,
+
+    /// <summary>The storefront inquiry (quote-request) form — a guest-facing lead form, so spam-prone.</summary>
+    Inquiry = 8
 }

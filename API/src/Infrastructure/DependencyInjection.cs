@@ -116,6 +116,7 @@ public static class DependencyInjection
         // Settings (WO-3): cached, audited platform settings.
         services.AddMemoryCache();
         services.AddScoped<ISettingsService, SettingsService>();
+        services.AddScoped<ICommerceModeService, Commerce.CommerceModeService>();
 
         // SEO (WO-57): sitemap.xml generation + cache, DB-backed robots.txt, product schema.org JSON-LD.
         services.AddScoped<ISeoService, SeoService>();

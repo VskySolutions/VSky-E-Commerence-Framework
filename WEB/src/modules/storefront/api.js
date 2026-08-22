@@ -161,6 +161,11 @@ export const checkoutApi = {
   retryPayment (orderId) {
     return customerApi.post(CHECKOUT + '/retry-payment', { orderId }).then(unwrap)
   },
+  // Submit an inquiry (quote request) instead of paying (REQ-INQ-001). Returns InquiryResult
+  // { inquiryId, referenceNumber, status, estimatedTotal, currencyCode }. No payment is taken.
+  submitInquiry (payload) {
+    return customerApi.post(CHECKOUT + '/inquiry', payload).then(unwrap)
+  },
   // Stores a buyer may collect from (AC-SHP-004.1): id, name, address, operating hours. Anonymous —
   // the choice is offered before any sign-in, and it carries no buyer identity.
   pickupStores () {

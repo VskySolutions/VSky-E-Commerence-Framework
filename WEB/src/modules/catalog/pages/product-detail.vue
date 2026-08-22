@@ -163,6 +163,32 @@
               <div class="col-auto q-mt-md">
                 <q-toggle v-model="form.isFeatured" label="Featured" color="primary" :disable="!canWrite" />
               </div>
+              <div class="col-auto q-mt-md">
+                <q-toggle
+                  v-model="form.isInquiryOnly"
+                  label="Quote only"
+                  color="primary"
+                  :disable="!canWrite"
+                >
+                  <q-tooltip>
+                    Buyers request a quote instead of paying. The item can still be added to the cart
+                    and priced, but it checks out as an inquiry — and cannot share a cart with
+                    buyable items.
+                  </q-tooltip>
+                </q-toggle>
+              </div>
+            </div>
+
+            <div v-if="form.isInquiryOnly" class="row q-col-gutter-sm items-center">
+              <div class="col-12 col-md-4">
+                <AppTextField
+                  v-model="form.inquiryButtonLabel"
+                  label="Request button label"
+                  maxlength="80"
+                  hint="Leave blank to use the tenant default from Commerce Mode"
+                  :disable="!canWrite"
+                />
+              </div>
             </div>
 
             <div v-if="form.isFeatured" class="row q-col-gutter-sm items-center">
@@ -608,6 +634,7 @@ const EMPTY = {
   price: null, stockQuantity: 0, allowBackorder: false, estimatedRestockDate: null,
   taxCategoryId: '', manufacturerId: null,
   isPublished: false, displayOrder: 0, isFeatured: false, featuredDisplayOrder: 0,
+  isInquiryOnly: false, inquiryButtonLabel: '',
   downloadExpiryDays: null, downloadLimit: null,
   giftCardType: 'Fixed', giftCardAmount: null
 }
@@ -862,7 +889,9 @@ function buildPayload () {
     isPublished: form.isPublished,
     displayOrder: toNumberOrNull(form.displayOrder) || 0,
     isFeatured: form.isFeatured,
-    featuredDisplayOrder: form.isFeatured ? (toNumberOrNull(form.featuredDisplayOrder) || 0) : 0
+    featuredDisplayOrder: form.isFeatured ? (toNumberOrNull(form.featuredDisplayOrder) || 0) : 0,
+    isInquiryOnly: form.isInquiryOnly,
+    inquiryButtonLabel: form.isInquiryOnly ? (form.inquiryButtonLabel || null) : null
   }
   if (form.productType === 'Downloadable') {
     payload.downloadExpiryDays = toNumberOrNull(form.downloadExpiryDays)

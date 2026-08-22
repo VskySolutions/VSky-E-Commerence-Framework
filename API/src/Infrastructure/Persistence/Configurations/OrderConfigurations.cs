@@ -27,6 +27,15 @@ public class OrderConfiguration : IEntityTypeConfiguration<Order>
         b.Property(x => x.ShippingCarrier).HasMaxLength(100);
         b.Property(x => x.TrackingNumber).HasMaxLength(100);
         b.Property(x => x.PaymentStatus).HasConversion<int>();
+        b.Property(x => x.InquiryStatus).HasConversion<int>();
+        b.Property(x => x.PreferredContact).HasConversion<int>();
+        b.Property(x => x.CustomerNote).HasMaxLength(4000);
+        b.Property(x => x.InternalNotes).HasMaxLength(4000);
+        b.Property(x => x.CompanyName).HasMaxLength(200);
+
+        // Inquiries are listed on their own admin page and excluded from every order/revenue query;
+        // both sides of the flag are queried, so index it.
+        b.HasIndex(x => x.IsInquiry);
 
         b.HasOne(x => x.Customer)
             .WithMany()

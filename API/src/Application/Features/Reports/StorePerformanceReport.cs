@@ -48,7 +48,8 @@ public class StorePerformanceReportQueryHandler : IRequestHandler<StorePerforman
                         && o.PlacedOnUtc >= request.FromUtc
                         && o.PlacedOnUtc < request.ToUtc)
             // Exclude cancelled/abandoned redirect-payment attempts so they don't inflate performance figures.
-            .ExcludeUnpaidRedirect();
+            .ExcludeUnpaidRedirect()
+            .ExcludeInquiries();
 
         if (storeFilter is Guid sid)
             query = query.Where(o => o.AssignedStoreId == sid);

@@ -31,6 +31,7 @@ import usersRoutes from 'modules/users/routes'
 import rolesRoutes from 'modules/roles/routes'
 import catalogRoutes from 'modules/catalog/routes'
 import ordersRoutes from 'modules/orders/routes'
+import inquiriesRoutes from 'modules/inquiries/routes'
 import pricingRoutes from 'modules/pricing/routes'
 import shippingRoutes from 'modules/shipping/routes'
 import reportsRoutes from 'modules/reports/routes'
@@ -70,6 +71,7 @@ const moduleChildren = [
   ...rolesRoutes,
   ...catalogRoutes,
   ...ordersRoutes,
+  ...inquiriesRoutes,
   ...pricingRoutes,
   ...shippingRoutes,
   ...reportsRoutes,

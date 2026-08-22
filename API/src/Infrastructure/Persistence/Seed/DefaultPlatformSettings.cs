@@ -13,6 +13,17 @@ public static class DefaultPlatformSettings
         new("brand.name", "VSky Commerce", "string", "Branding", "Display name of the storefront brand."),
         new("localization.default-language", "en", "string", "Localization", "Default UI language (ISO 639-1)."),
 
+        // ---- Commerce mode (REQ-INQ-001) ----------------------------------------------------
+        // InquiryOnly turns the storefront into a quote-request catalogue: no gateway, carrier or
+        // tax provider is ever called and /api/checkout/place is refused.
+        new("commerce.mode", "Standard", "string", "Commerce", "How this tenant sells (Standard | InquiryOnly)."),
+        new("commerce.inquiry.show-prices", "true", "bool", "Commerce", "Show prices on the storefront in inquiry mode."),
+        new("commerce.inquiry.collect-address", "true", "bool", "Commerce", "Ask for a full address on the inquiry form (off = contact details only)."),
+        new("commerce.inquiry.button-label", "Request a Quote", "string", "Commerce", "Default storefront call-to-action for inquiry products."),
+        new("commerce.inquiry.default-store-id", "", "string", "Commerce", "Store an inquiry is assigned to when no address is collected or routing finds none."),
+        new("commerce.inquiry.notify-emails", "", "string", "Commerce", "Extra recipients for new-inquiry notifications (comma separated)."),
+        new("commerce.inquiry.submit-note", "No payment is taken now — our team will review your request and get back to you.", "string", "Commerce", "Reassurance shown under the inquiry submit button."),
+
         new("currency.base", "USD", "string", "Currency", "Base currency (ISO 4217) all rates convert against."),
         new("currency.auto-refresh.enabled", "false", "bool", "Currency", "Whether unlocked exchange rates auto-refresh."),
         new("currency.auto-refresh.interval-hours", "24", "int", "Currency", "Hours between exchange-rate refreshes."),

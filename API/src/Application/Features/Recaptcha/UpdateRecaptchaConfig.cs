@@ -62,6 +62,7 @@ public class UpdateRecaptchaConfigCommandHandler : IRequestHandler<UpdateRecaptc
         config.ProtectNewsletter = forms.Newsletter;
         config.ProtectReviewSubmit = forms.ReviewSubmit;
         config.ProtectQaSubmit = forms.QaSubmit;
+        config.ProtectInquiry = forms.Inquiry;
 
         // Only replace the secret when a new value is supplied; blank keeps the stored ciphertext.
         if (!string.IsNullOrWhiteSpace(request.SecretKey))

@@ -19,6 +19,12 @@ public class StorefrontProductSummaryDto
     /// <summary>Product type (Simple/Grouped/WithVariants/…); lets the storefront card route variation products to the detail page for option selection.</summary>
     public ProductType ProductType { get; set; }
 
+    /// <summary>Quote-only product (REQ-INQ-001): the card offers an inquiry CTA instead of add-to-cart.</summary>
+    public bool IsInquiryOnly { get; set; }
+
+    /// <summary>Per-product override for the inquiry call-to-action; null falls back to the tenant default.</summary>
+    public string? InquiryButtonLabel { get; set; }
+
     /// <summary>
     /// URL of the primary product-level image. An actual image is preferred over a video entry
     /// (falling back to the video's thumbnail); null when the product has no product-level media.
@@ -35,6 +41,8 @@ public class StorefrontProductSummaryDto
         Price = p.Price,
         ManufacturerId = p.ManufacturerId,
         ProductType = p.ProductType,
+        IsInquiryOnly = p.IsInquiryOnly,
+        InquiryButtonLabel = p.InquiryButtonLabel,
         PrimaryImageUrl = p.Pictures
             .Where(i => i.ProductVariantId == null && i.Media != null)
             .OrderBy(i => i.Media!.MediaType == MediaType.Image ? 0 : 1)
@@ -142,6 +150,12 @@ public class StorefrontProductDetailDto
     public DateTime? EstimatedRestockDate { get; set; }
     public Guid? ManufacturerId { get; set; }
 
+    /// <summary>Quote-only product (REQ-INQ-001): the buyer requests a quote instead of paying.</summary>
+    public bool IsInquiryOnly { get; set; }
+
+    /// <summary>Per-product override for the inquiry call-to-action; null falls back to the tenant default.</summary>
+    public string? InquiryButtonLabel { get; set; }
+
     // Type-specific display config.
     public GiftCardType? GiftCardType { get; set; }
     public decimal? GiftCardAmount { get; set; }
@@ -179,6 +193,8 @@ public class StorefrontProductDetailDto
         AllowBackorder = p.AllowBackorder,
         EstimatedRestockDate = p.EstimatedRestockDate,
         ManufacturerId = p.ManufacturerId,
+        IsInquiryOnly = p.IsInquiryOnly,
+        InquiryButtonLabel = p.InquiryButtonLabel,
         GiftCardType = p.GiftCardType,
         GiftCardAmount = p.GiftCardAmount,
         DownloadExpiryDays = p.DownloadExpiryDays,

@@ -43,10 +43,15 @@ public class LoginCommandHandler : IRequestHandler<LoginCommand, AuthResponse>
 
     public async Task<AuthResponse> Handle(LoginCommand request, CancellationToken cancellationToken)
     {
+        // Normalise the submitted email the same way CustomerLogin does. Without this, an autofilled
+        // or pasted address carrying stray whitespace misses the lookup and is reported as bad
+        // credentials — indistinguishable, to the buyer, from a wrong password.
+        var email = request.Email.Trim();
+
         var user = await _db.Users
             .Include(u => u.Customer)
             .Include(u => u.UserRoles).ThenInclude(ur => ur.Role)
-            .FirstOrDefaultAsync(u => u.Email == request.Email && u.IsActive, cancellationToken);
+            .FirstOrDefaultAsync(u => u.Email == email && u.IsActive, cancellationToken);
 
         // Generic message + password verification even on miss to avoid revealing which failed.
         if (user is null || !_hasher.Verify(user.PasswordHash, request.Password))

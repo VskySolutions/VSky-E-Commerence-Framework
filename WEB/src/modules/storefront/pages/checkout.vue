@@ -1,11 +1,35 @@
 <template>
   <q-page class="q-pa-md storefront-container">
-    <div class="text-h5 text-weight-bold q-mb-md">Checkout</div>
+    <div class="text-h5 text-weight-bold q-mb-md">{{ isInquiry ? 'Request a quote' : 'Checkout' }}</div>
 
     <q-inner-loading :showing="loading && !cart" color="primary" />
 
+    <!-- Inquiry submitted (REQ-INQ-001) — no payment was taken, so no totals/transaction block -->
+    <q-card v-if="inquiryResult" flat bordered class="q-mx-auto confirm-card">
+      <q-card-section class="text-center q-pa-xl">
+        <q-icon name="o_mark_email_read" color="positive" size="72px" />
+        <div class="text-h5 text-weight-bold q-mt-md">Thanks — we've got your request!</div>
+        <div class="text-body1 text-grey-8 q-mt-sm">
+          Your reference is
+          <span class="text-weight-bold text-dark">{{ inquiryResult.referenceNumber }}</span>.
+        </div>
+        <div class="text-body2 text-grey-8 q-mt-md">
+          No payment has been taken. Our team will review your request and get back to you
+          <template v-if="preferredContact === 'Phone'">by phone</template>
+          <template v-else-if="preferredContact === 'WhatsApp'">on WhatsApp</template>
+          <template v-else>by email</template>.
+        </div>
+        <div class="text-caption text-grey-6 q-mt-lg">
+          A confirmation of your request is on its way to {{ email }}.
+        </div>
+        <div class="row justify-center q-gutter-sm q-mt-lg">
+          <q-btn unelevated color="primary" no-caps label="Continue browsing" :to="{ name: 'shop-home' }" />
+        </div>
+      </q-card-section>
+    </q-card>
+
     <!-- Order confirmation (AC-CHK-003.8) -->
-    <q-card v-if="orderResult && orderResult.success" flat bordered class="q-mx-auto confirm-card">
+    <q-card v-else-if="orderResult && orderResult.success" flat bordered class="q-mx-auto confirm-card">
       <q-card-section class="text-center q-pa-xl">
         <q-icon name="o_check_circle" color="positive" size="72px" />
         <div class="text-h5 text-weight-bold q-mt-md">Thank you for your order!</div>
@@ -112,7 +136,7 @@
           <q-card flat bordered class="q-mb-lg">
             <q-card-section>
               <div class="text-subtitle1 text-weight-bold q-mb-md">
-                {{ isPickup ? 'Contact &amp; pickup store' : 'Contact &amp; delivery address' }}
+                {{ contactSectionTitle }}
               </div>
 
               <!-- Deliver vs collect — only offered when a store actually opts in to pickup -->
@@ -240,8 +264,9 @@
                     />
                   </div>
                 </div>
-                <!-- Pickup needs only who is collecting; delivery takes the names from the address form. -->
-                <div v-if="isPickup" class="row q-col-gutter-x-md">
+                <!-- Pickup and contact-only inquiries need just who is asking; delivery takes the names
+                     from the address form. -->
+                <div v-if="isPickup || contactOnly" class="row q-col-gutter-x-md">
                   <div class="col-12 col-sm-6">
                     <AppTextField
                       label="First name"
@@ -259,9 +284,15 @@
                     />
                   </div>
                 </div>
-                <AppAddressForm v-else v-model="addr" required :show-company="false" :show-phone="false" />
+                <AppAddressForm
+                  v-else
+                  v-model="addr"
+                  :required="!isInquiry"
+                  :show-company="false"
+                  :show-phone="false"
+                />
                 <q-toggle
-                  v-if="!isPickup && isAuthed"
+                  v-if="!isPickup && !contactOnly && isAuthed"
                   v-model="saveNewAddress"
                   label="Save this address to my account"
                   dense
@@ -269,7 +300,7 @@
                 />
               </template>
 
-              <div class="q-mt-md">
+              <div v-if="!isInquiry" class="q-mt-md">
                 <q-btn
                   unelevated
                   color="primary"
@@ -285,8 +316,64 @@
           </q-card>
         </q-form>
 
+        <!-- What the buyer actually wants (REQ-INQ-001). This card is the inquiry: it replaces the
+             shipping + payment steps, and it is what the sales team reads first. -->
+        <q-card v-if="isInquiry" flat bordered class="q-mb-lg">
+          <q-card-section>
+            <div class="text-subtitle1 text-weight-bold q-mb-md">Your requirement</div>
+
+            <div class="row q-col-gutter-x-md q-mb-sm">
+              <div class="col-12 col-sm-6">
+                <AppTextField
+                  label="Company (optional)"
+                  :model-value="companyName"
+                  placeholder="Company or organisation"
+                  @update:model-value="companyName = $event"
+                />
+              </div>
+              <div class="col-12 col-sm-6">
+                <q-select
+                  v-model="preferredContact"
+                  outlined
+                  dense
+                  emit-value
+                  map-options
+                  label="Preferred contact"
+                  :options="contactPreferenceOptions"
+                  class="q-mb-md"
+                />
+              </div>
+            </div>
+
+            <q-input
+              v-model="requiredBy"
+              outlined
+              dense
+              type="date"
+              label="Needed by (optional)"
+              class="q-mb-md"
+            />
+
+            <q-input
+              v-model="inquiryMessage"
+              outlined
+              type="textarea"
+              autogrow
+              counter
+              maxlength="4000"
+              label="Tell us what you need"
+              placeholder="Quantities, specifications, delivery timelines, or anything else we should know."
+              :input-style="{ minHeight: '110px' }"
+            />
+          </q-card-section>
+        </q-card>
+
         <!-- Address hint before a quote is available -->
-        <q-banner v-if="!quote && !quoting && !quoteError" dense class="bg-blue-1 text-blue-9 rounded-borders q-mb-lg">
+        <q-banner
+          v-if="!isInquiry && !quote && !quoting && !quoteError"
+          dense
+          class="bg-blue-1 text-blue-9 rounded-borders q-mb-lg"
+        >
           <template #avatar><q-icon name="o_info" color="blue-9" /></template>
           <template v-if="isPickup">
             Choose a store and confirm your contact details, then <strong>Calculate total</strong> to see live totals.
@@ -345,8 +432,8 @@
           </q-card-section>
         </q-card>
 
-        <!-- Shipping method -->
-        <q-card v-if="canCollectDetails" flat bordered class="q-mb-lg">
+        <!-- Shipping method — never shown for an inquiry: nothing is being shipped or rated yet. -->
+        <q-card v-if="canCollectDetails && !isInquiry" flat bordered class="q-mb-lg">
           <q-card-section>
             <div class="text-subtitle1 text-weight-bold q-mb-sm">{{ isPickup ? 'Collection' : 'Shipping method' }}</div>
             <div v-if="shippingCarriers.length" class="row items-center q-gutter-xs q-mb-sm">
@@ -443,8 +530,8 @@
           </q-card-section>
         </q-card>
 
-        <!-- Payment method (AC-PAY-001.4/5) -->
-        <q-card v-if="canCollectDetails" flat bordered class="q-mb-lg">
+        <!-- Payment method (AC-PAY-001.4/5) — absent for an inquiry; no money changes hands. -->
+        <q-card v-if="canCollectDetails && !isInquiry" flat bordered class="q-mb-lg">
           <q-card-section>
             <div class="text-subtitle1 text-weight-bold q-mb-sm">Payment method</div>
 
@@ -826,9 +913,49 @@
               </div>
             </template>
 
+            <div v-else-if="isInquiry" class="text-caption text-grey-6 q-mt-sm">
+              This is a request, not an order — shipping, taxes and final pricing are confirmed in the
+              quote we send you.
+            </div>
+
             <div v-else class="text-caption text-grey-6 q-mt-sm">
               Shipping and taxes are calculated once your address is complete.
             </div>
+
+            <!-- Submit request (REQ-INQ-001) -->
+            <template v-if="isInquiry">
+              <q-banner v-if="placeError" dense class="bg-red-1 text-red-9 rounded-borders q-mt-md">
+                <template #avatar><q-icon name="o_error" color="red-9" /></template>
+                {{ placeError }}
+              </q-banner>
+
+              <q-btn
+                unelevated
+                color="primary"
+                class="full-width q-mt-md"
+                no-caps
+                label="Submit request"
+                icon-right="o_send"
+                :loading="placing"
+                :disable="!canSubmitInquiry"
+                @click="submitInquiry"
+              />
+              <div class="text-caption text-grey-6 text-center q-mt-sm">
+                {{ submitNote || 'No payment is taken now — we\'ll confirm your request and send payment details.' }}
+              </div>
+
+              <q-btn
+                flat
+                no-caps
+                color="primary"
+                class="full-width q-mt-sm"
+                icon="o_arrow_back"
+                label="Back to cart"
+                :to="{ name: 'shop-cart' }"
+              />
+            </template>
+
+            <template v-else>
 
             <!-- Place order / retry -->
             <q-banner v-if="placeError" dense class="bg-red-1 text-red-9 rounded-borders q-mt-md">
@@ -867,6 +994,7 @@
               label="Back to cart"
               :to="{ name: 'shop-cart' }"
             />
+            </template>
           </q-card-section>
         </q-card>
       </div>
@@ -902,6 +1030,7 @@ import { useCustomerAuthStore } from 'stores/customerAuth'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
 import { useRecaptcha } from 'modules/storefront/composables/useRecaptcha'
+import { useCommerceMode } from 'modules/storefront/composables/useCommerceMode'
 import { useSquarePayment } from 'modules/storefront/composables/useSquarePayment'
 import { useAuthorizeNetPayment } from 'modules/storefront/composables/useAuthorizeNetPayment'
 import { useNotify } from 'composables/useNotify'
@@ -1146,8 +1275,9 @@ const contactComplete = computed(() => {
 
 const requiredComplete = computed(() => {
   if (!contactComplete.value) return false
-  // Collecting in store — nothing is shipped anywhere, so a postal address would be noise.
-  if (isPickup.value) return true
+  // Collecting in store, or an inquiry that only collects contact details — nothing is shipped
+  // anywhere, so a postal address would be noise.
+  if (isPickup.value || contactOnly.value) return true
   const a = addr.value
   return (
     !!(a.addressLine1 || '').trim() &&
@@ -1156,6 +1286,80 @@ const requiredComplete = computed(() => {
     !!a.countryCode
   )
 })
+
+
+// ---- Inquiry mode (REQ-INQ-001) ---------------------------------------------
+// Either the whole tenant sells by inquiry, or the cart holds a quote-only product. In inquiry mode this
+// page collects contact details + a requirement and posts them; there is no quote step, no shipping
+// selection, no payment and no tax — the server prices the request and mails it to the sales team.
+const { isInquiryOnly, collectAddress, submitNote } = useCommerceMode()
+
+const cartHasInquiryItem = computed(() => items.value.some((i) => i.isInquiryOnly === true))
+const isInquiry = computed(() => isInquiryOnly.value || cartHasInquiryItem.value)
+// No postal address is collected when the tenant asked for contact details only — the name/email/phone
+// still reach the order's address row, which is where the notifications read the contact from.
+const contactOnly = computed(() => isInquiry.value && !collectAddress.value)
+
+const contactSectionTitle = computed(() => {
+  if (isPickup.value) return 'Contact & pickup store'
+  if (contactOnly.value) return 'Your contact details'
+  if (isInquiry.value) return 'Contact & delivery address'
+  return 'Contact & delivery address'
+})
+
+const companyName = ref('')
+const preferredContact = ref('Email')
+const requiredBy = ref('')
+const inquiryMessage = ref('')
+const inquiryResult = ref(null)
+const contactPreferenceOptions = [
+  { label: 'Email', value: 'Email' },
+  { label: 'Phone', value: 'Phone' },
+  { label: 'WhatsApp', value: 'WhatsApp' }
+]
+
+// An inquiry needs contact details and a cart — nothing else. Deliberately not gated on a quote: there is
+// no routing, shipping or tax to resolve first, so making the buyer press "calculate" would be theatre.
+const canSubmitInquiry = computed(
+  () => isInquiry.value && requiredComplete.value && items.value.length > 0 && !placing.value
+)
+
+async function submitInquiry () {
+  placeError.value = ''
+  const ok = await formRef.value.validate()
+  if (!ok || !canSubmitInquiry.value) return
+  placing.value = true
+  try {
+    const recaptchaToken = await getRecaptchaToken('inquiry')
+    const result = await checkoutApi.submitInquiry({
+      cartId: null,
+      sessionId: sessionId.value,
+      contact: buildShipTo(),
+      message: inquiryMessage.value.trim() || null,
+      companyName: companyName.value.trim() || null,
+      preferredContact: preferredContact.value || null,
+      // <input type="date"> yields a plain YYYY-MM-DD; send it as UTC midnight.
+      requiredByUtc: requiredBy.value ? new Date(requiredBy.value + 'T00:00:00Z').toISOString() : null,
+      couponCode: null,
+      recaptchaToken
+    })
+    if (result && result.success) {
+      inquiryResult.value = result
+      clearContact()
+      // The cart was consumed server-side; refresh so the badge resets.
+      await refresh().catch(() => {})
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      placeError.value = 'Your request could not be submitted. Please try again.'
+      notify.error(placeError.value)
+    }
+  } catch (err) {
+    placeError.value = getApiErrorMessage(err)
+    notify.error(placeError.value)
+  } finally {
+    placing.value = false
+  }
+}
 
 // ---- Quote ------------------------------------------------------------------
 const quote = ref(null)
@@ -1174,8 +1378,11 @@ const displaySubtotal = computed(() => {
 // ---- Backorder (WO-86) ------------------------------------------------------
 // A line is backordered when orderable ONLY via backorder: still purchasable (available) but out of stock
 // with backorder allowed. In-stock and hard-unavailable lines are both excluded.
+// Quote lines are never sold from stock (REQ-INQ-001), so they are never backordered either.
 function isBackordered (item) {
   return (
+    !isInquiryOnly.value &&
+    item.isInquiryOnly !== true &&
     !!item.allowBackorder &&
     item.available !== false &&
     item.stockQuantity != null &&
@@ -1327,10 +1534,9 @@ function buildShipTo () {
     email: email.value.trim(),
     phoneNumber: (a.phoneNumber || '').trim() || null
   }
-  // A pickup order ships nowhere — routing and tax both use the store's own address. Send the collector's
-  // contact details with no postal address rather than stamping the order with one it never delivers to
-  // (a signed-in buyer's saved address is still sitting in `addr` here).
-  if (isPickup.value) {
+  // A pickup order, and a contact-only inquiry, both ship nowhere: send the contact details with no
+  // postal address rather than stamping the record with one that was never used.
+  if (isPickup.value || contactOnly.value) {
     return { ...contact, line1: '', line2: null, city: '', region: null, postalCode: null, countryCode: '', landmark: null }
   }
   return {

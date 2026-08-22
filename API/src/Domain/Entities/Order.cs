@@ -101,6 +101,36 @@ public class Order : AuditableEntity, ISoftDeletable
 
     public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
 
+    // ---- Inquiry (quote request) ------------------------------------------------------------
+
+    /// <summary>
+    /// True when this row is an inquiry rather than a sale: no payment was taken, no stock was
+    /// committed, no coupon redeemed. Inquiries carry <see cref="OrderStatus.Inquiry"/> and are kept
+    /// out of every order/revenue listing via <c>ExcludeInquiries()</c>.
+    /// </summary>
+    public bool IsInquiry { get; set; }
+
+    /// <summary>The inquiry sales pipeline; null for a normal order.</summary>
+    public InquiryStatus? InquiryStatus { get; set; }
+
+    /// <summary>The buyer's free-text requirements/message from the inquiry form.</summary>
+    public string? CustomerNote { get; set; }
+
+    /// <summary>Company the buyer is inquiring on behalf of (B2B lead detail).</summary>
+    public string? CompanyName { get; set; }
+
+    /// <summary>How the buyer would rather be contacted about the inquiry.</summary>
+    public ContactPreference? PreferredContact { get; set; }
+
+    /// <summary>Optional date the buyer needs the goods by.</summary>
+    public DateTime? RequiredByUtc { get; set; }
+
+    /// <summary>Internal, admin-only notes on the inquiry (never shown to the buyer).</summary>
+    public string? InternalNotes { get; set; }
+
+    /// <summary>When the inquiry was answered with a quote (stamped by the send-quote action).</summary>
+    public DateTime? QuotedOnUtc { get; set; }
+
     public DateTime? ShippedOnUtc { get; set; }
     public DateTime? DeliveredOnUtc { get; set; }
 

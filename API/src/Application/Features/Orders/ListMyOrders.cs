@@ -42,6 +42,7 @@ public class ListMyOrdersQueryHandler : IRequestHandler<ListMyOrdersQuery, Pagin
             .Where(o => o.CustomerId == customerId)
             // Don't surface the buyer's own cancelled/abandoned redirect-payment attempts as orders.
             .ExcludeUnpaidRedirect()
+            .ExcludeInquiries()
             .OrderByDescending(o => o.PlacedOnUtc);
 
         var page = await PaginatedList<Order>.CreateAsync(ordered, request.Page, request.PageSize, cancellationToken);

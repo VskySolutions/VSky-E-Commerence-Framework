@@ -10,7 +10,10 @@ public enum PaymentStatus
     Refunded = 4,
     PartiallyRefunded = 5,
     Voided = 6,
-    AwaitingPayment = 7
+    AwaitingPayment = 7,
+
+    /// <summary>No payment is expected — the record is an inquiry (quote request), not a sale.</summary>
+    NotRequired = 8
 }
 
 /// <summary>Supported payment methods (AC-PAY-001.4/001.5).</summary>

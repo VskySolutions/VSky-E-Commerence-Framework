@@ -8,10 +8,11 @@
  *   - IGNORE_PUBLIC_FOLDER-> when true the publicPath is forced back to "/"
  */
 module.exports = {
-  // HTTPS by default in dev: the Authorize.Net Accept.js card flow requires the storefront page to be served
-  // over HTTPS, which in turn forbids calling an http:// API (mixed content) — so point at Kestrel's https
-  // endpoint. Overridable via the API_BASE_URL env var (set it back to http://localhost:5144 for an all-http run).
-  API_BASE_URL: process.env.API_BASE_URL || 'https://localhost:7238',
+  // Plain HTTP in dev — the SPA (http://localhost:9000) calls Kestrel's http endpoint, so there is no
+  // mixed-content block and no certificate to trust. Overridable via the API_BASE_URL env var.
+  // NOTE: the Authorize.Net Accept.js and Square Web Payments SDKs require an https:// page and will not
+  // run under this setup; point both back at https to exercise those card flows.
+  API_BASE_URL: process.env.API_BASE_URL || 'http://localhost:5144',
   BUILD_PUBLIC_PATH: '/',
   PUBLISH_FOLDER: 'dev',
   IGNORE_PUBLIC_FOLDER: true

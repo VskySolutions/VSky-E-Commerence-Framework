@@ -77,12 +77,14 @@
 import { reactive, onMounted } from 'vue'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
+import { useCommerceMode } from 'modules/storefront/composables/useCommerceMode'
 
 defineProps({ modelValue: { type: Boolean, default: false } })
 const emit = defineEmits(['update:modelValue'])
 
 const { items, itemCount, subtotal, loading, ensureLoaded, removeItem, updateItem } = useCart()
 const { format } = useCurrency()
+const { isInquiryOnly } = useCommerceMode()
 
 const busy = reactive({})
 
@@ -95,20 +97,27 @@ function productTo (item) {
   return { name: 'shop-product', params: { idOrSlug: item.productId } }
 }
 
+// A quote line is not sold from stock (REQ-INQ-001), so no quantity cap applies to it.
+function isQuoteLine (item) {
+  return isInquiryOnly.value || item.isInquiryOnly === true
+}
+
 // Whether the + button may increase the quantity (respecting available stock unless backorder is allowed).
 function canIncrease (item) {
+  if (isQuoteLine(item)) return true
   if (item.allowBackorder) return true
   if (item.stockQuantity == null) return true
   return item.quantity < item.stockQuantity
 }
 function atMaxStock (item) {
+  if (isQuoteLine(item)) return false
   return !item.allowBackorder && item.stockQuantity != null && item.quantity >= item.stockQuantity
 }
 
 async function setQty (item, qty) {
   const next = Math.max(1, qty)
   if (next === item.quantity || busy[item.id]) return
-  if (!item.allowBackorder && item.stockQuantity != null && next > item.stockQuantity) return
+  if (!isQuoteLine(item) && !item.allowBackorder && item.stockQuantity != null && next > item.stockQuantity) return
   busy[item.id] = true
   try {
     await updateItem(item.id, next)

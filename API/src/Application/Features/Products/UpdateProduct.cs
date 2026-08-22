@@ -28,6 +28,8 @@ public record UpdateProductCommand(
     Guid? ManufacturerId = null,
     bool IsPublished = false,
     bool ReviewsEnabled = true,
+    bool IsInquiryOnly = false,
+    string? InquiryButtonLabel = null,
     int DisplayOrder = 0,
     bool IsFeatured = false,
     int FeaturedDisplayOrder = 0,
@@ -88,6 +90,8 @@ public class UpdateProductCommandHandler : IRequestHandler<UpdateProductCommand,
         entity.ManufacturerId = request.ManufacturerId;
         entity.IsPublished = request.IsPublished;
         entity.ReviewsEnabled = request.ReviewsEnabled;
+        entity.IsInquiryOnly = request.IsInquiryOnly;
+        entity.InquiryButtonLabel = request.InquiryButtonLabel;
         entity.DisplayOrder = request.DisplayOrder;
         entity.IsFeatured = request.IsFeatured;
         entity.FeaturedDisplayOrder = request.FeaturedDisplayOrder;

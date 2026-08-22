@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using VSky.Application.Features.Commerce;
 using VSky.Application.Features.Payments;
 using VSky.Application.Features.Recaptcha;
 
@@ -10,6 +11,11 @@ namespace VSky.API.Controllers;
 [AllowAnonymous]
 public class StorefrontConfigController : ApiControllerBase
 {
+    /// <summary>Public commerce config: the tenant's mode (Standard | InquiryOnly) and inquiry copy.</summary>
+    [HttpGet("commerce")]
+    public async Task<ActionResult<PublicCommerceConfigDto>> Commerce(CancellationToken cancellationToken)
+        => Ok(await Mediator.Send(new GetPublicCommerceConfigQuery(), cancellationToken));
+
     /// <summary>Public reCAPTCHA config (Site Key, version, per-form flags) — never the Secret Key.</summary>
     [HttpGet("recaptcha")]
     public async Task<ActionResult<PublicRecaptchaConfigDto>> Recaptcha()

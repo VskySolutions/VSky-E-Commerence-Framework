@@ -38,6 +38,8 @@ public static class Modules
     public const string Dashboard = "Dashboard";
     public const string Logs = "Logs";
     public const string AuditTrail = "AuditTrail";
+    // Inquiries (REQ-INQ-001)
+    public const string Inquiries = "Inquiries";
 
     public static readonly IReadOnlyList<ModuleInfo> All = new List<ModuleInfo>
     {
@@ -69,6 +71,7 @@ public static class Modules
         new(Dashboard, "Dashboard & Reports"),
         new(Logs, "Application Logs"),
         new(AuditTrail, "Audit Trail"),
+        new(Inquiries, "Inquiries"),
     };
 
     private static readonly HashSet<string> Keys = new(All.Select(m => m.Key), StringComparer.Ordinal);

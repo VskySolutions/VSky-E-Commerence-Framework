@@ -57,6 +57,11 @@ public class CreateShipmentCommandHandler : IRequestHandler<CreateShipmentComman
             .FirstOrDefaultAsync(o => o.Id == request.OrderId, cancellationToken)
             ?? throw new NotFoundException(nameof(Order), request.OrderId);
 
+        // An inquiry was never a sale — nothing was paid for and nothing is owed to the buyer, so it
+        // cannot be fulfilled until it is converted into a real order (REQ-INQ-001).
+        if (order.IsInquiry)
+            throw new ConflictException("An inquiry cannot be shipped. Convert it to an order first.");
+
         if (order.Status is OrderStatus.Cancelled or OrderStatus.Delivered)
             throw new ConflictException($"An order in status '{order.Status}' cannot be shipped.");
 

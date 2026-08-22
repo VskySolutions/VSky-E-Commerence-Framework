@@ -118,11 +118,12 @@ const formFlags = [
   { key: 'contact', label: 'Contact form', planned: true },
   { key: 'newsletter', label: 'Newsletter signup', planned: true },
   { key: 'reviewSubmit', label: 'Product review', planned: true },
-  { key: 'qaSubmit', label: 'Q&A submission', planned: true }
+  { key: 'qaSubmit', label: 'Q&A submission', planned: true },
+  { key: 'inquiry', label: 'Inquiry form' }
 ]
 
 function emptyForms () {
-  return { register: false, login: false, passwordReset: false, guestCheckout: false, contact: false, newsletter: false, reviewSubmit: false, qaSubmit: false }
+  return { register: false, login: false, passwordReset: false, guestCheckout: false, contact: false, newsletter: false, reviewSubmit: false, qaSubmit: false, inquiry: false }
 }
 
 const form = reactive({ siteKey: '', secretKey: '', version: 'V3', scoreThreshold: 0.5, failBehaviour: 'FailOpen', perFormSettings: emptyForms() })

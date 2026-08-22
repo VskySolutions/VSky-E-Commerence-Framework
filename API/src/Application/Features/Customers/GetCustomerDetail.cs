@@ -97,6 +97,7 @@ public class GetCustomerDetailQueryHandler : IRequestHandler<GetCustomerDetailQu
         var orders = await _db.Orders.AsNoTracking()
             .Where(o => o.CustomerId == request.Id)
             .ExcludeUnpaidRedirect()
+            .ExcludeInquiries()
             .OrderByDescending(o => o.PlacedOnUtc)
             .ToListAsync(cancellationToken);
 

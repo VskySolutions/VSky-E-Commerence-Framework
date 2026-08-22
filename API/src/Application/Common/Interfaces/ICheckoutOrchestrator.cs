@@ -30,6 +30,13 @@ public interface ICheckoutOrchestrator
     /// </summary>
     Task<CheckoutResult> ConfirmClientPaymentAsync(Guid orderId, IReadOnlyDictionary<string, string> gatewayData, CancellationToken ct);
 
+    /// <summary>
+    /// Submits an inquiry (quote request) instead of taking payment (REQ-INQ-001): prices the cart, creates
+    /// an inquiry record with the buyer's contact details and message, consumes the cart, and notifies the
+    /// assigned store. No gateway, carrier or tax provider is called and no stock is committed.
+    /// </summary>
+    Task<InquiryResult> SubmitInquiryAsync(SubmitInquiryRequest req, CancellationToken ct);
+
     /// <summary>Re-opens a payment session for a still-pending order (retry after a cancelled redirect payment).</summary>
     Task<CheckoutResult> RetryPaymentAsync(Guid orderId, CancellationToken ct);
 }
