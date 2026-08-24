@@ -34,6 +34,8 @@ public class CMSPageConfiguration : IEntityTypeConfiguration<CMSPage>
         b.Property(x => x.MetaKeywords).HasMaxLength(500);
         b.Property(x => x.CanonicalUrl).HasMaxLength(500);
         b.Property(x => x.Status).HasConversion<int>();
+        b.Property(x => x.ShowInFooter).HasDefaultValue(true);
+        b.HasIndex(x => new { x.Status, x.DisplayOrder });
 
         b.HasOne(x => x.PageGroup)
             .WithMany(g => g.Pages)

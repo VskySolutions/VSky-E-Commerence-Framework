@@ -29,10 +29,12 @@
 
       <!-- Hover action strip -->
       <div class="sf-card__actions">
+        <!-- Wishlist hidden
         <button class="sf-card__action-btn" aria-label="Add to wishlist" @click.prevent="addToWishlist">
           <q-icon name="o_favorite_border" size="18px" />
           <q-tooltip>Wishlist</q-tooltip>
         </button>
+        -->
         <button class="sf-card__action-btn" aria-label="Compare" :class="{ 'text-primary': inCompare }" @click.prevent="toggleCompare">
           <q-icon name="o_compare_arrows" size="18px" />
           <q-tooltip>{{ inCompare ? 'Remove from compare' : 'Compare' }}</q-tooltip>
@@ -56,9 +58,9 @@
 
       <div class="sf-card__cart">
         <button v-if="!isVariation" class="sf-btn sf-btn--primary sf-btn--block" :disabled="adding || buying" @click.prevent="addToCart">
-          <q-icon v-if="!adding" :name="isInquiryProduct ? 'o_request_quote' : 'o_add_shopping_cart'" size="16px" />
+          <q-icon v-if="!adding" name="o_add_shopping_cart" size="16px" />
           <q-spinner v-else size="14px" />
-          {{ addToCartLabel }}
+          Add to Cart
         </button>
         <button
           v-if="isVariation"
@@ -68,9 +70,19 @@
           <q-icon name="o_tune" size="16px" />
           Choose Options
         </button>
-        <!-- Buy Now is meaningless for a quote-only product: nothing can be bought outright. -->
+        <!-- Quote-only product: the second CTA adds the item and lands straight on the quote form. -->
         <button
-          v-else-if="!isInquiryProduct"
+          v-else-if="isInquiryProduct"
+          class="sf-btn sf-btn--dark sf-btn--block"
+          :disabled="adding || buying"
+          @click.prevent="buyNow"
+        >
+          <q-icon v-if="!buying" name="o_request_quote" size="16px" />
+          <q-spinner v-else size="14px" />
+          {{ requestLabel }}
+        </button>
+        <button
+          v-else
           class="sf-btn sf-btn--dark sf-btn--block"
           :disabled="adding || buying"
           @click.prevent="buyNow"
@@ -158,12 +170,11 @@ const badges = computed(() => {
   return out
 })
 
-// Quote-only product (REQ-INQ-001): the card requests a quote instead of selling.
+// Quote-only product (REQ-INQ-001): the card sells AND takes quote requests — Add to Cart keeps
+// collecting items, the request CTA sends this one straight to checkout.
 const commerce = useCommerceMode()
 const isInquiryProduct = computed(() => commerce.isInquiryProduct(props.product))
-const addToCartLabel = computed(() =>
-  isInquiryProduct.value ? commerce.buttonLabelFor(props.product) : 'Add to Cart'
-)
+const requestLabel = computed(() => commerce.buttonLabelFor(props.product))
 
 const restockNote = computed(() => {
   // A quote-only product isn't sold from stock (REQ-INQ-001) — never show an availability note for it.

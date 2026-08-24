@@ -66,6 +66,20 @@
         <q-td :props="cell"><q-badge :color="statusColor(cell.row.status)" :label="cell.row.status" /></q-td>
       </template>
 
+      <template #body-cell-shownIn="cell">
+        <q-td :props="cell">
+          <span v-if="cell.row.showInTopBar || cell.row.showInFooter" class="row inline items-center q-gutter-xs">
+            <q-badge v-if="cell.row.showInTopBar" color="indigo" outline label="Top bar">
+              <q-tooltip>Shown as a quick-access link in the storefront navigation bar</q-tooltip>
+            </q-badge>
+            <q-badge v-if="cell.row.showInFooter" color="teal" outline label="Bottom bar">
+              <q-tooltip>Shown in the storefront footer links</q-tooltip>
+            </q-badge>
+          </span>
+          <span v-else class="text-grey-6">—</span>
+        </q-td>
+      </template>
+
       <template #actions="{ row }">
         <q-btn flat round dense icon="o_tune" @click="onManage(row)">
           <q-tooltip>Edit</q-tooltip>
@@ -107,6 +121,7 @@ const columns = [
   { name: 'slug', label: 'Slug', field: 'slug', align: 'left', sortable: true },
   { name: 'pageGroupId', label: 'Group', field: 'pageGroupId', align: 'left' },
   { name: 'status', label: 'Status', field: 'status', align: 'center', sortable: true },
+  { name: 'shownIn', label: 'Shows in', field: 'showInTopBar', align: 'center' },
   { name: 'displayOrder', label: 'Order', field: 'displayOrder', align: 'right', sortable: true }
 ]
 

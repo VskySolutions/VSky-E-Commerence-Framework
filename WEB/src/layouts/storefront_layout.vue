@@ -21,7 +21,7 @@
           </div>
 
           <div class="row items-center q-gutter-sm no-wrap">
-            <CurrencySelector />
+            <!-- <CurrencySelector /> -->
             <LanguageSelector class="gt-xs" />
             <router-link :to="{ name: 'shop-compare' }" class="sf-topbar__item gt-xs">
               Compare<span v-if="compareIds.length">&nbsp;({{ compareIds.length }})</span>
@@ -159,6 +159,7 @@
 
           <!-- Icon group -->
           <div class="row items-center no-wrap q-gutter-sm">
+            <!-- Wishlist hidden
             <q-btn
               flat
               round
@@ -170,6 +171,7 @@
             >
               <q-tooltip>Wishlist</q-tooltip>
             </q-btn>
+            -->
             <q-btn
               flat
               round
@@ -187,7 +189,7 @@
       </div>
 
       <!-- ===== Mega-menu (stays sticky at top on scroll) ===== -->
-      <MegaMenu />
+      <MegaMenu :quick-pages="topBarPages" />
     </q-header>
 
     <CartDrawer v-model="cartDrawer" />
@@ -247,7 +249,7 @@
           <div class="col-6 col-md-3">
             <div class="sf-footer__title">Quick Links</div>
             <router-link class="sf-footer__link" :to="{ name: 'shop-account-profile' }">My Account</router-link>
-            <router-link class="sf-footer__link" :to="{ name: 'shop-wishlist' }">Wishlist</router-link>
+            <!-- <router-link class="sf-footer__link" :to="{ name: 'shop-wishlist' }">Wishlist</router-link> -->
             <router-link class="sf-footer__link" :to="{ name: 'shop-cart' }">Cart</router-link>
             <router-link class="sf-footer__link" :to="{ name: 'shop-account-orders' }">Track Order</router-link>
             <router-link class="sf-footer__link" :to="{ name: 'shop-compare' }">Compare</router-link>
@@ -351,7 +353,22 @@ async function loadFooterNav () {
     cmsNavGroups.value = [] // keep the static fallback below
   }
 }
-onMounted(loadFooterNav)
+onMounted(() => {
+  loadFooterNav()
+  loadTopBarNav()
+})
+
+// Top-bar quick-access pages — CMS pages the admin flagged "show in top bar". Loaded alongside the
+// footer nav and handed to MegaMenu, which renders them inline after the category links.
+const topBarPages = ref([])
+async function loadTopBarNav () {
+  try {
+    const pages = await cmsApi.headerNavigation()
+    topBarPages.value = Array.isArray(pages) ? pages : []
+  } catch (e) {
+    topBarPages.value = []
+  }
+}
 
 // Static fallback links, used until (or when) the CMS navigation endpoint has data.
 const informationLinks = [

@@ -24,6 +24,11 @@ public class StorefrontCmsController : ApiControllerBase
     public async Task<ActionResult<IReadOnlyList<CmsNavGroupDto>>> Navigation()
         => Ok(await Mediator.Send(new GetFooterNavigationQuery()));
 
+    /// <summary>Published pages flagged for quick-access links in the storefront top bar.</summary>
+    [HttpGet("header-navigation")]
+    public async Task<ActionResult<IReadOnlyList<CmsNavPageDto>>> HeaderNavigation()
+        => Ok(await Mediator.Send(new GetHeaderNavigationQuery()));
+
     /// <summary>Paged list of published blog posts, newest first.</summary>
     [HttpGet("blog")]
     public async Task<ActionResult<PaginatedList<CmsBlogPostDto>>> Blog(

@@ -21,7 +21,9 @@ public record CreateCmsPageCommand(
     string? CanonicalUrl = null,
     CmsContentStatus Status = CmsContentStatus.Draft,
     Guid? PageGroupId = null,
-    int DisplayOrder = 0) : IRequest<CmsPageDto>;
+    int DisplayOrder = 0,
+    bool ShowInTopBar = false,
+    bool ShowInFooter = true) : IRequest<CmsPageDto>;
 
 public class CreateCmsPageCommandValidator : AbstractValidator<CreateCmsPageCommand>
 {
@@ -65,6 +67,8 @@ public class CreateCmsPageCommandHandler : IRequestHandler<CreateCmsPageCommand,
             Status = request.Status,
             PageGroupId = request.PageGroupId,
             DisplayOrder = request.DisplayOrder,
+            ShowInTopBar = request.ShowInTopBar,
+            ShowInFooter = request.ShowInFooter,
             IsSystemPage = false,
         };
 

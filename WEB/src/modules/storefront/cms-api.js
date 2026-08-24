@@ -26,6 +26,10 @@ export const cmsApi = {
   navigation () {
     return anonApi.get(CMS + '/navigation').then(unwrap)
   },
+  // Published pages flagged "show in top bar" → [{ title, slug }] for the nav-bar quick links.
+  headerNavigation () {
+    return anonApi.get(CMS + '/header-navigation').then(unwrap)
+  },
   // Paged blog listing → { items: [{ title, slug, summary, author, publishedOnUtc, featuredImageUrl }], totalCount }.
   blog (params = {}) {
     return anonApi

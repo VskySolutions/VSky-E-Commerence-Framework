@@ -24,6 +24,13 @@ public class CMSPage : AuditableEntity, ISoftDeletable
 
     public int DisplayOrder { get; set; }
 
+    /// <summary>Show this page as a quick-access link in the storefront top bar (mega-menu row).</summary>
+    public bool ShowInTopBar { get; set; }
+
+    /// <summary>Include this page in the storefront footer navigation (bottom bar). Defaults on so
+    /// existing grouped pages keep rendering there.</summary>
+    public bool ShowInFooter { get; set; } = true;
+
     /// <summary>Pre-seeded informational pages are flagged so the UI can protect them from deletion.</summary>
     public bool IsSystemPage { get; set; }
 

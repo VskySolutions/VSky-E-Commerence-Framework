@@ -21,7 +21,9 @@ public record UpdateCmsPageCommand(
     string? CanonicalUrl = null,
     CmsContentStatus Status = CmsContentStatus.Draft,
     Guid? PageGroupId = null,
-    int DisplayOrder = 0) : IRequest<CmsPageDto>;
+    int DisplayOrder = 0,
+    bool ShowInTopBar = false,
+    bool ShowInFooter = true) : IRequest<CmsPageDto>;
 
 public class UpdateCmsPageCommandValidator : AbstractValidator<UpdateCmsPageCommand>
 {
@@ -69,6 +71,8 @@ public class UpdateCmsPageCommandHandler : IRequestHandler<UpdateCmsPageCommand,
         entity.Status = request.Status;
         entity.PageGroupId = request.PageGroupId;
         entity.DisplayOrder = request.DisplayOrder;
+        entity.ShowInTopBar = request.ShowInTopBar;
+        entity.ShowInFooter = request.ShowInFooter;
 
         await _db.SaveChangesAsync(cancellationToken);
 

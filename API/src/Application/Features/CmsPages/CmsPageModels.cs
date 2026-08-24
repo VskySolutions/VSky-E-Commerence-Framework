@@ -25,6 +25,12 @@ public class CmsPageDto
 
     public int DisplayOrder { get; set; }
 
+    /// <summary>Whether the storefront shows this page as a quick-access link in its top bar.</summary>
+    public bool ShowInTopBar { get; set; }
+
+    /// <summary>Whether the storefront lists this page in the footer navigation (bottom bar).</summary>
+    public bool ShowInFooter { get; set; }
+
     /// <summary>Pre-seeded informational pages are protected from deletion; the UI hides the delete action.</summary>
     public bool IsSystemPage { get; set; }
 
@@ -42,6 +48,8 @@ public class CmsPageDto
         PageGroupId = p.PageGroupId,
         PageGroupName = p.PageGroup?.Name,
         DisplayOrder = p.DisplayOrder,
+        ShowInTopBar = p.ShowInTopBar,
+        ShowInFooter = p.ShowInFooter,
         IsSystemPage = p.IsSystemPage,
     };
 }

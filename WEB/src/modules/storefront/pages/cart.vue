@@ -185,7 +185,7 @@
                 color="primary"
                 class="full-width"
                 no-caps
-                :label="isInquiryCart ? 'Request a quote' : 'Proceed to checkout'"
+                :label="isInquiryCart ? inquiryButtonLabel : 'Proceed to checkout'"
                 :icon-right="isInquiryCart ? 'o_send' : 'o_arrow_forward'"
                 :disable="!items.length"
                 :to="{ name: 'shop-checkout' }"
@@ -228,8 +228,9 @@ const {
   removeCoupon
 } = useCart()
 const { format, load: loadCurrencies } = useCurrency()
-// Quote-only cart (REQ-INQ-001): the CTA leads to the inquiry form rather than payment.
-const { isInquiryOnly } = useCommerceMode()
+// Quote-only cart (REQ-INQ-001): the CTA leads to the inquiry form rather than payment, using the
+// same request label as the product pages and cart drawer.
+const { isInquiryOnly, inquiryButtonLabel } = useCommerceMode()
 const isInquiryCart = computed(() =>
   isInquiryOnly.value || items.value.some((i) => i.isInquiryOnly === true)
 )

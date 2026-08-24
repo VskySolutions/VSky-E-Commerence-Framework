@@ -84,16 +84,28 @@
                 :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
                 @click="onAddToCart"
               >
-                <q-icon v-if="!addingToCart" :name="isInquiryProduct ? 'o_request_quote' : 'o_shopping_cart'" size="18px" />
+                <q-icon v-if="!addingToCart" name="o_shopping_cart" size="18px" />
                 <q-spinner v-else size="16px" />
-                {{ needsSelection ? 'Select options' : addToCartLabel }}
+                {{ needsSelection ? 'Select options' : 'Add to Cart' }}
               </button>
             </div>
 
-            <!-- Buy Now: add the current selection and jump straight to checkout. Hidden for a quote-only
-                 product — there is nothing to buy now; the request goes through the inquiry flow. -->
+            <!-- Inquiry mode (REQ-INQ-001): the second CTA adds the selection and lands straight on the
+                 quote form; Standard mode keeps Buy Now. Neither forces the buyer through the cart. -->
             <button
-              v-if="!isInquiryProduct"
+              v-if="isInquiryProduct"
+              class="sf-btn sf-btn--dark sf-btn--block q-mb-md"
+              :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
+              @click="onBuyNow"
+            >
+              <q-icon v-if="!buyingNow" name="o_request_quote" size="18px" />
+              <q-spinner v-else size="16px" />
+              {{ needsSelection ? 'Select options' : requestLabel }}
+            </button>
+
+            <!-- Buy Now: add the current selection and jump straight to checkout. -->
+            <button
+              v-else
               class="sf-btn sf-btn--dark sf-btn--block q-mb-md"
               :disabled="addingToCart || buyingNow || needsSelection || availability.color === 'grey'"
               @click="onBuyNow"
@@ -104,7 +116,9 @@
             </button>
 
             <div class="row q-gutter-sm q-mb-lg">
+              <!-- Wishlist hidden
               <q-btn outline color="pink-6" icon="o_favorite_border" label="Wishlist" no-caps :loading="addingToWishlist" @click="onAddToWishlist" />
+              -->
               <q-btn outline color="dark" :icon="inCompare ? 'o_compare_arrows' : 'o_compare'" :label="inCompare ? 'In compare' : 'Compare'" no-caps @click="onToggleCompare" />
             </div>
 
@@ -253,9 +267,7 @@ const oldPrice = computed(() => product.value?.oldPrice || product.value?.origin
 // the product carries the flag, or because the whole tenant sells by inquiry.
 const commerce = useCommerceMode()
 const isInquiryProduct = computed(() => commerce.isInquiryProduct(product.value))
-const addToCartLabel = computed(() =>
-  isInquiryProduct.value ? commerce.buttonLabelFor(product.value) : 'Add to Cart'
-)
+const requestLabel = computed(() => commerce.buttonLabelFor(product.value))
 const savings = computed(() => (oldPrice.value && displayPrice.value ? oldPrice.value - displayPrice.value : null))
 const rating = computed(() => {
   // Prefer the live summary from ReviewsSection (once the Reviews tab has loaded).

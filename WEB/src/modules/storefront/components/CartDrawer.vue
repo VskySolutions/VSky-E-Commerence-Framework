@@ -67,14 +67,23 @@
           <span class="text-h6 text-weight-bold">{{ format(subtotal) }}</span>
         </div>
         <q-btn class="full-width q-mb-sm" color="primary" outline no-caps label="View cart" :to="{ name: 'shop-cart' }" @click="close" />
-        <q-btn class="full-width" color="primary" no-caps unelevated label="Checkout" :to="{ name: 'shop-checkout' }" @click="close" />
+        <q-btn
+          class="full-width"
+          color="primary"
+          no-caps
+          unelevated
+          :label="checkoutLabel"
+          :icon-right="isInquiryCart ? 'o_send' : undefined"
+          :to="{ name: 'shop-checkout' }"
+          @click="close"
+        />
       </div>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup>
-import { reactive, onMounted } from 'vue'
+import { reactive, computed, onMounted } from 'vue'
 import { useCart } from 'modules/storefront/composables/useCart'
 import { useCurrency } from 'modules/storefront/composables/useCurrency'
 import { useCommerceMode } from 'modules/storefront/composables/useCommerceMode'
@@ -84,7 +93,14 @@ const emit = defineEmits(['update:modelValue'])
 
 const { items, itemCount, subtotal, loading, ensureLoaded, removeItem, updateItem } = useCart()
 const { format } = useCurrency()
-const { isInquiryOnly } = useCommerceMode()
+const { isInquiryOnly, inquiryButtonLabel } = useCommerceMode()
+
+// Inquiry checkout (REQ-INQ-001): the CTA reads as the request the buyer is making,
+// using the same label as the product-page request button.
+const isInquiryCart = computed(() =>
+  isInquiryOnly.value || items.value.some((i) => i.isInquiryOnly === true)
+)
+const checkoutLabel = computed(() => (isInquiryCart.value ? inquiryButtonLabel.value : 'Checkout'))
 
 const busy = reactive({})
 

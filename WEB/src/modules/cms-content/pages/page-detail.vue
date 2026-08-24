@@ -88,6 +88,19 @@
                 <AppTextField v-model="form.displayOrder" label="Display order" type="number" hint="Lower shows first" :disable="!canWrite" />
               </div>
             </div>
+
+            <q-separator class="q-my-sm" />
+            <!-- Storefront placement: quick-access link in the top bar and/or footer nav (bottom bar) -->
+            <div class="row items-start q-col-gutter-md">
+              <div class="col-12 col-md-6">
+                <q-toggle v-model="form.showInTopBar" label="Show in top bar" left-label :disable="!canWrite" />
+                <div class="text-caption text-grey-6 q-pl-sm">Quick-access link in the storefront navigation bar, after the category links</div>
+              </div>
+              <div class="col-12 col-md-6">
+                <q-toggle v-model="form.showInFooter" label="Show in bottom bar" left-label :disable="!canWrite" />
+                <div class="text-caption text-grey-6 q-pl-sm">Lists this page in the storefront footer links</div>
+              </div>
+            </div>
           </q-tab-panel>
 
           <!-- ============ SEO ============ -->
@@ -172,6 +185,8 @@ function buildPayload (form) {
     pageGroupId: form.pageGroupId || null,
     status: form.status,
     displayOrder: Number(form.displayOrder) || 0,
+    showInTopBar: !!form.showInTopBar,
+    showInFooter: !!form.showInFooter,
     metaTitle: form.metaTitle || null,
     metaDescription: form.metaDescription || null,
     metaKeywords: form.metaKeywords || null,
@@ -189,6 +204,7 @@ const {
   buildPayload,
   empty: {
     title: '', slug: '', body: '', pageGroupId: null, status: 'Draft', displayOrder: 0,
+    showInTopBar: false, showInFooter: true,
     metaTitle: '', metaDescription: '', metaKeywords: '', canonicalUrl: ''
   },
   rules: {

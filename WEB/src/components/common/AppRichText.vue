@@ -60,6 +60,7 @@ const toolbar = [
   [{ label: 'Format', icon: 'o_format_size', list: 'no-icons', options: ['p', 'h2', 'h3', 'h4'] }],
   ['unordered', 'ordered'],
   ['quote', 'link'],
+  ['viewsource'],
   ['undo', 'redo'],
   ['removeFormat']
 ]

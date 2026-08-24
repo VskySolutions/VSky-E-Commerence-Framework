@@ -20,9 +20,9 @@ public class CmsNavPageDto
     public string Slug { get; set; } = string.Empty;
 }
 
-/// <summary>Public storefront navigation: Published pages grouped by their CMS page group, ordered by
-/// group display order then page display order (drives footer/nav link columns). Groups with no published
-/// pages are omitted.</summary>
+/// <summary>Public storefront navigation: Published pages flagged <see cref="CMSPage.ShowInFooter"/>,
+/// grouped by their CMS page group, ordered by group display order then page display order (drives
+/// footer/nav link columns). Groups with no qualifying pages are omitted.</summary>
 public record GetFooterNavigationQuery : IRequest<IReadOnlyList<CmsNavGroupDto>>;
 
 public class GetFooterNavigationQueryHandler : IRequestHandler<GetFooterNavigationQuery, IReadOnlyList<CmsNavGroupDto>>
@@ -35,7 +35,7 @@ public class GetFooterNavigationQueryHandler : IRequestHandler<GetFooterNavigati
     {
         var groups = await _db.CMSPageGroups
             .AsNoTracking()
-            .Where(g => g.Pages.Any(p => p.Status == CmsContentStatus.Published))
+            .Where(g => g.Pages.Any(p => p.Status == CmsContentStatus.Published && p.ShowInFooter))
             .OrderBy(g => g.DisplayOrder)
             .ThenBy(g => g.Name)
             .Select(g => new CmsNavGroupDto
@@ -43,7 +43,7 @@ public class GetFooterNavigationQueryHandler : IRequestHandler<GetFooterNavigati
                 GroupName = g.Name,
                 GroupSlug = g.Slug,
                 Pages = g.Pages
-                    .Where(p => p.Status == CmsContentStatus.Published)
+                    .Where(p => p.Status == CmsContentStatus.Published && p.ShowInFooter)
                     .OrderBy(p => p.DisplayOrder)
                     .ThenBy(p => p.Title)
                     .Select(p => new CmsNavPageDto { Title = p.Title, Slug = p.Slug })
