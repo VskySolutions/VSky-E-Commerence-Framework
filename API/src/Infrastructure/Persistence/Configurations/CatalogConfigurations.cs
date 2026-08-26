@@ -135,6 +135,7 @@ public class ProductAttributeConfiguration : IEntityTypeConfiguration<ProductAtt
         b.Property(x => x.Name).HasMaxLength(200).IsRequired();
         b.Property(x => x.Description).HasMaxLength(1000);
         b.Property(x => x.DisplayType).HasConversion<int>();
+        b.Property(x => x.InputType).HasConversion<int>();
         b.HasQueryFilter(x => !x.Deleted);
     }
 }

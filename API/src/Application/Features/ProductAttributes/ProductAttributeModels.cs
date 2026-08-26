@@ -10,9 +10,18 @@ public class ProductAttributeDto
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
 
-    /// <summary>Presentation of the attribute's values (Dropdown/Button/Swatch); transported as the enum name.</summary>
+    /// <summary>Presentation of the attribute (Dropdown/Button/Swatch/CustomInput); transported as the enum name.</summary>
     public string DisplayType { get; set; } = nameof(ProductAttributeDisplayType.Dropdown);
     public int DisplayOrder { get; set; }
+
+    /// <summary>CustomInput only: Text or Number; transported as the enum name.</summary>
+    public string InputType { get; set; } = nameof(ProductAttributeInputType.Text);
+
+    /// <summary>CustomInput only: maximum length the buyer may type; null = unlimited.</summary>
+    public int? MaxLength { get; set; }
+
+    /// <summary>CustomInput only: whether the buyer has to fill the field in before adding to the cart.</summary>
+    public bool IsRequired { get; set; }
 
     /// <summary>Number of products this attribute is assigned to; drives the "In use" column + delete protection (list only).</summary>
     public int InUseCount { get; set; }
@@ -25,6 +34,9 @@ public class ProductAttributeDto
         Description = a.Description,
         DisplayType = a.DisplayType.ToString(),
         DisplayOrder = a.DisplayOrder,
+        InputType = a.InputType.ToString(),
+        MaxLength = a.MaxLength,
+        IsRequired = a.IsRequired,
         Values = a.Values
             .OrderBy(v => v.DisplayOrder)
             .Select(ProductAttributeValueDto.From)

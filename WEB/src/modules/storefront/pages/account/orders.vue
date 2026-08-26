@@ -170,6 +170,7 @@
                     >{{ line.productName }}</router-link>
                     <span v-else>{{ line.productName }}</span>
                     <div v-if="line.sku" class="text-caption text-grey-6">SKU: {{ line.sku }}</div>
+                    <AppLineCustomAttributes :attributes="line.customAttributes" />
                   </td>
                   <td class="text-center">{{ line.quantity }}</td>
                   <td class="text-right">

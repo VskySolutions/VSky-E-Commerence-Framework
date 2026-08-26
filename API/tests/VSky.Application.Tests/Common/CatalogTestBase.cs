@@ -150,6 +150,32 @@ END";
         return (attribute.Id, attribute.Values.OrderBy(v => v.DisplayOrder).Select(v => v.Id).ToArray());
     }
 
+    /// <summary>
+    /// Seeds a CustomInput attribute — one the buyer types a value into rather than picking from, so it
+    /// carries input settings instead of values. Returns the attribute id.
+    /// </summary>
+    protected Guid SeedCustomInputAttribute(
+        string name,
+        ProductAttributeInputType inputType = ProductAttributeInputType.Text,
+        int? maxLength = null,
+        bool required = false,
+        int displayOrder = 0)
+    {
+        using var db = NewContext();
+        var attribute = new ProductAttribute
+        {
+            Name = name,
+            DisplayType = ProductAttributeDisplayType.CustomInput,
+            InputType = inputType,
+            MaxLength = maxLength,
+            IsRequired = required,
+            DisplayOrder = displayOrder,
+        };
+        db.ProductAttributes.Add(attribute);
+        db.SaveChanges();
+        return attribute.Id;
+    }
+
     /// <summary>Assigns an already-seeded attribute to a product (mirrors SetProductAttributes).</summary>
     protected void AssignAttribute(Guid productId, Guid attributeId, int displayOrder = 0)
     {

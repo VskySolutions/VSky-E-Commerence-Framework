@@ -1,3 +1,4 @@
+using VSky.Application.Common.Models;
 using VSky.Application.Features.Orders;
 using VSky.Domain.Entities;
 
@@ -131,6 +132,7 @@ public class InquiryDto
             OriginalUnitPrice = l.OriginalUnitPrice,
             DiscountAmount = l.DiscountAmount,
             LineTotal = l.LineTotal,
+            CustomAttributes = CustomAttributes.Parse(l.CustomAttributesJson),
         }).ToList(),
         // An inquiry converts in place, so once converted this is the same row.
         ConvertedOrderId = o.IsInquiry ? null : o.Id,

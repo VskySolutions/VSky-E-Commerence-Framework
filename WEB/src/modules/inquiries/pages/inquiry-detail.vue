@@ -92,7 +92,10 @@
             </thead>
             <tbody>
               <tr v-for="line in inquiry.lines" :key="line.id">
-                <td class="text-left">{{ line.productName }}</td>
+                <td class="text-left">
+                  {{ line.productName }}
+                  <AppLineCustomAttributes :attributes="line.customAttributes" />
+                </td>
                 <td class="text-left text-grey-8">{{ line.sku || '—' }}</td>
                 <td class="text-center">{{ line.quantity }}</td>
                 <td class="text-right">{{ formatMoney(line.unitPrice) }}</td>

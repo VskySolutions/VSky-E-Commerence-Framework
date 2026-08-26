@@ -1,3 +1,4 @@
+using VSky.Application.Common.Models;
 using CartEntity = VSky.Domain.Entities.Cart;
 using CartItemEntity = VSky.Domain.Entities.CartItem;
 
@@ -66,6 +67,9 @@ public class CartItemDto
     /// </summary>
     public bool IsInquiryOnly { get; set; }
 
+    /// <summary>The values the buyer typed into the product's CustomInput attributes; empty when it has none.</summary>
+    public List<CustomAttributeSelection> CustomAttributes { get; set; } = new();
+
     /// <param name="unitPrice">
     /// The effective unit price. Defaults to the cart's base snapshot; the caller passes the Customer Group
     /// price when the buyer belongs to a group (AC-CUS-003.5).
@@ -88,5 +92,6 @@ public class CartItemDto
         AllowBackorder = allowBackorder,
         Available = available,
         IsInquiryOnly = isInquiryOnly,
+        CustomAttributes = Common.Models.CustomAttributes.Parse(item.CustomAttributesJson),
     };
 }

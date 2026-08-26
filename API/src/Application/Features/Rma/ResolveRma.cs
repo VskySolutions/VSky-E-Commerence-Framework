@@ -164,6 +164,10 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
             RoutedOnUtc = order.AssignedStoreId is null ? null : now,
         };
 
+        // A replacement has to be made to the same spec as the original, so the buyer's typed values
+        // (engraving, gift note, …) come across from the order line being returned.
+        var customisations = order.Lines.ToDictionary(l => l.Id, l => l.CustomAttributesJson);
+
         foreach (var line in rma.Lines)
         {
             replacement.Lines.Add(new OrderLineItem
@@ -176,6 +180,7 @@ public class ResolveRmaCommandHandler : IRequestHandler<ResolveRmaCommand, RmaDt
                 UnitPrice = 0m,
                 OriginalUnitPrice = 0m,
                 LineTotal = 0m,
+                CustomAttributesJson = customisations.TryGetValue(line.OrderLineItemId, out var json) ? json : null,
             });
         }
 

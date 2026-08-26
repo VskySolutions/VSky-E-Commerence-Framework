@@ -1,7 +1,9 @@
 using MediatR;
+using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
 
 namespace VSky.Application.Features.Wishlist;
 
@@ -33,6 +35,19 @@ public class MoveWishlistItemToCartCommandHandler : IRequestHandler<MoveWishlist
 
         var item = wishlist.Items.FirstOrDefault(i => i.Id == request.ItemId)
             ?? throw new NotFoundException(nameof(WishlistItem), request.ItemId);
+
+        // A product with a mandatory custom-input attribute can't be added blind — the wishlist holds no
+        // typed value for it. Say so plainly instead of letting the cart's field-level 400 surface here.
+        var needsInput = await _db.ProductAttributeMappings
+            .AsNoTracking()
+            .AnyAsync(m => m.ProductId == item.ProductId
+                           && m.ProductAttribute!.DisplayType == ProductAttributeDisplayType.CustomInput
+                           && m.ProductAttribute.IsRequired,
+                cancellationToken);
+
+        if (needsInput)
+            throw new ConflictException(
+                "This product needs details filled in before it can be added to the cart. Open the product page to add it.");
 
         // Delegate to the Cart feature: validates the product/variant is purchasable and snapshots the
         // current price (AC-CHK-001.1). For an authenticated customer the session id is ignored.

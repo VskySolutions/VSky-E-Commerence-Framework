@@ -22,10 +22,13 @@
         </q-td>
       </template>
       <template #body-cell-displayType="cell">
-        <q-td :props="cell"><q-badge outline color="primary" :label="cell.row.displayType" /></q-td>
+        <q-td :props="cell"><q-badge outline color="primary" :label="attributeDisplayTypeLabel(cell.row.displayType)" /></q-td>
       </template>
       <template #body-cell-valuesCount="cell">
-        <q-td :props="cell">{{ (cell.row.values || []).length }}</q-td>
+        <q-td :props="cell">
+          <span v-if="cell.row.displayType === 'CustomInput'" class="text-grey-6">—</span>
+          <template v-else>{{ (cell.row.values || []).length }}</template>
+        </q-td>
       </template>
       <template #body-cell-inUseCount="cell">
         <q-td :props="cell">
@@ -49,7 +52,7 @@
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { getApiErrorMessage } from 'services/api'
-import { productAttributeApi, attributeDisplayTypeOptions } from 'modules/catalog/api'
+import { productAttributeApi, attributeDisplayTypeOptions, attributeDisplayTypeLabel } from 'modules/catalog/api'
 import { usePermissions } from 'composables/usePermissions'
 import { useNotify } from 'composables/useNotify'
 import { deleteConfirmation } from 'dialogs/delete_confirmation'

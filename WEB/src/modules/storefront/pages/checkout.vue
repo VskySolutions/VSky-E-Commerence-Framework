@@ -737,6 +737,7 @@
               <div class="col">
                 <div class="text-body2">{{ item.productName }}</div>
                 <div class="text-caption text-grey-6">Qty {{ item.quantity }} · {{ format(item.unitPrice) }}</div>
+                <AppLineCustomAttributes :attributes="item.customAttributes" />
                 <!-- Backordered line (AC-CHK-005.1) -->
                 <div v-if="isBackordered(item)" class="q-mt-xs row items-center q-gutter-x-xs">
                   <span class="sf-badge sf-badge--backorder">Backordered</span>

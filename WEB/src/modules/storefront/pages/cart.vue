@@ -58,6 +58,7 @@
                   </q-item-label>
                   <q-item-label v-if="item.sku" caption>SKU: {{ item.sku }}</q-item-label>
                   <q-item-label caption>{{ format(item.unitPrice) }} each</q-item-label>
+                  <AppLineCustomAttributes :attributes="item.customAttributes" />
                   <q-item-label v-if="!item.available">
                     <q-badge color="negative" label="Unavailable" class="q-mt-xs" />
                   </q-item-label>

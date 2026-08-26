@@ -43,4 +43,12 @@ public class CartItem : AuditableEntity
     public Guid? ProductVariantId { get; set; }
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
+
+    /// <summary>
+    /// The values the buyer typed into the product's CustomInput attributes, as a JSON array of
+    /// { attributeId, name, value } (null when the product has none). Two lines for the same
+    /// product/variant only merge when these match, so a second engraving is its own line.
+    /// Read and written through <c>CustomAttributes</c> in Application.Common.Models.
+    /// </summary>
+    public string? CustomAttributesJson { get; set; }
 }

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
 
 namespace VSky.Infrastructure.Customers;
@@ -147,6 +148,7 @@ public class GdprService : IGdprService
                     Quantity = l.Quantity,
                     UnitPrice = l.UnitPrice,
                     LineTotal = l.LineTotal,
+                    CustomAttributes = CustomAttributes.Parse(l.CustomAttributesJson),
                 }).ToList(),
             }).ToList(),
             Reviews = reviews.Select(r => new GdprReviewSection
@@ -337,6 +339,9 @@ internal sealed record GdprOrderLineSection
     public int Quantity { get; init; }
     public decimal UnitPrice { get; init; }
     public decimal LineTotal { get; init; }
+
+    /// <summary>Anything the customer typed for this line (engraving, gift note, …) — their own data, so it belongs in the export.</summary>
+    public List<CustomAttributeSelection> CustomAttributes { get; init; } = new();
 }
 
 internal sealed record GdprReviewSection

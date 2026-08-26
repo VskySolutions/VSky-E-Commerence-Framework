@@ -72,7 +72,10 @@
             </thead>
             <tbody>
               <tr v-for="l in order.lines" :key="l.id">
-                <td>{{ l.productName }}</td>
+                <td>
+                  {{ l.productName }}
+                  <AppLineCustomAttributes :attributes="l.customAttributes" />
+                </td>
                 <td>{{ l.sku || '—' }}</td>
                 <td class="text-right">{{ l.quantity }}</td>
                 <td class="text-right">{{ shippedFor(l.id) }}</td>

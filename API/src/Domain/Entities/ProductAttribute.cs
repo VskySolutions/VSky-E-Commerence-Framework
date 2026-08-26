@@ -16,6 +16,15 @@ public class ProductAttribute : AuditableEntity, ISoftDeletable
     public ProductAttributeDisplayType DisplayType { get; set; } = ProductAttributeDisplayType.Dropdown;
     public int DisplayOrder { get; set; }
 
+    /// <summary>CustomInput only: whether the buyer types free text or a number.</summary>
+    public ProductAttributeInputType InputType { get; set; } = ProductAttributeInputType.Text;
+
+    /// <summary>CustomInput only: maximum characters (Text) or digits (Number) accepted; null = unlimited.</summary>
+    public int? MaxLength { get; set; }
+
+    /// <summary>CustomInput only: the buyer must fill the field in before the product can be added to the cart.</summary>
+    public bool IsRequired { get; set; }
+
     public bool Deleted { get; set; }
     public DateTime? DeletedOnUtc { get; set; }
 

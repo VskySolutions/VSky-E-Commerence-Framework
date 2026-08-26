@@ -112,8 +112,10 @@ public class StorefrontVariantDto
 }
 
 /// <summary>
-/// A variant-driving product attribute (e.g. "Colour", "Size") with the values actually used by the
-/// product's variants — powers the storefront's grouped option pickers (Dropdown/Button/Swatch).
+/// A product attribute shown on the detail page: either a variant-driving one (e.g. "Colour", "Size")
+/// carrying the values actually used by the product's variants — powering the grouped option pickers
+/// (Dropdown/Button/Swatch) — or a CustomInput one the buyer fills in, which carries no values and
+/// uses <see cref="InputType"/>/<see cref="MaxLength"/>/<see cref="IsRequired"/> instead.
 /// </summary>
 public class StorefrontAttributeDto
 {
@@ -121,6 +123,15 @@ public class StorefrontAttributeDto
     public string Name { get; set; } = string.Empty;
     public ProductAttributeDisplayType DisplayType { get; set; }
     public List<StorefrontAttributeValueDto> Values { get; set; } = new();
+
+    /// <summary>CustomInput only: the kind of value the buyer types (Text or Number).</summary>
+    public ProductAttributeInputType InputType { get; set; }
+
+    /// <summary>CustomInput only: maximum length the buyer may type; null = unlimited.</summary>
+    public int? MaxLength { get; set; }
+
+    /// <summary>CustomInput only: the buyer must fill the field in before adding to the cart.</summary>
+    public bool IsRequired { get; set; }
 }
 
 /// <summary>A single selectable attribute value (e.g. "Red") with an optional swatch colour.</summary>
@@ -220,10 +231,16 @@ public class StorefrontProductDetailDto
     };
 
     /// <summary>
-    /// Groups the attribute values actually used by the product's variants into their parent
-    /// attributes (Colour, Size, …), carrying each attribute's display type and each value's swatch
-    /// colour, so the storefront can render labelled option pickers instead of raw SKUs. Expects
-    /// <c>Variants.AttributeValues.ProductAttributeValue.ProductAttribute</c> to be loaded.
+    /// The attributes the detail page renders, in attribute display order:
+    /// <list type="bullet">
+    /// <item>the values actually used by the product's variants, grouped into their parent attributes
+    /// (Colour, Size, …) with each attribute's display type and each value's swatch colour, so the
+    /// storefront can render labelled option pickers instead of raw SKUs — expects
+    /// <c>Variants.AttributeValues.ProductAttributeValue.ProductAttribute</c> to be loaded;</item>
+    /// <item>the product's assigned CustomInput attributes, which carry no values (the buyer types
+    /// their own) and so never surface through the variants — expects
+    /// <c>AttributeMappings.ProductAttribute</c> to be loaded.</item>
+    /// </list>
     /// </summary>
     private static List<StorefrontAttributeDto> BuildAttributes(Product p)
     {
@@ -234,7 +251,7 @@ public class StorefrontProductDetailDto
             .Select(pav => pav!)
             .ToList();
 
-        return values
+        var variantDriven = values
             .GroupBy(pav => pav.ProductAttributeId)
             .Select(g =>
             {
@@ -261,7 +278,30 @@ public class StorefrontProductDetailDto
                             .ToList(),
                     },
                 };
-            })
+            });
+
+        var customInputs = p.AttributeMappings
+            .Select(m => m.ProductAttribute)
+            .Where(a => a != null && a.DisplayType == ProductAttributeDisplayType.CustomInput)
+            .Select(a => a!)
+            .GroupBy(a => a.Id)
+            .Select(g => g.First())
+            .Select(attr => new
+            {
+                attr.DisplayOrder,
+                Dto = new StorefrontAttributeDto
+                {
+                    Id = attr.Id,
+                    Name = attr.Name,
+                    DisplayType = attr.DisplayType,
+                    InputType = attr.InputType,
+                    MaxLength = attr.MaxLength,
+                    IsRequired = attr.IsRequired,
+                },
+            });
+
+        return variantDriven
+            .Concat(customInputs)
             .OrderBy(x => x.DisplayOrder)
             .ThenBy(x => x.Dto.Name)
             .Select(x => x.Dto)

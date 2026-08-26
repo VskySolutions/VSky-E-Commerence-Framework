@@ -229,11 +229,19 @@ export const specificationAttributeApi = {
   }
 }
 
-// Product-attribute display types (transported as enum names). Swatch values carry a colour.
+// Product-attribute display types (transported as enum names). Swatch values carry a colour;
+// Custom input has no values at all — the buyer types their own, bounded by the input settings.
 export const attributeDisplayTypeOptions = [
   { label: 'Dropdown', value: 'Dropdown' },
   { label: 'Button', value: 'Button' },
-  { label: 'Swatch', value: 'Swatch' }
+  { label: 'Swatch', value: 'Swatch' },
+  { label: 'Custom input', value: 'CustomInput' }
+]
+
+// What a Custom input attribute accepts on the storefront.
+export const attributeInputTypeOptions = [
+  { label: 'Text (characters)', value: 'Text' },
+  { label: 'Number', value: 'Number' }
 ]
 
 // ---- Shared enum option catalogs --------------------------------------------
@@ -255,6 +263,11 @@ export const mediaTypeOptions = [
   { label: 'Video', value: 'Video' }
 ]
 
+export function attributeDisplayTypeLabel (value) {
+  const match = attributeDisplayTypeOptions.find((o) => o.value === value)
+  return match ? match.label : value || '—'
+}
+
 export function productTypeLabel (value) {
   const match = productTypeOptions.find((o) => o.value === value)
   return match ? match.label : value || '—'
@@ -269,6 +282,8 @@ export default {
   productAttributeApi,
   specificationAttributeApi,
   attributeDisplayTypeOptions,
+  attributeInputTypeOptions,
+  attributeDisplayTypeLabel,
   productTypeOptions,
   giftCardTypeOptions,
   mediaTypeOptions,

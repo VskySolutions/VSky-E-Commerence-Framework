@@ -64,12 +64,16 @@
 
             <q-separator class="q-my-md" />
 
+            <!-- Rendered whenever the product has variants OR attributes — a custom-input attribute
+                 drives no variant but still has to be filled in here. -->
             <VariantSelector
-              v-if="product.variants && product.variants.length"
+              v-if="hasOptions"
+              ref="optionsRef"
               v-model="variantId"
-              :variants="product.variants"
-              :attributes="product.attributes"
+              :variants="product.variants || []"
+              :attributes="product.attributes || []"
               class="q-mb-md"
+              @update:custom-values="customValues = $event"
             />
 
             <!-- Quantity + actions -->
@@ -234,6 +238,11 @@ const { addItem } = useCart()
 const product = ref(null)
 const loading = ref(false)
 const variantId = ref(null)
+// The values typed into the product's custom-input attributes, keyed by attribute id. The selector
+// owns the fields; the page holds the result, asks it to validate, and sends the values with the
+// cart item — they are snapshotted onto the cart line and carried through to the order.
+const customValues = ref({})
+const optionsRef = ref(null)
 const quantity = ref(1)
 const addingToCart = ref(false)
 const buyingNow = ref(false)
@@ -283,6 +292,7 @@ const reviewCount = computed(() => {
 })
 
 const hasVariants = computed(() => (product.value?.variants || []).length > 0)
+const hasOptions = computed(() => hasVariants.value || (product.value?.attributes || []).length > 0)
 
 const stock = computed(() =>
   selectedVariant.value ? selectedVariant.value.stockQuantity : (product.value?.stockQuantity ?? 0)
@@ -347,6 +357,7 @@ async function copyLink () {
 async function load () {
   loading.value = true
   variantId.value = null
+  customValues.value = {}
   quantity.value = 1
   tab.value = 'description'
   reviewSummary.value = null
@@ -361,11 +372,33 @@ async function load () {
   }
 }
 
+// Mandatory custom-input attributes must be filled in first; the selector surfaces the errors.
+function optionsValid () {
+  if (optionsRef.value && !optionsRef.value.validate()) {
+    notify.warning('Fill in the required options first')
+    return false
+  }
+  return true
+}
+
+// The cart payload for the typed values; blank (optional) ones are simply not recorded.
+function cartPayload () {
+  return {
+    productId: product.value.id,
+    productVariantId: variantId.value || null,
+    quantity: Math.max(1, quantity.value || 1),
+    customAttributes: Object.entries(customValues.value)
+      .filter(([, value]) => String(value ?? '').trim())
+      .map(([attributeId, value]) => ({ attributeId, value: String(value).trim() }))
+  }
+}
+
 async function onAddToCart () {
   if (!product.value || addingToCart.value) return
+  if (!optionsValid()) return
   addingToCart.value = true
   try {
-    await addItem({ productId: product.value.id, productVariantId: variantId.value || null, quantity: Math.max(1, quantity.value || 1) })
+    await addItem(cartPayload())
     notify.success('Added to cart')
   } catch (err) {
     notify.error(getApiErrorMessage(err))
@@ -378,9 +411,10 @@ async function onAddToCart () {
 // On success the component unmounts on navigation, so the spinner is only cleared on error.
 async function onBuyNow () {
   if (!product.value || buyingNow.value || addingToCart.value) return
+  if (!optionsValid()) return
   buyingNow.value = true
   try {
-    await addItem({ productId: product.value.id, productVariantId: variantId.value || null, quantity: Math.max(1, quantity.value || 1) })
+    await addItem(cartPayload())
     router.push({ name: 'shop-checkout' })
   } catch (err) {
     notify.error(getApiErrorMessage(err))

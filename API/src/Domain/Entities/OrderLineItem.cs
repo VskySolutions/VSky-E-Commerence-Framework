@@ -36,4 +36,12 @@ public class OrderLineItem : BaseEntity
 
     /// <summary>Units of this line already dispatched across shipments; drives partial-fulfilment state (WO-46).</summary>
     public int QuantityShipped { get; set; }
+
+    /// <summary>
+    /// The values the buyer typed into the product's CustomInput attributes, carried over from the cart
+    /// line as a JSON array of { attributeId, name, value } (null when there were none). Like the rest of
+    /// the line it is a snapshot — the attribute name is stored, so renaming or deleting the attribute
+    /// never changes what the order says was ordered.
+    /// </summary>
+    public string? CustomAttributesJson { get; set; }
 }

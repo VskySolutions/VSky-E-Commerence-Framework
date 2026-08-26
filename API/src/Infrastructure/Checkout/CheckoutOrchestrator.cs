@@ -245,6 +245,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 OriginalUnitPrice = line.OriginalUnitPrice,
                 DiscountAmount = line.DiscountAmount,
                 LineTotal = line.LineTotal,
+                CustomAttributesJson = line.CustomAttributesJson,
             });
         }
 
@@ -441,6 +442,7 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
                 OriginalUnitPrice = line.OriginalUnitPrice,
                 DiscountAmount = line.DiscountAmount,
                 LineTotal = line.LineTotal,
+                CustomAttributesJson = line.CustomAttributesJson,
             });
         }
 
@@ -1384,7 +1386,8 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
             lines.Add(new LineWork(
                 item.ProductId, item.ProductVariantId, item.Quantity, item.UnitPrice,
                 name, sku, taxCode, categoryIds, product?.IsInquiryOnly ?? false,
-                OriginalUnitPrice: item.UnitPrice));
+                OriginalUnitPrice: item.UnitPrice,
+                CustomAttributesJson: item.CustomAttributesJson));
         }
 
         return lines;
@@ -1453,7 +1456,9 @@ public class CheckoutOrchestrator : ICheckoutOrchestrator
         string? TaxCategoryCode,
         IReadOnlyList<Guid> CategoryIds,
         bool IsInquiryOnly,
-        decimal OriginalUnitPrice)
+        decimal OriginalUnitPrice,
+        // The buyer's typed CustomInput values, carried verbatim from the cart line onto the order line.
+        string? CustomAttributesJson = null)
     {
         public decimal LineTotal => UnitPrice * Quantity;
 

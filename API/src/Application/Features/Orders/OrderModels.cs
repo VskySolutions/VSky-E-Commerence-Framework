@@ -159,6 +159,9 @@ public class OrderLineItemDto
 
     public decimal LineTotal { get; set; }
 
+    /// <summary>The values the buyer typed into the product's CustomInput attributes, as snapshotted at placement.</summary>
+    public List<CustomAttributeSelection> CustomAttributes { get; set; } = new();
+
     public static OrderLineItemDto From(OrderLineItem l) => new()
     {
         Id = l.Id,
@@ -171,6 +174,7 @@ public class OrderLineItemDto
         OriginalUnitPrice = l.OriginalUnitPrice,
         DiscountAmount = l.DiscountAmount,
         LineTotal = l.LineTotal,
+        CustomAttributes = Common.Models.CustomAttributes.Parse(l.CustomAttributesJson),
     };
 }
 

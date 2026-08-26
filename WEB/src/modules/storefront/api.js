@@ -74,10 +74,15 @@ export const cartApi = {
   get (sessionId) {
     return anonApi.get(CART, { params: { sessionId }, paramsSerializer: qsSerializer }).then(unwrap)
   },
-  // Add a product/variant (increments the line if it already exists).
-  addItem (sessionId, { productId, productVariantId = null, quantity = 1 }) {
+  // Add a product/variant (increments the line if it already exists — same product, variant AND
+  // custom-input values; a different engraving becomes its own line).
+  addItem (sessionId, { productId, productVariantId = null, quantity = 1, customAttributes = [] }) {
     return anonApi
-      .post(CART + '/items', { productId, productVariantId, quantity }, { params: { sessionId }, paramsSerializer: qsSerializer })
+      .post(
+        CART + '/items',
+        { productId, productVariantId, quantity, customAttributes },
+        { params: { sessionId }, paramsSerializer: qsSerializer }
+      )
       .then(unwrap)
   },
   // Set a line's quantity (0 removes it).

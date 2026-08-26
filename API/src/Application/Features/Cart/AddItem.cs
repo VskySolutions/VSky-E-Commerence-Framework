@@ -1,22 +1,32 @@
+using System.Globalization;
 using FluentValidation;
+using FluentValidation.Results;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
+using VSky.Domain.Enums;
+using ValidationException = VSky.Application.Common.Exceptions.ValidationException;
 
 namespace VSky.Application.Features.Cart;
 
+/// <summary>A value the buyer typed into one of the product's CustomInput attributes.</summary>
+public record CustomAttributeInput(Guid AttributeId, string? Value);
+
 /// <summary>
 /// Adds a product (optionally a specific variant) to the caller's cart, snapshotting the current unit
-/// price (AC-CHK-001.1). When a line for the same product/variant already exists its quantity is
-/// incremented rather than duplicated. <see cref="SessionId"/> identifies a guest cart.
+/// price (AC-CHK-001.1). When a line for the same product/variant — and the same custom-input values —
+/// already exists its quantity is incremented rather than duplicated; a different engraving is a
+/// different line. <see cref="SessionId"/> identifies a guest cart.
 /// </summary>
 public record AddItemCommand(
     Guid ProductId,
     Guid? ProductVariantId,
     int Quantity,
-    string? SessionId = null) : IRequest<CartDto>;
+    string? SessionId = null,
+    List<CustomAttributeInput>? CustomAttributes = null) : IRequest<CartDto>;
 
 public class AddItemCommandValidator : AbstractValidator<AddItemCommand>
 {
@@ -24,6 +34,7 @@ public class AddItemCommandValidator : AbstractValidator<AddItemCommand>
     {
         RuleFor(x => x.ProductId).NotEmpty();
         RuleFor(x => x.Quantity).GreaterThanOrEqualTo(1);
+        RuleForEach(x => x.CustomAttributes).ChildRules(v => v.RuleFor(i => i.AttributeId).NotEmpty());
     }
 }
 
@@ -98,8 +109,14 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
             }
         }
 
+        var customAttributesJson = await ResolveCustomAttributesAsync(product.Id, request.CustomAttributes, cancellationToken);
+        var signature = Common.Models.CustomAttributes.Signature(customAttributesJson);
+
+        // Same product, same variant AND same typed-in values — otherwise it's a distinct line.
         var existing = cart.Items.FirstOrDefault(
-            i => i.ProductId == request.ProductId && i.ProductVariantId == request.ProductVariantId);
+            i => i.ProductId == request.ProductId
+                 && i.ProductVariantId == request.ProductVariantId
+                 && Common.Models.CustomAttributes.Signature(i.CustomAttributesJson) == signature);
 
         if (existing is not null)
         {
@@ -113,10 +130,79 @@ public class AddItemCommandHandler : IRequestHandler<AddItemCommand, CartDto>
                 ProductVariantId = request.ProductVariantId,
                 Quantity = request.Quantity,
                 UnitPrice = unitPrice,
+                CustomAttributesJson = customAttributesJson,
             });
         }
 
         await _db.SaveChangesAsync(cancellationToken);
         return await CartResolver.BuildDtoAsync(_db, _groups, _commerce, cart, cancellationToken);
+    }
+
+    /// <summary>
+    /// Validates the buyer's typed values against the product's assigned CustomInput attributes and
+    /// returns the snapshot to store (null when the product has none, or none were filled in). A
+    /// mandatory field left blank, an over-long value or a non-numeric value in a Number field is a 400 —
+    /// the storefront blocks all three, so this is the guard for anything that bypasses it. Values for
+    /// attributes the product doesn't carry are ignored, so a stale product page can't fail the add.
+    /// The attribute's name is captured here so the line keeps reading correctly after a later rename.
+    /// </summary>
+    private async Task<string?> ResolveCustomAttributesAsync(
+        Guid productId, List<CustomAttributeInput>? supplied, CancellationToken ct)
+    {
+        var attributes = await _db.ProductAttributeMappings
+            .AsNoTracking()
+            .Where(m => m.ProductId == productId
+                        && m.ProductAttribute!.DisplayType == ProductAttributeDisplayType.CustomInput)
+            .OrderBy(m => m.DisplayOrder)
+            .Select(m => m.ProductAttribute!)
+            .ToListAsync(ct);
+
+        if (attributes.Count == 0)
+            return null;
+
+        var byId = (supplied ?? new())
+            .GroupBy(v => v.AttributeId)
+            .ToDictionary(g => g.Key, g => g.Last().Value?.Trim() ?? string.Empty);
+
+        var failures = new List<ValidationFailure>();
+        var selections = new List<CustomAttributeSelection>();
+
+        foreach (var attribute in attributes)
+        {
+            var value = byId.TryGetValue(attribute.Id, out var v) ? v : string.Empty;
+
+            if (value.Length == 0)
+            {
+                if (attribute.IsRequired)
+                    failures.Add(new ValidationFailure("customAttributes", $"'{attribute.Name}' is required."));
+                continue;
+            }
+
+            if (attribute.MaxLength is int max && value.Length > max)
+            {
+                failures.Add(new ValidationFailure("customAttributes",
+                    $"'{attribute.Name}' may be at most {max} characters."));
+                continue;
+            }
+
+            if (attribute.InputType == ProductAttributeInputType.Number
+                && !decimal.TryParse(value, NumberStyles.Number, CultureInfo.InvariantCulture, out _))
+            {
+                failures.Add(new ValidationFailure("customAttributes", $"'{attribute.Name}' must be a number."));
+                continue;
+            }
+
+            selections.Add(new CustomAttributeSelection
+            {
+                AttributeId = attribute.Id,
+                Name = attribute.Name,
+                Value = value,
+            });
+        }
+
+        if (failures.Count > 0)
+            throw new ValidationException(failures);
+
+        return Common.Models.CustomAttributes.Serialize(selections);
     }
 }

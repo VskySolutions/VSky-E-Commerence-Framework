@@ -42,6 +42,7 @@
                 <router-link class="sf-cart-item__name" :to="productTo(item)" @click="close">{{ item.productName }}</router-link>
               </q-item-label>
               <q-item-label caption>{{ format(item.unitPrice) }}</q-item-label>
+              <AppLineCustomAttributes :attributes="item.customAttributes" />
               <q-item-label v-if="!item.available" class="text-negative" caption>Unavailable</q-item-label>
 
               <!-- Quantity stepper (capped by available stock) -->

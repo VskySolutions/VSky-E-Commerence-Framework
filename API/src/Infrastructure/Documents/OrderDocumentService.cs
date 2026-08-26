@@ -6,6 +6,7 @@ using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using VSky.Application.Common.Exceptions;
 using VSky.Application.Common.Interfaces;
+using VSky.Application.Common.Models;
 using VSky.Domain.Entities;
 
 namespace VSky.Infrastructure.Documents;
@@ -98,7 +99,15 @@ public class OrderDocumentService : IOrderDocumentService
 
                         foreach (var line in order.Lines)
                         {
-                            table.Cell().Text(line.ProductName);
+                            // The buyer's typed CustomInput values sit under the item name — they are part of
+                            // what was ordered, so the invoice has to state them.
+                            var customised = CustomAttributes.Describe(line.CustomAttributesJson);
+                            table.Cell().Column(cell =>
+                            {
+                                cell.Item().Text(line.ProductName);
+                                if (customised.Length > 0)
+                                    cell.Item().Text(customised).FontSize(8).Light();
+                            });
                             table.Cell().AlignRight().Text(line.Quantity.ToString(CultureInfo.InvariantCulture));
                             table.Cell().AlignRight().Text(Money(line.UnitPrice));
                             table.Cell().AlignRight().Text(Money(line.LineTotal));
@@ -181,7 +190,14 @@ public class OrderDocumentService : IOrderDocumentService
 
                     foreach (var line in order.Lines)
                     {
-                        table.Cell().Text(line.ProductName);
+                        // The picker/packer needs the buyer's typed values (engraving, gift note, …) too.
+                        var customised = CustomAttributes.Describe(line.CustomAttributesJson);
+                        table.Cell().Column(cell =>
+                        {
+                            cell.Item().Text(line.ProductName);
+                            if (customised.Length > 0)
+                                cell.Item().Text(customised).FontSize(8).Light();
+                        });
                         table.Cell().Text(line.Sku ?? "-");
                         table.Cell().AlignRight().Text(line.Quantity.ToString(CultureInfo.InvariantCulture));
                     }

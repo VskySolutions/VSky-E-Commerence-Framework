@@ -305,12 +305,11 @@
             <div class="row items-start q-col-gutter-sm">
               <div class="col">
                 <q-select
-                  v-model="attributeIds"
+                  v-model="variantAttributeIds"
                   dense outlined multiple use-chips emit-value map-options
-                  :options="attributeOptions"
+                  :options="variantAttributeOptions"
                   :disable="!canWrite"
                   placeholder="Select attributes"
-                  @update:model-value="queueAttributes"
                 />
               </div>
               <div class="col-auto">
@@ -446,6 +445,21 @@
               placeholder="Add tags"
               @update:model-value="queueTags"
             />
+
+            <q-separator class="q-my-md" />
+            <AppFieldLabel label="Custom input fields">
+              <template #hint>Custom-input attributes the shopper fills in on the product page (e.g. engraving text)</template>
+            </AppFieldLabel>
+            <q-select
+              v-model="customInputAttributeIds"
+              dense outlined multiple use-chips emit-value map-options
+              :options="customInputAttributeOptions"
+              :disable="!canWrite"
+              placeholder="Assign custom input fields"
+            />
+            <div v-if="!customInputAttributeOptions.length" class="text-caption text-grey-6">
+              No custom-input attributes exist yet — create one under Catalog → Attributes with the “Custom input” display type.
+            </div>
           </q-tab-panel>
 
           <!-- ============ MEDIA ============ -->
@@ -667,6 +681,7 @@ const taxCategoryOptions = ref([])
 const categoryOptions = ref([])
 const attributeOptions = ref([])
 const attributeValueMap = ref({})
+const attributeTypes = ref({})      // attributeId -> displayType, so the two pickers below can split the list
 
 // ---- Sub-resources ------------------------------------------------------------
 const categoryIds = ref([])
@@ -984,6 +999,31 @@ const queueAttributes = debounce(() => {
   runSave(async () => { product.value = await productApi.setAttributes(pid.value, attributeIds.value) })
 }, 700)
 
+// `attributeIds` holds every attribute assigned to the product, but they serve two unrelated jobs and
+// are picked in two places: value-bearing attributes generate variants (Variants tab), custom-input
+// ones are fields the shopper fills in on the product page (Organization tab, any product type).
+// Both views write back into the one list so a save from either keeps the other's assignments.
+function isCustomInputAttr (id) { return attributeTypes.value[id] === 'CustomInput' }
+
+const variantAttributeOptions = computed(() => attributeOptions.value.filter((o) => !isCustomInputAttr(o.value)))
+const customInputAttributeOptions = computed(() => attributeOptions.value.filter((o) => isCustomInputAttr(o.value)))
+
+const variantAttributeIds = computed({
+  get: () => attributeIds.value.filter((id) => !isCustomInputAttr(id)),
+  set: (ids) => {
+    attributeIds.value = [...ids, ...attributeIds.value.filter(isCustomInputAttr)]
+    queueAttributes()
+  }
+})
+
+const customInputAttributeIds = computed({
+  get: () => attributeIds.value.filter(isCustomInputAttr),
+  set: (ids) => {
+    attributeIds.value = [...attributeIds.value.filter((id) => !isCustomInputAttr(id)), ...ids]
+    queueAttributes()
+  }
+})
+
 function addTier () { tiers.value.push({ minQuantity: 1, price: 0 }) }
 function removeTier (i) { tiers.value.splice(i, 1); queueTiers() }
 
@@ -1216,11 +1256,14 @@ async function loadAttributes () {
     const items = Array.isArray(result) ? result : result?.items || []
     attributeOptions.value = items.map((a) => ({ label: a.name, value: a.id }))
     const map = {}
+    const types = {}
     for (const attr of items) {
+      types[attr.id] = attr.displayType
       for (const val of attr.values || []) map[val.id] = `${attr.name}: ${val.value}`
     }
     attributeValueMap.value = map
-  } catch (err) { attributeOptions.value = [] }
+    attributeTypes.value = types
+  } catch (err) { attributeOptions.value = []; attributeTypes.value = {} }
 }
 
 async function loadManufacturers () {
