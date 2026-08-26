@@ -1,6 +1,6 @@
 <template>
   <q-page class="q-pa-md storefront-container">
-    <div class="text-h5 text-weight-bold q-mb-md">{{ isInquiry ? 'Request a quote' : 'Checkout' }}</div>
+    <div class="text-h5 text-weight-bold q-mb-md">Checkout</div>
 
     <q-inner-loading :showing="loading && !cart" color="primary" />
 
@@ -325,9 +325,8 @@
             <div class="row q-col-gutter-x-md q-mb-sm">
               <div class="col-12 col-sm-6">
                 <AppTextField
-                  label="Company (optional)"
                   :model-value="companyName"
-                  placeholder="Company or organisation"
+                  placeholder="Company or organisation (optional)"
                   @update:model-value="companyName = $event"
                 />
               </div>

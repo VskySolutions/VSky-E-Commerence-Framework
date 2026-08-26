@@ -153,12 +153,30 @@
         </template>
 
         <!-- CustomHtmlBlock -->
-        <AppRichText
-          v-if="draft.sectionType === 'CustomHtmlBlock'"
-          v-model="draft.html"
-          label="HTML content"
-          placeholder="Write the custom block content…"
-        />
+        <div v-if="draft.sectionType === 'CustomHtmlBlock'">
+          <div class="row items-center q-mb-sm">
+            <q-toggle v-model="draft.rawHtmlMode" color="primary" label="Raw HTML mode" />
+            <q-space />
+            <span class="text-caption text-grey-6">{{ draft.rawHtmlMode ? 'Edit raw HTML directly' : 'Use the visual editor' }}</span>
+          </div>
+          <AppRichText
+            v-if="!draft.rawHtmlMode"
+            v-model="draft.html"
+            label="HTML content"
+            placeholder="Write the custom block content…"
+            :hide-viewsource="true"
+          />
+          <q-input
+            v-else
+            v-model="draft.html"
+            type="textarea"
+            input-style="font-family: 'Consolas', 'Monaco', 'Courier New', monospace; font-size: 13px; line-height: 1.5; tab-size: 2; min-height: 400px; white-space: pre; overflow-x: auto;"
+            dense
+            outlined
+            placeholder="Paste or write raw HTML here…"
+            hint="Raw HTML — rendered as-is on the storefront."
+          />
+        </div>
 
         <q-separator class="q-my-sm" />
         <q-toggle v-model="draft.isEnabled" color="primary" label="Enabled" />
@@ -213,7 +231,8 @@ const draft = reactive({
   productRowSource: 'Collection',
   collectionId: null,
   rule: 'NewArrivals',
-  html: ''
+  html: '',
+  rawHtmlMode: false
 })
 
 const requiredRule = (v) => (!!v && String(v).trim().length > 0) || 'Display name is required'
@@ -318,7 +337,8 @@ function openCreate (type) {
     productRowSource: 'Collection',
     collectionId: null,
     rule: 'NewArrivals',
-    html: ''
+    html: '',
+    rawHtmlMode: false
   })
   drawerOpen.value = true
 }
@@ -335,7 +355,8 @@ function openEdit (s) {
     productRowSource: c.productRowSource || 'Collection',
     collectionId: c.collectionId || null,
     rule: c.rule || 'NewArrivals',
-    html: c.html || ''
+    html: c.html || '',
+    rawHtmlMode: false
   })
   drawerOpen.value = true
 }

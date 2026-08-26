@@ -267,7 +267,7 @@
         <!-- Bottom bar -->
         <div class="sf-footer__bottom row items-center justify-between">
           <div>&copy; {{ year }} {{ branding.brandName }}. All rights reserved.</div>
-          <div class="row items-center q-gutter-xs">
+          <div class="row items-center q-gutter-xs" style="display: none !important;">
             <span class="sf-footer__pay">VISA</span>
             <span class="sf-footer__pay">MC</span>
             <span class="sf-footer__pay">AMEX</span>

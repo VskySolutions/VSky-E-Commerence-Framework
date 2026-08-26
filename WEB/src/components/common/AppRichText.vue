@@ -56,14 +56,13 @@ const emit = defineEmits(['update:modelValue'])
 const editorRef = ref(null)
 
 const toolbar = [
-  ['bold', 'italic', 'underline', 'strike'],
-  [{ label: 'Format', icon: 'o_format_size', list: 'no-icons', options: ['p', 'h2', 'h3', 'h4'] }],
-  ['unordered', 'ordered'],
-  ['quote', 'link'],
-  ['viewsource'],
-  ['undo', 'redo'],
-  ['removeFormat']
-]
+    ['bold', 'italic', 'underline', 'strike'],
+    [{ label: 'Format', icon: 'o_format_size', list: 'no-icons', options: ['p', 'h2', 'h3', 'h4'] }],
+    ['unordered', 'ordered'],
+    ['quote', 'link'],
+    ['undo', 'redo'],
+    ['removeFormat']
+  ]
 
 const definitions = {
   link: { label: 'Link', icon: 'o_link' }

@@ -37,7 +37,7 @@
             <h1 class="text-h4 text-weight-bold q-mb-xs" style="line-height: 1.2">{{ product.name }}</h1>
 
             <!-- Rating bar (no rating data yet — invites the first review) -->
-            <div class="row items-center q-gutter-sm q-mb-md">
+            <div class="row items-center q-gutter-sm q-mb-md" style="display: none !important;">
               <StarRating v-if="rating != null" :value="rating" :count="reviewCount" />
               <a v-else class="text-caption text-primary cursor-pointer" @click="tab = 'reviews'">Be the first to review</a>
             </div>
@@ -124,7 +124,7 @@
 
             <!-- Meta -->
             <q-list dense class="text-body2 sf-meta">
-              <div v-if="product.sku" class="row"><span class="sf-meta__k">SKU</span><span>{{ product.sku }}</span></div>
+              <div v-if="product.sku" class="row" style="display: none !important;"><span class="sf-meta__k">SKU</span><span>{{ product.sku }}</span></div>
               <div v-if="product.manufacturerId" class="row">
                 <span class="sf-meta__k">Brand</span>
                 <router-link :to="{ name: 'shop-search', query: { manufacturerId: product.manufacturerId } }" class="text-primary">View brand</router-link>
@@ -138,7 +138,7 @@
             </q-list>
 
             <!-- Share -->
-            <div class="row items-center q-gutter-sm q-mt-md">
+            <div class="row items-center q-gutter-sm q-mt-md" style="display: none !important;">
               <span class="text-caption text-grey-7">Share:</span>
               <q-btn round dense flat size="sm" icon="fab fa-facebook-f" type="a" :href="shareUrl('facebook')" target="_blank" />
               <q-btn round dense flat size="sm" icon="fab fa-x-twitter" type="a" :href="shareUrl('twitter')" target="_blank" />
@@ -152,7 +152,7 @@
         <div class="q-mt-xl">
           <q-tabs v-model="tab" dense no-caps align="left" active-color="primary" indicator-color="primary" class="text-grey-7 sf-tabs">
             <q-tab name="description" label="Description" />
-            <q-tab name="reviews" :label="`Reviews${reviewCount != null ? ' (' + reviewCount + ')' : ''}`" />
+            <q-tab name="reviews" :label="`Reviews${reviewCount != null ? ' (' + reviewCount + ')' : ''}`" style="display: none !important;" />
             <q-tab name="qa" label="Q&A" />
           </q-tabs>
           <q-separator />
@@ -165,7 +165,7 @@
             </q-tab-panel>
 
             <!-- Reviews (WO-14) -->
-            <q-tab-panel name="reviews" class="q-px-none">
+            <q-tab-panel name="reviews" class="q-px-none" style="display: none !important;">
               <ReviewsSection :product-id="product.id" @summary="onReviewSummary" />
             </q-tab-panel>
 
